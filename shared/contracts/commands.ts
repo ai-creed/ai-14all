@@ -438,6 +438,18 @@ export interface InsightsAppTime {
 	completeness: InsightsCompleteness;
 }
 
+// Read-result envelope (spec §4/§10.4): every insights read resolves ok/false
+// rather than throwing, so a wedged worker, a mid-wipe read, or a malformed
+// request all surface as a typed reason instead of an unhandled rejection.
+export type InsightsReadReason =
+	| "busy"
+	| "timeout"
+	| "query-failed"
+	| "bad-request";
+export type InsightsReadResult<T> =
+	| { ok: true; data: T }
+	| { ok: false; reason: InsightsReadReason };
+
 export interface UpdateInfo {
 	version: string;
 	url: string;

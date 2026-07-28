@@ -15,6 +15,10 @@ import type {
 	InsightsWorkerToMain,
 	MainToInsightsWorker,
 } from "../../../services/insights/worker-protocol.js";
+import type {
+	InsightsReadReason,
+	InsightsReadResult,
+} from "../../../shared/contracts/commands.js";
 import type { OutboxEvent } from "../../../services/insights/outbox.js";
 import type { AppSpan } from "../../../services/insights/app-focus/focus-core.js";
 import { spanToObservation } from "../../../services/insights/app-focus/span-observation.js";
@@ -56,6 +60,15 @@ function fakeProc(): FakeProc {
 	return proc;
 }
 const asProc = (p: FakeProc): UtilityProcess => p as unknown as UtilityProcess;
+
+// Envelope-builders shared by every read-result assertion (spec §4/§10.4), so
+// each test states its intent (ok vs. which failure reason) rather than
+// re-typing the `{ ok, data|reason }` shape at every call site.
+const ok = <T>(data: T): InsightsReadResult<T> => ({ ok: true, data });
+const fail = (reason: InsightsReadReason): InsightsReadResult<never> => ({
+	ok: false,
+	reason,
+});
 
 const STATUS: InsightsWorkerToMain = {
 	kind: "status",
@@ -295,10 +308,10 @@ describe("InsightsHost", () => {
 			result: { runs: [RUN], completeness: "complete" },
 		} satisfies InsightsWorkerToMain);
 		await done;
-		expect(settled).toEqual({ runs: [RUN], completeness: "complete" });
+		expect(settled).toEqual(ok({ runs: [RUN], completeness: "complete" }));
 	});
 
-	it("query(): resolves an empty result when disabled (no worker)", async () => {
+	it("query(): resolves ok with empty data when disabled (no worker) — capture-off is never an error", async () => {
 		const host = new InsightsHost({
 			userDataDir: ud(),
 			whisperDbPath: null,
@@ -309,10 +322,9 @@ describe("InsightsHost", () => {
 			persistNoticeShown: () => {},
 		});
 		host.setEnabled(false); // no worker
-		await expect(host.query({ fromMs: 0, toMs: 1 })).resolves.toEqual({
-			runs: [],
-			completeness: "unknown",
-		});
+		await expect(host.query({ fromMs: 0, toMs: 1 })).resolves.toEqual(
+			ok({ runs: [], completeness: "unknown" }),
+		);
 	});
 
 	it("does NOT re-deliver after ack even if the persist is still pending (async-ack race)", () => {
@@ -640,16 +652,13 @@ describe("InsightsHost — producer outbox and lifecycle", () => {
 			),
 		).toBe(false);
 
-		// Reads mid-wipe resolve empty and never reach the half-deleted store.
-		await expect(host.queryAppTime({ fromMs: 0, toMs: 1 })).resolves.toEqual({
-			focusedMs: 0,
-			engagedMs: 0,
-			completeness: "unknown",
-		});
-		await expect(host.query({ fromMs: 0, toMs: 1 })).resolves.toEqual({
-			runs: [],
-			completeness: "unknown",
-		});
+		// Reads mid-wipe are refused as busy and never reach the half-deleted store.
+		await expect(host.queryAppTime({ fromMs: 0, toMs: 1 })).resolves.toEqual(
+			fail("busy"),
+		);
+		await expect(host.query({ fromMs: 0, toMs: 1 })).resolves.toEqual(
+			fail("busy"),
+		);
 		expect(sent(procs[0]).some((m) => m.kind === "query")).toBe(false);
 
 		procs[0].emit("message", { kind: "storeClosed", requestId: "delete-all" });
@@ -732,22 +741,18 @@ describe("InsightsHost — producer outbox and lifecycle", () => {
 			requestId: (q as { requestId: string }).requestId,
 			result: { focusedMs: 5, engagedMs: 3, completeness: "partial" },
 		});
-		await expect(pending).resolves.toEqual({
-			focusedMs: 5,
-			engagedMs: 3,
-			completeness: "partial",
-		});
+		await expect(pending).resolves.toEqual(
+			ok({ focusedMs: 5, engagedMs: 3, completeness: "partial" }),
+		);
 
 		const off = new InsightsHost(
 			baseOpts({ forkWorker: () => asProc(fakeProc()) }),
 		);
 		off.setEnabled(false);
 		await off.whenIdle();
-		await expect(off.queryAppTime({ fromMs: 0, toMs: 1 })).resolves.toEqual({
-			focusedMs: 0,
-			engagedMs: 0,
-			completeness: "unknown",
-		});
+		await expect(off.queryAppTime({ fromMs: 0, toMs: 1 })).resolves.toEqual(
+			ok({ focusedMs: 0, engagedMs: 0, completeness: "unknown" }),
+		);
 	});
 
 	it("a failed wipe REJECTS deleteAll, still restarts capture, and leaves the transition queue usable", async () => {
@@ -943,9 +948,242 @@ describe("InsightsHost — producer outbox and lifecycle", () => {
 			requestId: "q-1",
 			result: { runs: [], completeness: "unknown" },
 		});
-		await expect(pending).resolves.toEqual({
-			runs: [],
-			completeness: "unknown",
+		await expect(pending).resolves.toEqual(
+			ok({ runs: [], completeness: "unknown" }),
+		);
+	});
+
+	it("capture off (no worker): every read resolves ok with empty data — never an error", async () => {
+		const host = new InsightsHost(
+			baseOpts({ forkWorker: () => asProc(fakeProc()) }),
+		); // setEnabled(true) is never called, so no worker ever exists
+
+		await expect(host.query({ fromMs: 0, toMs: 1 })).resolves.toEqual(
+			ok({ runs: [], completeness: "unknown" }),
+		);
+		await expect(host.queryAppTime({ fromMs: 0, toMs: 1 })).resolves.toEqual(
+			ok({ focusedMs: 0, engagedMs: 0, completeness: "unknown" }),
+		);
+		await expect(host.coverageAnchors()).resolves.toEqual(
+			ok({
+				firstCaptureAt: null,
+				appRetainedSinceMs: null,
+				runsRetainedSinceMs: null,
+			}),
+		);
+
+		// No-worker series data is zero-filled from the validated edges, not an
+		// empty array: 3 edges → 2 buckets, one per [edge, nextEdge) window.
+		const s = await host.queryAppTimeSeries([0, 1000, 2000]);
+		expect(s).toEqual(
+			ok({
+				buckets: [
+					{ startMs: 0, focusedMs: 0, engagedMs: 0 },
+					{ startMs: 1000, focusedMs: 0, engagedMs: 0 },
+				],
+				completeness: "unknown",
+			}),
+		);
+	});
+
+	it("queryAppTimeSeries: bad-request on non-array, <2 edges, >9001 edges, non-finite, or non-ascending — never posts to the worker", async () => {
+		const proc = fakeProc();
+		const host = new InsightsHost(baseOpts({ forkWorker: () => asProc(proc) }));
+		host.setEnabled(true);
+		proc.emit("spawn");
+
+		const badEdges: unknown[] = [
+			null,
+			[],
+			[1],
+			Array.from({ length: 9002 }, (_, i) => i),
+			[0, Number.NaN],
+			[0, Number.POSITIVE_INFINITY],
+			[5, 5], // not STRICTLY ascending
+			[5, 4], // descending
+		];
+		for (const edges of badEdges) {
+			await expect(host.queryAppTimeSeries(edges as number[])).resolves.toEqual(
+				fail("bad-request"),
+			);
+		}
+		expect(sent(proc).filter((m) => m.kind === "query")).toHaveLength(0);
+	});
+
+	it("queryAppTimeSeries: accepts exactly 2 and exactly 9001 edges (the inclusive boundary)", async () => {
+		const proc = fakeProc();
+		const host = new InsightsHost(baseOpts({ forkWorker: () => asProc(proc) }));
+		host.setEnabled(true);
+		proc.emit("spawn");
+
+		// Validation happening (rather than a bad-request short-circuit) is proven
+		// by the request actually reaching the worker — a synchronous effect of
+		// the call, so no need to wait for either read to settle.
+		const p1 = host.queryAppTimeSeries([0, 1]);
+		const p2 = host.queryAppTimeSeries(
+			Array.from({ length: 9001 }, (_, i) => i),
+		);
+		const seriesMsgs = sent(proc).filter(
+			(m) => m.kind === "query" && m.query.name === "appTimeSeries",
+		) as Array<{ requestId: string }>;
+		expect(seriesMsgs).toHaveLength(2);
+
+		// Settle both so no dangling timer/pending-map entry survives the test.
+		for (const m of seriesMsgs)
+			proc.emit("message", {
+				kind: "seriesResult",
+				requestId: m.requestId,
+				result: { buckets: [], completeness: "unknown" },
+			} satisfies InsightsWorkerToMain);
+		await expect(p1).resolves.not.toEqual(fail("bad-request"));
+		await expect(p2).resolves.not.toEqual(fail("bad-request"));
+	});
+
+	it("timeout resolves { ok: false, reason: 'timeout' } for every read kind — never a fabricated empty", async () => {
+		vi.useFakeTimers();
+		try {
+			const proc = fakeProc();
+			const host = new InsightsHost(
+				baseOpts({ forkWorker: () => asProc(proc) }),
+			);
+			host.setEnabled(true);
+			proc.emit("spawn");
+
+			const pQuery = host.query({ fromMs: 0, toMs: 1 });
+			const pAppTime = host.queryAppTime({ fromMs: 0, toMs: 1 });
+			const pSeries = host.queryAppTimeSeries([0, 1000]);
+			const pAnchors = host.coverageAnchors();
+
+			vi.advanceTimersByTime(2001);
+
+			await expect(pQuery).resolves.toEqual(fail("timeout"));
+			await expect(pAppTime).resolves.toEqual(fail("timeout"));
+			await expect(pSeries).resolves.toEqual(fail("timeout"));
+			await expect(pAnchors).resolves.toEqual(fail("timeout"));
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("queryError settles ONLY the matching pending read as query-failed (series example)", async () => {
+		const proc = fakeProc();
+		const host = new InsightsHost(baseOpts({ forkWorker: () => asProc(proc) }));
+		host.setEnabled(true);
+		proc.emit("spawn");
+
+		const pSeries = host.queryAppTimeSeries([0, 1000]);
+		const pQuery = host.query({ fromMs: 0, toMs: 1 }); // a concurrent, unrelated read
+		const posted = sent(proc).find(
+			(m) => m.kind === "query" && m.query.name === "appTimeSeries",
+		) as { requestId: string };
+
+		proc.emit("message", {
+			kind: "queryError",
+			requestId: posted.requestId,
+			message: "boom",
+		} satisfies InsightsWorkerToMain);
+		await expect(pSeries).resolves.toEqual(fail("query-failed"));
+
+		// The unrelated concurrent query is untouched by the series' queryError.
+		const queryReq = sent(proc).find(
+			(m) => m.kind === "query" && m.query.name === "whisperRuns",
+		) as { requestId: string };
+		proc.emit("message", {
+			kind: "queryResult",
+			requestId: queryReq.requestId,
+			result: { runs: [], completeness: "unknown" },
+		} satisfies InsightsWorkerToMain);
+		await expect(pQuery).resolves.toEqual(
+			ok({ runs: [], completeness: "unknown" }),
+		);
+	});
+
+	it("wiping refuses every read kind as busy, until the wipe settles", async () => {
+		const procs: FakeProc[] = [];
+		const fork = vi.fn(() => {
+			const p = fakeProc();
+			procs.push(p);
+			return asProc(p);
 		});
+		const collector = fakeCollector();
+		const host = new InsightsHost(baseOpts({ forkWorker: fork, collector }));
+		host.setEnabled(true);
+		procs[0].emit("spawn");
+
+		// Hold the wipe open: `storeClosed` is deliberately NOT emitted yet — the
+		// same seam the mutual-exclusion test above uses.
+		const wipe = host.deleteAll();
+
+		await expect(host.query({ fromMs: 0, toMs: 1 })).resolves.toEqual(
+			fail("busy"),
+		);
+		await expect(host.queryAppTime({ fromMs: 0, toMs: 1 })).resolves.toEqual(
+			fail("busy"),
+		);
+		await expect(host.queryAppTimeSeries([0, 1000])).resolves.toEqual(
+			fail("busy"),
+		);
+		await expect(host.coverageAnchors()).resolves.toEqual(fail("busy"));
+
+		procs[0].emit("message", { kind: "storeClosed", requestId: "delete-all" });
+		await wipe;
+	});
+
+	it("queryAppTimeSeries(): posts a correlated appTimeSeries request (s- prefix) and resolves on the matching seriesResult", async () => {
+		const proc = fakeProc();
+		const host = new InsightsHost(baseOpts({ forkWorker: () => asProc(proc) }));
+		host.setEnabled(true);
+		proc.emit("spawn");
+
+		const bucketEdgesMs = [0, 1000, 2000];
+		const pending = host.queryAppTimeSeries(bucketEdgesMs);
+		const posted = sent(proc).find(
+			(m) => m.kind === "query" && m.query.name === "appTimeSeries",
+		) as { requestId: string; kind: "query" };
+		expect(posted).toEqual({
+			kind: "query",
+			requestId: "s-1",
+			query: { name: "appTimeSeries", bucketEdgesMs },
+		});
+
+		const result = {
+			buckets: [{ startMs: 0, focusedMs: 10, engagedMs: 5 }],
+			completeness: "partial" as const,
+		};
+		proc.emit("message", {
+			kind: "seriesResult",
+			requestId: posted.requestId,
+			result,
+		} satisfies InsightsWorkerToMain);
+		await expect(pending).resolves.toEqual(ok(result));
+	});
+
+	it("coverageAnchors(): posts a correlated coverageAnchors request (c- prefix) and resolves on the matching anchorsResult", async () => {
+		const proc = fakeProc();
+		const host = new InsightsHost(baseOpts({ forkWorker: () => asProc(proc) }));
+		host.setEnabled(true);
+		proc.emit("spawn");
+
+		const pending = host.coverageAnchors();
+		const posted = sent(proc).find(
+			(m) => m.kind === "query" && m.query.name === "coverageAnchors",
+		) as { requestId: string; kind: "query" };
+		expect(posted).toEqual({
+			kind: "query",
+			requestId: "c-1",
+			query: { name: "coverageAnchors" },
+		});
+
+		const result = {
+			firstCaptureAt: 5,
+			appRetainedSinceMs: 1,
+			runsRetainedSinceMs: 2,
+		};
+		proc.emit("message", {
+			kind: "anchorsResult",
+			requestId: posted.requestId,
+			result,
+		} satisfies InsightsWorkerToMain);
+		await expect(pending).resolves.toEqual(ok(result));
 	});
 });

@@ -14,7 +14,12 @@ import type {
 import { Outbox, type OutboxEvent } from "../../../services/insights/outbox.js";
 import type { AppSpan } from "../../../services/insights/app-focus/focus-core.js";
 import { spanToObservation } from "../../../services/insights/app-focus/span-observation.js";
-import type { AppTimeResult } from "../../../services/insights/worker-protocol.js";
+import type {
+	AppTimeResult,
+	AppTimeSeriesResult,
+	CoverageAnchorsResult,
+} from "../../../services/insights/worker-protocol.js";
+import type { InsightsReadResult } from "../../../shared/contracts/commands.js";
 
 /** The typed read-contract result (spec §10.4): the runs in a range plus a
  *  coverage completeness flag. Mirrors the worker's `queryResult` payload. */
@@ -65,15 +70,48 @@ const QUERY_TIMEOUT_MS = 2000;
 // message back proves the worker actually got as far as running.
 const MAX_CONSECUTIVE_REFORKS = 5;
 
-// The result returned to callers when there is no worker (capture disabled) or
-// the worker never answers within QUERY_TIMEOUT_MS. Built fresh per call so a
-// caller can never mutate a shared instance.
+// The result returned to callers when there is no worker (capture disabled).
+// Built fresh per call so a caller can never mutate a shared instance. A
+// no-worker read is a legitimate "capture is off" state, not a failure, so it
+// is always `{ ok: true, data: … }` — never an envelope error.
 function emptyQueryResult(): InsightsQueryResult {
 	return { runs: [], completeness: "unknown" };
 }
 
 function emptyAppTime(): AppTimeResult {
 	return { focusedMs: 0, engagedMs: 0, completeness: "unknown" };
+}
+
+// No-worker series data is zero-filled from the (already-validated) bucket
+// edges rather than an empty array, so a caller always gets one entry per
+// edge-derived bucket regardless of whether capture is on.
+function emptySeries(edges: number[]): AppTimeSeriesResult {
+	return {
+		buckets: edges
+			.slice(0, -1)
+			.map((startMs) => ({ startMs, focusedMs: 0, engagedMs: 0 })),
+		completeness: "unknown",
+	};
+}
+
+function emptyAnchors(): CoverageAnchorsResult {
+	return {
+		firstCaptureAt: null,
+		appRetainedSinceMs: null,
+		runsRetainedSinceMs: null,
+	};
+}
+
+// Series validation (spec §4.3): array, finite numbers, strictly ascending,
+// 2..9001 entries. Invalid input fails WITHOUT ever posting to the worker.
+function isValidBucketEdges(edges: unknown): edges is number[] {
+	return (
+		Array.isArray(edges) &&
+		edges.length >= 2 &&
+		edges.length <= 9001 &&
+		edges.every((v) => typeof v === "number" && Number.isFinite(v)) &&
+		edges.every((v, i) => i === 0 || v > edges[i - 1])
+	);
 }
 
 export class InsightsHost {
@@ -86,10 +124,12 @@ export class InsightsHost {
 	private querySeq = 0;
 	// In-flight queries keyed by requestId, so concurrent reads each resolve with
 	// their OWN matching queryResult. The stored resolver clears its timeout and
-	// removes itself from the map, so it settles at most once.
+	// removes itself from the map, so it settles at most once. Settlers take the
+	// full read-result envelope (spec §4/§10.4) so a `queryError` or timeout can
+	// settle them with a typed failure reason rather than a fabricated empty.
 	private pendingQueries = new Map<
 		string,
-		(result: InsightsQueryResult) => void
+		(result: InsightsReadResult<InsightsQueryResult>) => void
 	>();
 	// At-most-once delivery PER worker session; reset on stop() so an UNACKNOWLEDGED
 	// notice re-delivers when the next worker starts.
@@ -134,7 +174,21 @@ export class InsightsHost {
 	private idleWaiters: Array<() => void> = [];
 	private generation = 0;
 	private appTimeSeq = 0;
-	private pendingAppTime = new Map<string, (r: AppTimeResult) => void>();
+	private pendingAppTime = new Map<
+		string,
+		(r: InsightsReadResult<AppTimeResult>) => void
+	>();
+	// Series (`s-`) and anchors (`c-`) share ONE request-id sequence — both are
+	// carried on `this.querySeq`, the same counter `query()` uses for `q-`, so no
+	// third/fourth field is needed; uniqueness is all that matters, not density.
+	private pendingSeries = new Map<
+		string,
+		(r: InsightsReadResult<AppTimeSeriesResult>) => void
+	>();
+	private pendingAnchors = new Map<
+		string,
+		(r: InsightsReadResult<CoverageAnchorsResult>) => void
+	>();
 	// Held as a field, not read from opts, because the collector is constructed
 	// AFTER the host in electron/main/index.ts (it needs the BrowserWindow).
 	private collector: InsightsCollector | null = null;
@@ -476,7 +530,7 @@ export class InsightsHost {
 			return;
 		}
 		if (msg.kind === "appTimeResult") {
-			this.pendingAppTime.get(msg.requestId)?.(msg.result);
+			this.pendingAppTime.get(msg.requestId)?.({ ok: true, data: msg.result });
 			return;
 		}
 		if (msg.kind === "queryResult") {
@@ -484,7 +538,29 @@ export class InsightsHost {
 			// resolver removes itself from the map and clears its timeout). A result
 			// for an unknown/already-settled id (e.g. one that already timed out) is
 			// ignored.
-			this.pendingQueries.get(msg.requestId)?.(msg.result);
+			this.pendingQueries.get(msg.requestId)?.({ ok: true, data: msg.result });
+			return;
+		}
+		if (msg.kind === "seriesResult") {
+			this.pendingSeries.get(msg.requestId)?.({ ok: true, data: msg.result });
+			return;
+		}
+		if (msg.kind === "anchorsResult") {
+			this.pendingAnchors.get(msg.requestId)?.({ ok: true, data: msg.result });
+			return;
+		}
+		if (msg.kind === "queryError") {
+			// A correlated query failure (spec §4.1): try each pending map — the
+			// requestId prefix already picks out at most one, and every settler
+			// self-removes on first fire, so this can never double-settle.
+			const failure: InsightsReadResult<never> = {
+				ok: false,
+				reason: "query-failed",
+			};
+			this.pendingQueries.get(msg.requestId)?.(failure);
+			this.pendingAppTime.get(msg.requestId)?.(failure);
+			this.pendingSeries.get(msg.requestId)?.(failure);
+			this.pendingAnchors.get(msg.requestId)?.(failure);
 			return;
 		}
 	}
@@ -526,15 +602,23 @@ export class InsightsHost {
 
 	// Typed read contract (spec §10.4 getWhisperRuns): post a correlated `query`
 	// to the worker and resolve with the matching `queryResult`. The app may call
-	// this even when capture is OFF, so with no worker we resolve an empty result
-	// rather than rejecting. A timeout guards against a wedged worker that never
-	// answers (mirrors deleteAll's close-wait fallback).
-	query(range: { fromMs: number; toMs: number }): Promise<InsightsQueryResult> {
-		// `wiping`: never read a half-deleted store (spec §6).
-		if (this.wiping || !this.proc) return Promise.resolve(emptyQueryResult());
+	// this even when capture is OFF, so with no worker we resolve `{ ok: true,
+	// data: <empty> }` rather than an envelope error — capture-off is not a
+	// failure. A timeout guards against a wedged worker that never answers
+	// (mirrors deleteAll's close-wait fallback), and a mid-wipe call is refused
+	// as `busy` rather than reading a half-deleted store (spec §6).
+	query(range: {
+		fromMs: number;
+		toMs: number;
+	}): Promise<InsightsReadResult<InsightsQueryResult>> {
+		if (this.wiping) return Promise.resolve({ ok: false, reason: "busy" });
+		if (!this.proc)
+			return Promise.resolve({ ok: true, data: emptyQueryResult() });
 		const requestId = `q-${++this.querySeq}`;
-		return new Promise<InsightsQueryResult>((resolve) => {
-			const settle = (result: InsightsQueryResult): void => {
+		return new Promise<InsightsReadResult<InsightsQueryResult>>((resolve) => {
+			const settle = (
+				result: InsightsReadResult<InsightsQueryResult>,
+			): void => {
 				// The map entry is the "still pending" guard: settle at most once.
 				// (settle is only ever invoked asynchronously — from onMessage's map
 				// lookup or the timeout below — so `timer` is always assigned by then.)
@@ -544,7 +628,7 @@ export class InsightsHost {
 			};
 			this.pendingQueries.set(requestId, settle);
 			const timer = setTimeout(
-				() => settle(emptyQueryResult()),
+				() => settle({ ok: false, reason: "timeout" }),
 				QUERY_TIMEOUT_MS,
 			);
 			this.post({
@@ -555,27 +639,94 @@ export class InsightsHost {
 		});
 	}
 
-	// Correlated app-time read (spec §7). Mirrors `query`'s timeout + empty
-	// fallback so a wedged worker (or capture being off) can never hang a read.
+	// Correlated app-time read (spec §7). Mirrors `query`'s envelope, timeout,
+	// no-worker, and busy handling so a wedged worker (or capture being off, or
+	// a mid-wipe call) can never hang or corrupt a read.
 	queryAppTime(range: {
 		fromMs: number;
 		toMs: number;
-	}): Promise<AppTimeResult> {
-		// `wiping`: never read a half-deleted store (spec §6).
-		if (this.wiping || !this.proc) return Promise.resolve(emptyAppTime());
+	}): Promise<InsightsReadResult<AppTimeResult>> {
+		if (this.wiping) return Promise.resolve({ ok: false, reason: "busy" });
+		if (!this.proc) return Promise.resolve({ ok: true, data: emptyAppTime() });
 		const requestId = `a-${++this.appTimeSeq}`;
-		return new Promise<AppTimeResult>((resolve) => {
-			const settle = (result: AppTimeResult): void => {
+		return new Promise<InsightsReadResult<AppTimeResult>>((resolve) => {
+			const settle = (result: InsightsReadResult<AppTimeResult>): void => {
 				if (!this.pendingAppTime.delete(requestId)) return;
 				clearTimeout(timer);
 				resolve(result);
 			};
 			this.pendingAppTime.set(requestId, settle);
-			const timer = setTimeout(() => settle(emptyAppTime()), QUERY_TIMEOUT_MS);
+			const timer = setTimeout(
+				() => settle({ ok: false, reason: "timeout" }),
+				QUERY_TIMEOUT_MS,
+			);
 			this.post({
 				kind: "query",
 				requestId,
 				query: { name: "appTime", range },
+			});
+		});
+	}
+
+	// Correlated bucketed app-time series read (spec §4.3). Validation runs
+	// FIRST and never posts to the worker on failure — a bad request is a caller
+	// bug, not something a wedged/absent worker should ever see. Shares its
+	// request-id sequence with `query()` (both use `this.querySeq`; see the
+	// `pendingSeries` field comment).
+	queryAppTimeSeries(
+		bucketEdgesMs: number[],
+	): Promise<InsightsReadResult<AppTimeSeriesResult>> {
+		if (!isValidBucketEdges(bucketEdgesMs))
+			return Promise.resolve({ ok: false, reason: "bad-request" });
+		if (this.wiping) return Promise.resolve({ ok: false, reason: "busy" });
+		if (!this.proc)
+			return Promise.resolve({ ok: true, data: emptySeries(bucketEdgesMs) });
+		const requestId = `s-${++this.querySeq}`;
+		return new Promise<InsightsReadResult<AppTimeSeriesResult>>((resolve) => {
+			const settle = (
+				result: InsightsReadResult<AppTimeSeriesResult>,
+			): void => {
+				if (!this.pendingSeries.delete(requestId)) return;
+				clearTimeout(timer);
+				resolve(result);
+			};
+			this.pendingSeries.set(requestId, settle);
+			const timer = setTimeout(
+				() => settle({ ok: false, reason: "timeout" }),
+				QUERY_TIMEOUT_MS,
+			);
+			this.post({
+				kind: "query",
+				requestId,
+				query: { name: "appTimeSeries", bucketEdgesMs },
+			});
+		});
+	}
+
+	// Correlated retention/coverage-anchors read (spec §4.5). Mirrors `query`'s
+	// envelope, timeout, no-worker, and busy handling. Shares its request-id
+	// sequence with `query()`/`queryAppTimeSeries()` (see `pendingSeries`).
+	coverageAnchors(): Promise<InsightsReadResult<CoverageAnchorsResult>> {
+		if (this.wiping) return Promise.resolve({ ok: false, reason: "busy" });
+		if (!this.proc) return Promise.resolve({ ok: true, data: emptyAnchors() });
+		const requestId = `c-${++this.querySeq}`;
+		return new Promise<InsightsReadResult<CoverageAnchorsResult>>((resolve) => {
+			const settle = (
+				result: InsightsReadResult<CoverageAnchorsResult>,
+			): void => {
+				if (!this.pendingAnchors.delete(requestId)) return;
+				clearTimeout(timer);
+				resolve(result);
+			};
+			this.pendingAnchors.set(requestId, settle);
+			const timer = setTimeout(
+				() => settle({ ok: false, reason: "timeout" }),
+				QUERY_TIMEOUT_MS,
+			);
+			this.post({
+				kind: "query",
+				requestId,
+				query: { name: "coverageAnchors" },
 			});
 		});
 	}
