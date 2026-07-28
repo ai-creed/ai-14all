@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
 	createPushWakeSender,
 	EXPO_PUSH_ENDPOINT,
+	PUSH_WAKE_TITLE,
 } from "../../../services/xbp/push-wake-sender";
 
 const TOKEN = "ExponentPushToken[abc]";
@@ -29,7 +30,7 @@ describe("push-wake sender", () => {
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 
-	it("sends a content-free payload: exactly {to,_contentAvailable} — no title/body/data/category", async () => {
+	it("sends a visible, still content-free payload: exactly {to,title,mutableContent,sound} — no body/data/category", async () => {
 		const fetchSpy = vi.fn(async () =>
 			okResponse({ data: [{ status: "ok" }] }),
 		);
@@ -42,18 +43,28 @@ describe("push-wake sender", () => {
 		];
 		expect(url).toBe(EXPO_PUSH_ENDPOINT);
 		const payload = JSON.parse(String(init.body));
-		// The spec's test: no session id, no category, no content. The ONLY
-		// keys on the wire are the token and the silent-wake delivery flag.
-		expect(Object.keys(payload).sort()).toEqual(["_contentAvailable", "to"]);
-		expect(payload).toEqual({ to: TOKEN, _contentAvailable: true });
-		for (const forbidden of [
+		// The spec's test: no session id, no category, no free-text content
+		// beyond the constant banner title. The ONLY keys on the wire are the
+		// token, the constant title, and the visible-alert delivery flags.
+		expect(Object.keys(payload).sort()).toEqual([
+			"mutableContent",
+			"sound",
 			"title",
+			"to",
+		]);
+		expect(payload).toEqual({
+			to: TOKEN,
+			title: PUSH_WAKE_TITLE,
+			mutableContent: true,
+			sound: "default",
+		});
+		for (const forbidden of [
 			"body",
 			"subtitle",
 			"data",
 			"categoryId",
-			"sound",
 			"badge",
+			"_contentAvailable",
 		]) {
 			expect(payload).not.toHaveProperty(forbidden);
 		}
@@ -140,5 +151,56 @@ describe("push-wake sender", () => {
 		const fetchSpy = vi.fn(async () => okResponse({ data: { status: "ok" } }));
 		const { sender } = makeSender(fetchSpy as unknown as typeof fetch);
 		await expect(sender.send()).resolves.toBe("sent");
+	});
+
+	it("posts exactly the four content-free keys with the constant title", async () => {
+		const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+		const fetchImpl = (async (url: string, init: { body: string }) => {
+			calls.push({ url: String(url), body: JSON.parse(init.body) });
+			return new Response(JSON.stringify({ data: { status: "ok" } }), {
+				status: 200,
+			});
+		}) as unknown as typeof fetch;
+		const sender = createPushWakeSender({
+			loadToken: () => "ExponentPushToken[e2e]",
+			clearToken: () => {},
+			fetchImpl,
+		});
+		expect(await sender.send()).toBe("sent");
+		expect(calls).toHaveLength(1);
+		expect(calls[0].body).toEqual({
+			to: "ExponentPushToken[e2e]",
+			title: PUSH_WAKE_TITLE,
+			mutableContent: true,
+			sound: "default",
+		});
+		expect(Object.keys(calls[0].body).sort()).toEqual([
+			"mutableContent",
+			"sound",
+			"title",
+			"to",
+		]);
+	});
+
+	it("title constant is the exact banner string (em dash U+2014)", () => {
+		expect(PUSH_WAKE_TITLE).toBe("Xavier — something needs you");
+	});
+
+	it("honors the endpoint override seam", async () => {
+		const urls: string[] = [];
+		const fetchImpl = (async (url: string) => {
+			urls.push(String(url));
+			return new Response(JSON.stringify({ data: { status: "ok" } }), {
+				status: 200,
+			});
+		}) as unknown as typeof fetch;
+		const sender = createPushWakeSender({
+			loadToken: () => "t",
+			clearToken: () => {},
+			fetchImpl,
+			endpoint: "http://127.0.0.1:9999/push",
+		});
+		await sender.send();
+		expect(urls).toEqual(["http://127.0.0.1:9999/push"]);
 	});
 });
