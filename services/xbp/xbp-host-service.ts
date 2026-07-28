@@ -55,6 +55,24 @@ export interface XbpStatus {
 	relay: "off" | "retrying" | "registered";
 }
 
+// Suppress-while-connected window (child spec §3 gate 2): an authenticated
+// capability call bound to a still-open socket within this window means the
+// phone demonstrably hears about changes — pinging it would be noise.
+export const PUSH_WAKE_CONNECTED_WINDOW_MS = 45_000;
+
+// Pure predicate: stamp must exist, its SPECIFIC socket must still be open
+// (a scanner's socket has a different generation and never matches), and the
+// call must be recent. Exported for direct unit testing.
+export function isLiveConnection(
+	stamp: { generation: number; at: number } | null,
+	isSocketLive: (generation: number) => boolean,
+	now: number,
+): boolean {
+	if (!stamp) return false;
+	if (!isSocketLive(stamp.generation)) return false;
+	return now - stamp.at <= PUSH_WAKE_CONNECTED_WINDOW_MS;
+}
+
 export class XbpHostService {
 	private backend: SodiumBackend | null = null;
 	private identity: Identity | null = null;
@@ -218,6 +236,8 @@ export class XbpHostService {
 				ptyInspect: this.opts.ptyInspect,
 				ptyInput: this.opts.ptyInput,
 				now: this.opts.now,
+				getInboundGeneration: () =>
+					this.lan?.currentInboundGeneration() ?? null,
 			});
 			this.peerSession.setKillSwitch(this.killSwitchOn);
 
@@ -390,6 +410,18 @@ export class XbpHostService {
 						? "off"
 						: "retrying",
 		};
+	}
+
+	// Push-wake suppress-while-connected gate (child spec §3 gate 2): true when
+	// the last authenticated capability call is still bound to a socket that is
+	// open right now, within the recency window. Consumed by Task 4's watcher.
+	hasLivePhoneConnection(): boolean {
+		if (!this.lan || !this.peerSession) return false;
+		return isLiveConnection(
+			this.peerSession.getLastAuthedConnection(),
+			(generation) => this.lan!.isSocketLive(generation),
+			this.now(),
+		);
 	}
 
 	// Kill switch (child spec §5): gates capability execution on both the

@@ -9,7 +9,11 @@ import {
 	generateIdentity,
 	toHex,
 } from "@xavier/xbp/node";
-import { XbpHostService } from "../../../services/xbp/xbp-host-service";
+import {
+	XbpHostService,
+	isLiveConnection,
+	PUSH_WAKE_CONNECTED_WINDOW_MS,
+} from "../../../services/xbp/xbp-host-service";
 import { XbpSecureStorageUnavailableError } from "../../../services/xbp/xbp-identity-store";
 import { XbpAuditSink } from "../../../services/xbp/xbp-audit-sink";
 import { XbpPairedDeviceStore } from "../../../services/xbp/xbp-paired-device-store";
@@ -594,5 +598,47 @@ describe("XbpHostService relay registration lifecycle", () => {
 		expect(() => svc!.applyRelayBaseUrl(BASE)).not.toThrow();
 		expect(h.dialed).toEqual([]);
 		expect(svc.getStatus().relay).toBe("off");
+	});
+});
+
+describe("isLiveConnection (push-wake suppress signal)", () => {
+	const at = 100_000;
+	it("false with no stamp", () => {
+		expect(isLiveConnection(null, () => true, at)).toBe(false);
+	});
+	it("true while the stamped socket is open inside the window", () => {
+		expect(
+			isLiveConnection({ generation: 7, at }, (g) => g === 7, at + 10_000),
+		).toBe(true);
+	});
+	it("releases the moment the stamped socket closes, other sockets notwithstanding", () => {
+		// isSocketLive(7) false even though OTHER generations (a scanner) are live
+		expect(
+			isLiveConnection({ generation: 7, at }, (g) => g === 9, at + 1_000),
+		).toBe(false);
+	});
+	it("a scanner socket opened after disconnect can never sustain suppression", () => {
+		// stamp bound to closed gen 7; live gen 8 is unauthenticated
+		expect(
+			isLiveConnection({ generation: 7, at }, (g) => g === 8, at + 5_000),
+		).toBe(false);
+	});
+	it("recency lapse releases while the socket stays open", () => {
+		expect(
+			isLiveConnection(
+				{ generation: 7, at },
+				() => true,
+				at + PUSH_WAKE_CONNECTED_WINDOW_MS + 1,
+			),
+		).toBe(false);
+	});
+	it("boundary: exactly the window is still live", () => {
+		expect(
+			isLiveConnection(
+				{ generation: 7, at },
+				() => true,
+				at + PUSH_WAKE_CONNECTED_WINDOW_MS,
+			),
+		).toBe(true);
 	});
 });
