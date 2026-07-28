@@ -1,17 +1,26 @@
 // Data hook for InsightsDashboard (task-12 brief; design spec §4.5/§4.7).
 // Fetch orchestration, in this exact order per cycle:
-//   1. coverageAnchors() + usage.queryRange(probe) in parallel.
+//   1. coverageAnchors() + usage.queryRange(probe) in parallel — PLUS a
+//      second usage.queryRange(tileProbe) in the SAME Promise.all when the
+//      range is `today`, whose tile window (the trailing day) is narrower
+//      than its 7-day domain probe window (AC5): costUsd/byWorkspace have no
+//      per-day breakout to filter after the fact, unlike `days` (tokens).
+//      Day-mode domains are anchor-independent, so `tileProbe` is knowable
+//      up front, before anchors resolve.
 //   2. Any insights read ok:false -> "error" (remembered for retry); usage
 //      "disabled" -> usageDisabled (NOT error); usage "timeout" -> "error".
+//      The tile probe (when issued) is resolved the same way.
 //   3. domain = domainForRange(range, {earliestDayMs, appRetainedSinceMs,
 //      runsRetainedSinceMs}, now).
 //   4. queryAppTimeSeries(domain.edges) + query(domain window) +
 //      queryAppTimeSeries(rhythmEdges(...)) in parallel.
 //   5. Empty decision (both retained anchors null AND usage disabled/no
 //      ledger days).
-//   6. Tiles: filtered to the selected range's tile window.
-//   7. workspaceRows from the SAME tile-window-filtered runs, so the table
-//      totals equal the tiles by construction (AC5).
+//   6. Tiles: filtered to the selected range's tile window; tokens/cost pull
+//      from the tile-window usage data (step 1), not the domain-window one.
+//   7. workspaceRows from the SAME tile-window-filtered runs AND the SAME
+//      tile-window usage data, so the table totals equal the tiles by
+//      construction (AC5).
 //   8. footer via deriveCoverageFooter.
 //   9. 30s poll while document.visibilityState === "visible"; retry = refetch.
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -201,29 +210,44 @@ export function useInsightsDashboardData(
 		const currentRange = rangeRef.current;
 		const api = window.ai14all;
 
-		// Step 1: anchors + usage probe, parallel. `all` probes full ledger
+		// Step 1: anchors + usage probe(s), parallel. `all` probes full ledger
 		// depth (fromMs: 0) so `earliestDayMs` and `days` cover every source
 		// day; other ranges probe exactly the day window the range will render
-		// (domainForRange ignores the anchors argument for day-mode ranges).
-		const probe =
+		// (domainForRange ignores the anchors argument for day-mode ranges,
+		// which is also why `probeDomain` below is safe to compute with null
+		// anchors and reuse for `tileWindowFor`).
+		const probeDomain: Domain | null =
 			currentRange === "all"
+				? null
+				: domainForRange(
+						currentRange,
+						{
+							earliestDayMs: null,
+							appRetainedSinceMs: null,
+							runsRetainedSinceMs: null,
+						},
+						now,
+					);
+		const probe =
+			probeDomain === null
 				? { fromMs: 0, toMs: dayEdges(now, 1)[1] }
-				: (() => {
-						const d = domainForRange(
-							currentRange,
-							{
-								earliestDayMs: null,
-								appRetainedSinceMs: null,
-								runsRetainedSinceMs: null,
-							},
-							now,
-						);
-						return { fromMs: d.edges[0], toMs: d.edges[d.edges.length - 1] };
-					})();
+				: {
+						fromMs: probeDomain.edges[0],
+						toMs: probeDomain.edges[probeDomain.edges.length - 1],
+					};
+		// `today` is the only range whose tile window is narrower than its
+		// domain probe window (module doc, step 1) — every other range's tile
+		// window already equals the probe window above, so no second fetch is
+		// needed for them.
+		const tileProbe =
+			currentRange === "today" && probeDomain
+				? tileWindowFor(currentRange, probeDomain)
+				: null;
 
-		const [anchorsResult, usageResult] = await Promise.all([
+		const [anchorsResult, usageResult, tileUsageResult] = await Promise.all([
 			api.insights.coverageAnchors(),
 			api.usage.queryRange(probe),
+			tileProbe ? api.usage.queryRange(tileProbe) : Promise.resolve(null),
 		]);
 
 		if (!anchorsResult.ok) {
@@ -252,6 +276,32 @@ export function useInsightsDashboardData(
 			setStatus("error");
 			setUpdatedAt(Date.now());
 			return;
+		}
+
+		// Tile/table figures (costUsd, byWorkspace, token sums) read from the
+		// narrower tile probe when one was issued (today, per Step 1); every
+		// other range's tile window equals its domain probe window, so the
+		// domain-window `usageData` already IS the tile data and no second
+		// result needs folding in.
+		let tileUsageData = usageData;
+		if (tileProbe && tileUsageResult) {
+			if (tileUsageResult.ok) {
+				tileUsageData = {
+					days: tileUsageResult.days,
+					byWorkspace: tileUsageResult.byWorkspace,
+					byProvider: tileUsageResult.byProvider,
+					cost: tileUsageResult.cost,
+					earliestDayMs: tileUsageResult.earliestDayMs,
+				};
+			} else if (tileUsageResult.reason === "disabled") {
+				tileUsageData = null;
+			} else {
+				// "timeout" -> error, mirroring the domain probe's handling above.
+				if (generationRef.current !== my) return; // superseded — discard
+				setStatus("error");
+				setUpdatedAt(Date.now());
+				return;
+			}
 		}
 
 		// Step 3: one shared bucket domain (decision 12).
@@ -308,12 +358,16 @@ export function useInsightsDashboardData(
 				r.startedAt < tileWindow.toMs,
 		);
 		const runCounts = countRunOutcomes(runsInRange.map((r) => r.status));
-		const tokens = sumDayTokens(usageData?.days ?? [], tileWindow);
-		const costUsd = usageData?.cost.total ?? null;
+		// AC5: tokens/cost read from the TILE-window usage data (Step 1), not
+		// the 7-day domain-window `usageData` — for `today` those differ.
+		const tokens = sumDayTokens(tileUsageData?.days ?? [], tileWindow);
+		const costUsd = tileUsageData?.cost.total ?? null;
 
-		// Step 7: workspace rows, from the SAME tile-filtered runs used above.
+		// Step 7: workspace rows, from the SAME tile-filtered runs AND
+		// tile-window usage data used above, so the table totals equal the
+		// tiles by construction (AC5).
 		const rows = buildWorkspaceRows(
-			usageData?.byWorkspace ?? [],
+			tileUsageData?.byWorkspace ?? [],
 			groupRunsByRepo(runsInRange),
 			workspacesRef.current,
 		);

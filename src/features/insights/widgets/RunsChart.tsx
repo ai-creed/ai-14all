@@ -15,6 +15,7 @@ import type { Domain } from "../useInsightsDashboardData.js";
 import { dataStartIndex, precaptureFlags } from "./precapture.js";
 import { PrecaptureChrome } from "./PrecaptureChrome.js";
 import { ChartLabels } from "./ChartLabels.js";
+import { formatShortDate } from "../coverageCopy.js";
 import type { InsightsWhisperRun } from "../../../../shared/contracts/commands.js";
 
 const CONFIG: ChartConfig = {
@@ -121,7 +122,14 @@ export function RunsChart({
 							isAnimationActive={false}
 						/>
 					)}
-					<ChartTooltip content={<ChartTooltipContent />} />
+					<ChartTooltip
+						content={
+							<ChartTooltipContent
+								config={CONFIG}
+								labelFormatter={(l) => formatShortDate(Number(l))}
+							/>
+						}
+					/>
 				</BarChart>
 			</ChartContainer>
 			<PrecaptureChrome edges={domain.edges} flags={flags} />

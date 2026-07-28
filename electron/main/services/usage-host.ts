@@ -188,6 +188,13 @@ export class UsageHost {
 	// never ride along — so those popover config knobs can never affect this
 	// result (decision 14).
 	queryRange(query: UsageRangeQuery): Promise<UsageRangeResult> {
+		// No worker: telemetry disabled, OR the E2E fixture-snapshot seam (start()
+		// returns early there too, so `this.proc` is never set) — same no-worker
+		// state as every other gated host method. Checked FIRST, ahead of the
+		// caller-bug guard below: telemetry-off must never present as a
+		// retryable `timeout` error just because the caller also happened to
+		// pass a degenerate/oversized range.
+		if (!this.proc) return Promise.resolve({ ok: false, reason: "disabled" });
 		// Caller bug (degenerate or absurdly wide range): resolve WITHOUT ever
 		// forwarding to the worker. `timeout` is the caller-visible signal here —
 		// no dedicated wire-contract reason exists for "bad request" and adding
@@ -200,10 +207,6 @@ export class UsageHost {
 		) {
 			return Promise.resolve({ ok: false, reason: "timeout" });
 		}
-		// No worker: telemetry disabled, OR the E2E fixture-snapshot seam (start()
-		// returns early there too, so `this.proc` is never set) — same no-worker
-		// state as every other gated host method.
-		if (!this.proc) return Promise.resolve({ ok: false, reason: "disabled" });
 		const requestId = `r-${++this.rangeSeq}`;
 		return new Promise<UsageRangeResult>((resolve) => {
 			const settle = (result: UsageRangeResult): void => {

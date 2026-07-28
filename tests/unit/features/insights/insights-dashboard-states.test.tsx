@@ -253,9 +253,13 @@ describe("InsightsDashboard", () => {
 			).toHaveLength(6);
 		});
 		// and the area chart draws its series only from the data-start column
-		// (the cap-line marker element is present):
+		// (the capture-start marker is present — either Recharts' own
+		// ReferenceLine, when it renders, or the wrapper's own attribute, which
+		// is what actually renders in this zero-layout jsdom env):
 		expect(
-			container.querySelector(".cap-line, [data-testid='capture-line']"),
+			container.querySelector(
+				".cap-line, [data-zone='apptime'][data-capture-line='true']",
+			),
 		).not.toBeNull();
 	});
 

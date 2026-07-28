@@ -197,6 +197,16 @@ describe("UsageHost.queryRange", () => {
 		).toHaveLength(1);
 	});
 
+	it("no worker AND a degenerate range: resolves disabled, not timeout (telemetry-off must never present as retryable)", async () => {
+		const host = new UsageHost(hostOpts()); // start() never called -> no worker
+		await expect(
+			host.queryRange({ fromMs: 100, toMs: 100 }), // degenerate: not strictly ascending
+		).resolves.toEqual({ ok: false, reason: "disabled" });
+		await expect(
+			host.queryRange({ fromMs: 0, toMs: Number.POSITIVE_INFINITY }),
+		).resolves.toEqual({ ok: false, reason: "disabled" });
+	});
+
 	it("rejects a degenerate or absurdly wide range as a caller bug (timeout) WITHOUT ever forwarding it to the worker", async () => {
 		const { host, proc } = startedWithFakeProc();
 

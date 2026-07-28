@@ -16,6 +16,8 @@ import {
 import { dataStartIndex, precaptureFlags } from "./precapture.js";
 import { PrecaptureChrome } from "./PrecaptureChrome.js";
 import { ChartLabels } from "./ChartLabels.js";
+import { fmt } from "./format.js";
+import { formatShortDate } from "../coverageCopy.js";
 import type { InsightsAppTimeSeries } from "../../../../shared/contracts/commands.js";
 import type { Domain } from "../useInsightsDashboardData.js";
 
@@ -51,7 +53,17 @@ export function AppTimeArea({
 	const todayLabel = data[data.length - 1]?.label;
 
 	return (
-		<div className="idb-cell" data-zone="apptime">
+		<div
+			className="idb-cell"
+			data-zone="apptime"
+			// Test-observable equivalent of the ReferenceLine's own `cap-line`
+			// class below: Recharts' ResponsiveContainer does not size (and so
+			// does not render its children) in a zero-layout jsdom test
+			// environment (module doc above), so a jsdom test cannot observe the
+			// ReferenceLine directly — this attribute on the always-rendered
+			// wrapper is what stands in for it there.
+			data-capture-line={startIdx > 0 ? "true" : undefined}
+		>
 			<div className="idb-cell-h">
 				<span className="k">
 					app time — {domain.mode === "week" ? "weekly" : "daily"}
@@ -103,12 +115,19 @@ export function AppTimeArea({
 						isAnimationActive={false}
 						connectNulls={false}
 					/>
-					<ChartTooltip content={<ChartTooltipContent />} />
+					<ChartTooltip
+						content={
+							<ChartTooltipContent
+								config={CONFIG}
+								labelFormatter={(l) => formatShortDate(Number(l))}
+								valueFormatter={(v) => (typeof v === "number" ? fmt(v) : "—")}
+							/>
+						}
+					/>
 				</AreaChart>
 			</ChartContainer>
 			<PrecaptureChrome edges={domain.edges} flags={flags} />
 			<ChartLabels domain={domain} anchorMs={appRetainedSinceMs} />
-			{startIdx > 0 && <div className="cap-line" data-testid="capture-line" />}
 		</div>
 	);
 }

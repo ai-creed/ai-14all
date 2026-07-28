@@ -33,28 +33,62 @@ export function ChartTooltip(props: React.ComponentProps<typeof Tooltip>) {
 	);
 }
 
+export interface ChartTooltipPayloadItem {
+	dataKey?: string;
+	name?: string;
+	value?: number | string;
+	color?: string;
+}
+
+// Recharts hands this raw internals by default: whatever the axis' dataKey
+// value is (here, a stringified epoch-ms bucket start) as `label`, and each
+// series' bare dataKey (e.g. "focusedMs", a provider id) as `name` — neither
+// is fit for display. Callers supply `config` to translate a dataKey into
+// its human series label (the SAME ChartConfig ChartContainer already reads
+// colors from), plus `labelFormatter`/`valueFormatter` to turn the raw axis
+// label and per-row values into display text. All three are optional so a
+// bare `<ChartTooltipContent />` still renders (falls back to the raw
+// values), but every real widget in this app supplies them.
 export function ChartTooltipContent({
 	active,
 	payload,
 	label,
+	config,
+	labelFormatter,
+	valueFormatter,
 }: {
 	active?: boolean;
-	payload?: Array<{ name?: string; value?: number | string; color?: string }>;
-	label?: string;
+	payload?: ChartTooltipPayloadItem[];
+	label?: string | number;
+	config?: ChartConfig;
+	labelFormatter?: (label: string | number | undefined) => string;
+	valueFormatter?: (
+		value: number | string | undefined,
+		dataKey: string,
+	) => string;
 }) {
 	if (!active || !payload?.length) return null;
+	const displayLabel = labelFormatter ? labelFormatter(label) : label;
 	return (
 		<div className="idb-tooltip">
-			{label ? <div className="idb-tooltip__label">{label}</div> : null}
-			{payload.map((p) => (
-				<div key={p.name} className="idb-tooltip__row">
-					<span className="idb-tooltip__sw" style={{ background: p.color }} />
-					{p.name}:{" "}
-					{typeof p.value === "number"
+			{displayLabel !== undefined && displayLabel !== "" ? (
+				<div className="idb-tooltip__label">{displayLabel}</div>
+			) : null}
+			{payload.map((p, i) => {
+				const key = p.dataKey ?? p.name ?? String(i);
+				const name = (key && config?.[key]?.label) || p.name || key;
+				const value = valueFormatter
+					? valueFormatter(p.value, key)
+					: typeof p.value === "number"
 						? p.value.toLocaleString("en-US")
-						: p.value}
-				</div>
-			))}
+						: p.value;
+				return (
+					<div key={key} className="idb-tooltip__row">
+						<span className="idb-tooltip__sw" style={{ background: p.color }} />
+						{name}: {value}
+					</div>
+				);
+			})}
 		</div>
 	);
 }

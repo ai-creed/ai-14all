@@ -16,6 +16,8 @@ import type { Domain } from "../useInsightsDashboardData.js";
 import { precaptureFlags } from "./precapture.js";
 import { PrecaptureChrome } from "./PrecaptureChrome.js";
 import { ChartLabels } from "./ChartLabels.js";
+import { fmtTokens } from "./format.js";
+import { formatShortDate } from "../coverageCopy.js";
 import { AGENT_PROVIDERS } from "../../../../shared/models/agent-provider.js";
 import type { DailyPoint } from "../../../../shared/models/usage.js";
 
@@ -91,7 +93,17 @@ export function TokenBurnChart({
 									isAnimationActive={false}
 								/>
 							))}
-							<ChartTooltip content={<ChartTooltipContent />} />
+							<ChartTooltip
+								content={
+									<ChartTooltipContent
+										config={config}
+										labelFormatter={(l) => formatShortDate(Number(l))}
+										valueFormatter={(v) =>
+											typeof v === "number" ? fmtTokens(v) : "—"
+										}
+									/>
+								}
+							/>
 						</BarChart>
 					</ChartContainer>
 					<PrecaptureChrome edges={domain.edges} flags={flags} />

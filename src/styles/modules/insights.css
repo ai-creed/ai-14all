@@ -218,6 +218,14 @@
 		vertical-align: -1px;
 		border-radius: 0;
 	}
+	/* §6 usage-off quiet caption (TokenBurnChart), in place of the chart —
+	 * same quiet-caption voice as .idb-loading-line below. */
+	.idb-cell-caption {
+		font-size: 11px;
+		color: var(--muted-foreground);
+		text-align: center;
+		padding: var(--space-6) 0;
+	}
 
 	/* area chart (implementation: shadcn ChartContainer + Recharts AreaChart) */
 	.idb-area {
@@ -439,7 +447,7 @@
 		font-size: 11px;
 		min-width: 0;
 	}
-	.idb-ws-grid .row-last .cell {
+	.idb-ws-grid .cell.row-last {
 		border-bottom: none;
 	}
 	.ws-name {
