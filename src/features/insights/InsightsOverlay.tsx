@@ -95,6 +95,18 @@ export function InsightsOverlay({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
+	// Focus the portal root on mount so the scoped Escape handler below has
+	// something to scope TO: nothing else moves focus into the overlay (the
+	// chip-bar button that opened it keeps focus, behind the now-hidden main
+	// column; the palette input unmounts on select, leaving focus on
+	// document.body), so without this Escape would never satisfy
+	// `portal.contains(event.target)`. Also gives keyboard users an entry
+	// point into the overlay's own tab order (tabIndex=-1 makes the div
+	// programmatically focusable without adding it to the Tab sequence).
+	useEffect(() => {
+		portalRef.current?.focus();
+	}, []);
+
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
 			if (event.key !== "Escape" || event.defaultPrevented) return;
@@ -111,6 +123,7 @@ export function InsightsOverlay({
 		<div
 			ref={portalRef}
 			className="insights-overlay"
+			tabIndex={-1}
 			style={{
 				position: "fixed",
 				top: rect.top,

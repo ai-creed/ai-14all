@@ -126,6 +126,21 @@ test("AC1: chip-bar action opens the overlay; ✕ restores the prior layout", as
 	await expect(
 		page.locator('[data-testid="insights-dashboard"]'),
 	).toBeVisible();
+
+	// Escape closes it too — the overlay focuses itself on mount so the
+	// keypress is scoped inside it (see InsightsOverlay's focus-on-mount
+	// effect), pinning the fix end-to-end rather than just unit-testing it.
+	await page.keyboard.press("Escape");
+	await expect(page.locator('[data-testid="insights-dashboard"]')).toHaveCount(
+		0,
+	);
+	await expect(page.locator(".shell-main-column")).toBeVisible();
+
+	// Reopen for the existing ✕ flow.
+	await page.click(".insights-entry-button");
+	await expect(
+		page.locator('[data-testid="insights-dashboard"]'),
+	).toBeVisible();
 	await page.click('[data-testid="insights-dashboard"] [title="Close"]');
 	await expect(page.locator('[data-testid="insights-dashboard"]')).toHaveCount(
 		0,
