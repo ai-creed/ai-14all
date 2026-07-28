@@ -64,6 +64,8 @@ type Props = {
 	onOpenPlugins: () => void;
 	/** Opens the Phone Bridge settings panel. Wired beside the Plugins button. */
 	onOpenPhoneBridge: () => void;
+	/** Opens the insights dashboard overlay. Wired to a button beside the Plugins button. */
+	onOpenInsights: () => void;
 };
 
 /**
@@ -101,6 +103,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		openWorktreePaths,
 		onOpenPlugins,
 		onOpenPhoneBridge,
+		onOpenInsights,
 	} = props;
 
 	const usageSnapshot = useUsageSnapshot();
@@ -166,6 +169,20 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 										<Icon name="plugins" />
 									</span>
 									Plugins
+								</button>
+								<button
+									type="button"
+									className="shell-chip-bar__action insights-entry-button"
+									title="Insights dashboard"
+									onClick={onOpenInsights}
+								>
+									<span
+										className="shell-chip-bar__action-icon app-nf"
+										aria-hidden="true"
+									>
+										◫
+									</span>
+									insights
 								</button>
 								<PhoneBridgeEntryButton onOpen={onOpenPhoneBridge} />
 							</>

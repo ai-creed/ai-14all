@@ -126,6 +126,8 @@ import { TerminalLayoutDialog } from "../features/terminals/components/TerminalL
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
 import { PhoneBridgeDialogGate } from "./components/PhoneBridgeDialogGate";
 import { InsightsNotice } from "./components/InsightsNotice.js";
+import { InsightsOverlay } from "../features/insights/InsightsOverlay.js";
+import type { WorkspaceIndex } from "../features/insights/workspaceRows.js";
 import { SettingsDialog } from "../features/settings/components/SettingsDialog";
 import {
 	useWhisperState,
@@ -178,6 +180,7 @@ function AppContent() {
 		handleSidebarResizeStart,
 	} = usePaneResizers({});
 	const [reviewOpen, setReviewOpen] = useState(false);
+	const [insightsOpen, setInsightsOpen] = useState(false);
 	const chipBarRef = useRef<HTMLDivElement>(null);
 	const mainColRef = useRef<HTMLElement>(null);
 	const expandedPortalRef = useRef<ReviewExpandedPortalHandle>(null);
@@ -240,6 +243,31 @@ function AppContent() {
 		worktreesRef,
 		workspaceStateRef,
 	} = useActiveWorkspace();
+
+	// Insights dashboard's workspace registry (§4.8 row seeding, shared with the
+	// Task 14 detached window): one entry per open repository/workspace, built
+	// from the same registry App already holds — no separate fetch.
+	const workspaceIndex: WorkspaceIndex = useMemo(
+		() =>
+			appWorkspaces.workspaceOrder.flatMap((id) => {
+				const ws = appWorkspaces.workspacesById[id];
+				if (!ws) return [];
+				return [
+					{
+						workspaceId: ws.workspaceId,
+						title: ws.repository.name,
+						repoId: ws.repository.repoId,
+						rootPath: ws.repository.rootPath,
+						worktreeCount: ws.worktrees.length,
+					},
+				];
+			}),
+		[appWorkspaces],
+	);
+	// Task 14 wires this to insights.detach() (the preload method does not
+	// exist yet); the overlay's ⧉ detach button is a no-op until then.
+	const handleInsightsDetach = useCallback(() => {}, []);
+
 	const samanthaSliceBuilder = useRef(createSamanthaSliceBuilder());
 	const outputPreviewBuffersRef = useRef<Map<string, string>>(new Map());
 	// Memory-only per-shell dragged positions for floating popovers, keyed by
@@ -1728,6 +1756,18 @@ function AppContent() {
 	);
 	useRegisterCommands(cycleCommands, [cycleCommands]);
 
+	useRegisterCommands(
+		[
+			{
+				id: "insights.openDashboard",
+				title: "Insights: open dashboard",
+				group: "Insights",
+				run: () => setInsightsOpen(true),
+			},
+		],
+		[setInsightsOpen],
+	);
+
 	// Cmd+; / Ctrl+; — toggle note sheet
 	useKeyboardShortcut(
 		"note-sheet",
@@ -2307,6 +2347,7 @@ function AppContent() {
 									.map((w) => w.path)}
 								onOpenPlugins={() => setPluginsDialogOpen(true)}
 								onOpenPhoneBridge={openPhoneBridge}
+								onOpenInsights={() => setInsightsOpen(true)}
 							/>
 
 							<div className="shell-terminal-frame">
@@ -2637,6 +2678,15 @@ function AppContent() {
 										onCloseReview={() => setReviewOpen(false)}
 									/>
 								</ReviewExpandedPortal>
+							)}
+							{insightsOpen && (
+								<InsightsOverlay
+									mainColRef={mainColRef}
+									workspaces={workspaceIndex}
+									onClose={() => setInsightsOpen(false)}
+									onDetach={handleInsightsDetach}
+									onOpenSettings={() => setSettingsDialogOpen(true)}
+								/>
 							)}
 						</section>
 					</div>
