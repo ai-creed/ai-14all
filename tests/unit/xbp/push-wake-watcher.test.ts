@@ -1,231 +1,465 @@
-import { describe, it, expect, vi } from "vitest";
-import { mkdtempSync } from "node:fs";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { WhisperWorktreeState } from "../../../shared/models/ecosystem-plugin";
-import { createPushWakeWatcher } from "../../../services/xbp/push-wake-watcher";
+import {
+	createPushWakeWatcher,
+	PUSH_WAKE_COALESCE_MS,
+} from "../../../services/xbp/push-wake-watcher";
 import { PushWakeStateStore } from "../../../services/xbp/push-wake-state-store";
 import type { PushWakeAuditEntry } from "../../../services/diagnostics/push-wake-audit-logger";
+import type { PushSendOutcome } from "../../../services/xbp/push-wake-sender";
+import type { WhisperWorktreeState } from "../../../shared/models/ecosystem-plugin";
 
-const NOW = 1751932800000;
+// Minimal whisper fixture: a workflow row in a given status (mirrors the
+// builder in push-wake-detector.test.ts).
+const wf = (id: string, status: string): WhisperWorktreeState =>
+	({
+		worktreeId: `wt-${id}`,
+		workflow: { workflowId: id, status },
+	}) as WhisperWorktreeState;
+const att = (worktreeId: string, attention: string) => ({
+	worktreeId,
+	attention,
+});
 
-function state(workflowId: string, status: string): WhisperWorktreeState {
-	return {
-		worktreeId: "wt-1",
-		collabId: "collab-1",
-		daemonAlive: true,
-		liveFeed: "polling",
-		bindings: [],
-		workflow: {
-			workflowId,
-			workflowType: "spec-driven-development",
-			specPath: "spec.md",
-			status,
-			currentPhaseIndex: 0,
-			phaseName: null,
-			currentChainId: null,
-			round: null,
-			haltReason: null,
-			updatedAt: "2026-07-08T00:00:00Z",
-		},
-		escalation: null,
-		handoffs: [],
-	};
-}
-
-function harness(opts?: {
-	enabled?: boolean;
-	token?: boolean;
-	outcomes?: Array<
-		"sent" | "dead-token-cleared" | "retry-exhausted" | "no-token"
-	>;
-}) {
-	const dir = mkdtempSync(join(tmpdir(), "pw-watch-"));
-	const stateStore = new PushWakeStateStore({ dir });
-	let states: WhisperWorktreeState[] = [];
-	const outcomes = [...(opts?.outcomes ?? ["sent"])];
-	const getStates = vi.fn(async () => states);
-	const send = vi.fn(async () => outcomes.shift() ?? ("sent" as const));
-	const audits: PushWakeAuditEntry[] = [];
-	const watcher = createPushWakeWatcher({
-		getStates,
-		stateStore,
-		isEnabled: () => opts?.enabled ?? true,
-		hasToken: () => opts?.token ?? true,
-		send,
-		audit: (e) => audits.push(e),
-		now: () => NOW,
-	});
-	return {
-		watcher,
-		getStates,
-		send,
-		audits,
-		stateStore,
+type Harness = ReturnType<typeof makeHarness>;
+function makeHarness(dir: string) {
+	const h = {
 		dir,
-		setStates: (s: WhisperWorktreeState[]) => (states = s),
+		store: new PushWakeStateStore({ dir }),
+		nowMs: 1_000_000,
+		enabled: true,
+		hasToken: true,
+		connected: false,
+		whisper: [] as WhisperWorktreeState[],
+		report: { sessions: [] } as {
+			sessions: Array<{ worktreeId: string; attention: string }>;
+		},
+		rejectReport: false,
+		// Extension beyond the brief's base harness: lets a couple of ported
+		// regressions (rejected getStates; disabled-gate read counting)
+		// exercise the whisper side the same way `rejectReport` already lets
+		// them exercise the attention side.
+		rejectWhisper: false,
+		whisperReads: 0,
+		reportReads: 0,
+		sendOutcome: "sent" as PushSendOutcome,
+		sends: 0,
+		audits: [] as PushWakeAuditEntry[],
+		failSaves: false,
+		watcher: undefined as unknown as ReturnType<typeof createPushWakeWatcher>,
 	};
+	const failableStore = {
+		load: () => h.store.load(),
+		save: (s: Parameters<PushWakeStateStore["save"]>[0]) =>
+			h.failSaves ? false : h.store.save(s),
+	} as PushWakeStateStore;
+	h.watcher = createPushWakeWatcher({
+		getStates: () => {
+			h.whisperReads += 1;
+			if (h.rejectWhisper) throw new Error("whisper read failed");
+			return h.whisper;
+		},
+		getSessionReport: async () => {
+			h.reportReads += 1;
+			if (h.rejectReport) throw new Error("provider down");
+			return h.report;
+		},
+		stateStore: failableStore,
+		isEnabled: () => h.enabled,
+		hasToken: () => h.hasToken,
+		hasLivePhoneConnection: () => h.connected,
+		send: async () => {
+			h.sends += 1;
+			return h.sendOutcome;
+		},
+		audit: (e) => h.audits.push(e),
+		now: () => h.nowMs,
+	});
+	return h;
 }
 
 describe("push-wake watcher", () => {
-	it("first tick baselines (no sends), qualifying transition on a later tick sends + audits once", async () => {
-		const h = harness();
-		h.setStates([state("wf-1", "running")]);
+	let dir: string;
+	let h: Harness;
+	beforeEach(() => {
+		dir = mkdtempSync(join(tmpdir(), "pw-watcher-"));
+		h = makeHarness(dir);
+	});
+
+	it("attention transition sends once and audits sent with attribution", async () => {
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick(); // establishes both baselines (whisper blank-skips)
+		h.report = { sessions: [att("wt-1", "waiting")] };
 		await h.watcher.tick();
-		expect(h.send).not.toHaveBeenCalled();
-		h.setStates([state("wf-1", "done")]);
-		await h.watcher.tick();
-		expect(h.send).toHaveBeenCalledTimes(1);
+		expect(h.sends).toBe(1);
 		expect(h.audits).toEqual([
-			{ ts: NOW, trigger: "workflow-done", outcome: "sent" },
-		]);
-		await h.watcher.tick(); // coalesced: settled end never re-fires
-		expect(h.send).toHaveBeenCalledTimes(1);
-	});
-
-	it("persists across watcher instances: restart neither re-pings nor misses", async () => {
-		const h = harness();
-		h.setStates([state("wf-1", "running")]);
-		await h.watcher.tick();
-		// "Restart": a fresh watcher over the same stateStore, workflow now done.
-		const h2 = harness();
-		const fresh = createPushWakeWatcher({
-			getStates: async () => [state("wf-1", "done")],
-			stateStore: h.stateStore,
-			isEnabled: () => true,
-			hasToken: () => true,
-			send: h2.send,
-			audit: (e) => h2.audits.push(e),
-			now: () => NOW,
-		});
-		await fresh.tick();
-		expect(h2.send).toHaveBeenCalledTimes(1); // missed-transition half
-		await fresh.tick();
-		expect(h2.send).toHaveBeenCalledTimes(1); // no-re-ping half
-	});
-
-	it("no token → state advances but nothing is sent; registering later gets no stale burst", async () => {
-		const h = harness({ token: false });
-		h.setStates([state("wf-1", "running")]);
-		await h.watcher.tick();
-		h.setStates([state("wf-1", "done")]);
-		await h.watcher.tick();
-		expect(h.send).not.toHaveBeenCalled();
-		// Token appears; the settled end must NOT fire retroactively.
-		const withToken = createPushWakeWatcher({
-			getStates: async () => [state("wf-1", "done")],
-			stateStore: h.stateStore,
-			isEnabled: () => true,
-			hasToken: () => true,
-			send: h.send,
-			audit: () => {},
-			now: () => NOW,
-		});
-		await withToken.tick();
-		expect(h.send).not.toHaveBeenCalled();
-	});
-
-	it("disabled → does not read or advance; transitions emit after re-enable", async () => {
-		let enabled = false;
-		const getStates = vi.fn(async () => [state("wf-1", "done")]);
-		const dir = mkdtempSync(join(tmpdir(), "pw-watch-en-"));
-		const stateStore = new PushWakeStateStore({ dir });
-		stateStore.save({
-			version: 2,
-			whisper: {
-				workflows: { "wf-1": "running" },
-				pingedWorkflows: [],
-				pingedChains: [],
+			{
+				ts: h.nowMs,
+				trigger: "attention-waiting",
+				outcome: "sent",
+				detectors: ["attention"],
 			},
-			attention: null,
-			lastPingAt: null,
-		});
-		const send = vi.fn(async () => "sent" as const);
-		const watcher = createPushWakeWatcher({
-			getStates,
-			stateStore,
-			isEnabled: () => enabled,
-			hasToken: () => true,
-			send,
-			audit: () => {},
-			now: () => NOW,
-		});
-		await watcher.tick();
-		expect(getStates).not.toHaveBeenCalled();
-		enabled = true;
-		await watcher.tick();
-		expect(send).toHaveBeenCalledTimes(1); // running→done seen across the off window
+		]);
 	});
 
-	it("empty snapshot is a no-op tick: state is neither advanced nor pruned", async () => {
-		const h = harness();
-		h.setStates([state("wf-1", "running")]);
+	it("disabled gate: no detection, no audit, no save", async () => {
+		h.enabled = false;
+		h.report = { sessions: [att("wt-1", "waiting")] };
 		await h.watcher.tick();
-		h.setStates([]); // schema gate closed / db busy
-		await h.watcher.tick();
-		h.setStates([state("wf-1", "done")]);
-		await h.watcher.tick();
-		expect(h.send).toHaveBeenCalledTimes(1); // wf-1 last-seen survived the blank tick
+		expect(h.sends).toBe(0);
+		expect(h.audits).toEqual([]);
+		expect(h.store.load()).toBeNull();
 	});
 
-	it("dead-token-cleared stops the remaining sends of the tick and audits the clearance", async () => {
-		const h = harness({ outcomes: ["dead-token-cleared"] });
-		h.setStates([
-			state("wf-1", "running"),
-			{ ...state("wf-2", "running"), worktreeId: "wt-2", collabId: "collab-2" },
-		]);
+	it("disabled gate does not read whisper or attention; a transition missed while disabled fires once re-enabled", async () => {
+		h.report = { sessions: [att("wt-1", "active")] };
+		h.whisper = [wf("A", "running")];
+		await h.watcher.tick(); // baseline both while enabled
+		h.enabled = false;
+		h.report = { sessions: [att("wt-1", "waiting")] }; // flips while off
+		h.whisper = [wf("A", "done")]; // flips while off
+		const whisperReadsBefore = h.whisperReads;
+		const reportReadsBefore = h.reportReads;
 		await h.watcher.tick();
-		h.setStates([
-			state("wf-1", "done"),
-			{ ...state("wf-2", "halted"), worktreeId: "wt-2", collabId: "collab-2" },
-		]);
+		expect(h.whisperReads).toBe(whisperReadsBefore); // not read while disabled
+		expect(h.reportReads).toBe(reportReadsBefore); // not read while disabled
+		expect(h.sends).toBe(0);
+		expect(h.audits).toEqual([]);
+		h.enabled = true;
+		await h.watcher.tick(); // re-enabled: the missed transitions now fire (one send per tick)
+		expect(h.sends).toBe(1);
+	});
+
+	it("two-tick consumption: suppressed-connected", async () => {
+		h.report = { sessions: [att("wt-1", "active")] };
 		await h.watcher.tick();
-		expect(h.send).toHaveBeenCalledTimes(1);
+		h.connected = true;
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		await h.watcher.tick(); // tick 1: transition, suppressed
+		expect(h.sends).toBe(0);
+		expect(h.audits.map((a) => a.outcome)).toEqual(["suppressed-connected"]);
+		expect(h.store.load()?.attention).toEqual({
+			sessions: { "wt-1": "waiting" },
+		});
+		expect(h.store.load()?.lastPingAt).toBeNull(); // suppression never advances it
+		await h.watcher.tick(); // tick 2: unchanged input
+		expect(h.sends).toBe(0);
+		expect(h.audits).toHaveLength(1); // nothing new
+	});
+
+	it("two-tick consumption: coalesced (and lastPingAt frozen)", async () => {
+		h.report = { sessions: [att("wt-1", "active"), att("wt-2", "active")] };
+		await h.watcher.tick();
+		h.report = { sessions: [att("wt-1", "waiting"), att("wt-2", "active")] };
+		await h.watcher.tick(); // sent; lastPingAt = now
+		const pingAt = h.store.load()?.lastPingAt;
+		expect(pingAt).toBe(h.nowMs);
+		h.nowMs += 10_000;
+		h.report = { sessions: [att("wt-1", "waiting"), att("wt-2", "failed")] };
+		await h.watcher.tick(); // fresh transition inside 60s: coalesced
+		expect(h.sends).toBe(1);
+		expect(h.audits.map((a) => a.outcome)).toEqual(["sent", "coalesced"]);
+		expect(h.store.load()?.lastPingAt).toBe(pingAt); // frozen on coalesce
+		await h.watcher.tick(); // unchanged: consumed, silent
+		expect(h.audits).toHaveLength(2);
+	});
+
+	it("two-tick consumption: prechecked no-token consumes state, never advances lastPingAt", async () => {
+		h.hasToken = false;
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick();
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		await h.watcher.tick();
+		expect(h.sends).toBe(0);
+		expect(h.audits.map((a) => a.outcome)).toEqual(["no-token"]);
+		expect(h.store.load()?.attention).toEqual({
+			sessions: { "wt-1": "waiting" },
+		});
+		expect(h.store.load()?.lastPingAt).toBeNull();
+		await h.watcher.tick();
 		expect(h.audits).toHaveLength(1);
-		expect(h.audits[0].outcome).toBe("dead-token-cleared");
+	});
+
+	it("no-token consumption: token appearing later does not fire a stale burst", async () => {
+		h.hasToken = false;
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick();
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		await h.watcher.tick(); // consumed as no-token
+		expect(h.audits.map((a) => a.outcome)).toEqual(["no-token"]);
+		h.hasToken = true; // token registers later
+		await h.watcher.tick(); // same unchanged report: nothing left to detect
+		expect(h.sends).toBe(0);
+		expect(h.audits).toHaveLength(1); // no stale burst
+	});
+
+	it("persist-failed: fail-quiet, sender NOT called, no in-memory advance, streak audits once, recovery proceeds", async () => {
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick();
+		h.failSaves = true;
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		await h.watcher.tick();
+		expect(h.sends).toBe(0); // spy assertion: sender never invoked
+		expect(h.audits.map((a) => a.outcome)).toEqual(["persist-failed"]);
+		await h.watcher.tick(); // still failing: same transition re-detected, streak silent
+		expect(h.audits).toHaveLength(1);
+		h.failSaves = false;
+		await h.watcher.tick(); // recovered: the SAME transition proceeds to its real outcome
+		expect(h.sends).toBe(1);
+		expect(h.audits.map((a) => a.outcome)).toEqual(["persist-failed", "sent"]);
+		// The successful save must RE-ARM the streak: a second, later failure
+		// audits again — an implementation that never re-arms fails here.
+		h.nowMs += PUSH_WAKE_COALESCE_MS + 1;
+		h.failSaves = true;
+		h.report = { sessions: [att("wt-1", "failed")] }; // fresh transition
+		await h.watcher.tick();
+		expect(h.audits.map((a) => a.outcome)).toEqual([
+			"persist-failed",
+			"sent",
+			"persist-failed",
+		]);
+	});
+
+	it("coalesce timestamp advances outcome-independently and pre-send", async () => {
+		h.sendOutcome = "retry-exhausted";
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick();
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		await h.watcher.tick();
+		expect(h.audits.map((a) => a.outcome)).toEqual(["retry-exhausted"]);
+		expect(h.store.load()?.lastPingAt).toBe(h.nowMs); // advanced despite failure
+	});
+
+	it("coalesce survives a simulated restart (no double ping)", async () => {
+		h.report = { sessions: [att("wt-1", "active"), att("wt-2", "active")] };
+		await h.watcher.tick();
+		h.report = { sessions: [att("wt-1", "waiting"), att("wt-2", "active")] };
+		await h.watcher.tick(); // sent, lastPingAt persisted
+		const h2 = makeHarness(dir); // restart: same dir, fresh watcher
+		h2.nowMs = h.nowMs + 10_000;
+		h2.report = { sessions: [att("wt-1", "waiting"), att("wt-2", "failed")] };
+		await h2.watcher.tick(); // fresh transition within 60s of the persisted attempt
+		expect(h2.sends).toBe(0);
+		expect(h2.audits.map((a) => a.outcome)).toEqual(["coalesced"]);
+	});
+
+	it("missing/corrupt state at start: baseline pass sends and audits nothing (but persists); a later transition fires", async () => {
+		writeFileSync(join(dir, "push-wake-state.json"), "{corrupt");
+		h.report = { sessions: [att("wt-1", "waiting")] }; // already waiting
+		await h.watcher.tick(); // null-load baseline
+		expect(h.sends).toBe(0);
+		expect(h.audits).toEqual([]);
+		// The baseline is durable — restart continuity depends on it.
+		expect(h.store.load()?.attention).toEqual({
+			sessions: { "wt-1": "waiting" },
+		});
+		h.report = { sessions: [att("wt-1", "waiting"), att("wt-2", "failed")] };
+		await h.watcher.tick(); // wt-2 is a fresh transition against established state
+		expect(h.sends).toBe(1);
+		expect(h.audits.map((a) => a.trigger)).toEqual(["attention-failed"]);
+	});
+
+	it("restart continuity (ported regression): baselined running workflow fires on the first post-restart done snapshot, then never re-pings", async () => {
+		h.whisper = [wf("A", "running")];
+		await h.watcher.tick(); // eventless whisper baseline — must be PERSISTED
+		expect(h.store.load()?.whisper?.workflows).toEqual({ A: "running" });
+		const h2 = makeHarness(dir); // restart over the same state file
+		h2.whisper = [wf("A", "done")];
+		await h2.watcher.tick();
+		expect(h2.sends).toBe(1); // missed-transition half
+		expect(h2.audits.map((a) => a.trigger)).toEqual(["workflow-done"]);
+		await h2.watcher.tick();
+		expect(h2.sends).toBe(1); // no-re-ping half (settled end never re-fires)
+	});
+
+	it("namespace preservation: attention rejection rides through a whisper-event save; recovery does not re-fire", async () => {
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		h.whisper = [wf("A", "running")];
+		await h.watcher.tick(); // both established (attention holds wt-1)
+		h.rejectReport = true;
+		h.whisper = [wf("A", "done")]; // whisper event
+		await h.watcher.tick();
+		expect(h.audits.map((a) => a.outcome)).toEqual(["sent"]);
+		expect(h.audits[0].detectors).toEqual(["whisper"]);
+		expect(h.store.load()?.attention).toEqual({
+			sessions: { "wt-1": "waiting" },
+		}); // preserved verbatim
+		h.rejectReport = false; // recovery: same unchanged waiting session
+		await h.watcher.tick();
+		expect(h.sends).toBe(1); // no second send
+		expect(h.audits).toHaveLength(1); // no new audit
+	});
+
+	it("namespace preservation converse: blank whisper rides through an attention-event save", async () => {
+		h.whisper = [wf("A", "running")];
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick(); // whisper established with A=running
+		h.whisper = []; // blank read: whisper pass skipped
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		await h.watcher.tick();
+		expect(h.audits.map((a) => a.outcome)).toEqual(["sent"]);
+		expect(h.store.load()?.whisper).toEqual({
+			workflows: { A: "running" },
+			pingedWorkflows: [],
+			pingedChains: [],
+		});
+		h.whisper = [wf("A", "running")]; // recovered, unchanged
+		h.nowMs += PUSH_WAKE_COALESCE_MS + 1;
+		await h.watcher.tick();
+		expect(h.sends).toBe(1); // nothing new fired
+	});
+
+	it("a blank whisper tick does not lose the prior baseline: a later real transition still fires", async () => {
+		h.whisper = [wf("A", "running")];
+		await h.watcher.tick(); // baseline
+		h.whisper = []; // blank tick: schema gate closed / db busy
+		await h.watcher.tick();
+		h.whisper = [wf("A", "done")];
+		await h.watcher.tick();
+		expect(h.sends).toBe(1); // A's running→done survived the blank tick
+	});
+
+	it("partial null-load init: attention stays durably null through a whisper save; in-session recovery AND fresh restart each baseline from the same partial-null document without firing", async () => {
+		h.rejectReport = true;
+		h.whisper = [wf("A", "running")];
+		await h.watcher.tick(); // whisper baseline persists; attention stays null
+		h.whisper = [wf("A", "done")];
+		await h.watcher.tick(); // whisper event -> composite save
+		expect(h.store.load()?.attention).toBeNull(); // NOT {} — never baselined
+
+		// Freeze the partial-null document NOW: the in-session recovery below
+		// persists an established attention namespace (eventless saves are
+		// durable), so the restart branch must start from a copy taken before
+		// it — otherwise it loads established state and passes for the wrong
+		// reason (unchanged-never-refires instead of null-baseline).
+		const partialNull = readFileSync(join(dir, "push-wake-state.json"), "utf8");
+
+		// Branch A — in-session recovery: the first successful attention pass
+		// baselines the already-waiting session silently.
+		h.rejectReport = false;
+		h.report = { sessions: [att("wt-1", "waiting")] }; // was waiting all along
+		h.nowMs += PUSH_WAKE_COALESCE_MS + 1;
+		await h.watcher.tick();
+		expect(h.sends).toBe(1); // only the earlier whisper send; no attention fire
+
+		// Branch B — fresh restart from the SAME partial-null document.
+		const dir2 = mkdtempSync(join(tmpdir(), "pw-watcher-restart-"));
+		writeFileSync(join(dir2, "push-wake-state.json"), partialNull);
+		const h2 = makeHarness(dir2);
+		// Precondition assertion: the restarted watcher really sees null.
+		expect(h2.store.load()?.attention).toBeNull();
+		h2.nowMs = h.nowMs + PUSH_WAKE_COALESCE_MS + 1;
+		h2.report = { sessions: [att("wt-1", "waiting")] };
+		await h2.watcher.tick(); // null baseline: records, fires nothing
+		expect(h2.sends).toBe(0);
+		h2.report = { sessions: [att("wt-1", "waiting"), att("wt-2", "failed")] };
+		await h2.watcher.tick(); // later fresh transition fires
+		expect(h2.sends).toBe(1);
+	});
+
+	it("partial null-load init converse: whisper stays durably null through an attention save", async () => {
+		h.whisper = []; // blank whisper from the start
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick(); // attention baseline (eventless)
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		await h.watcher.tick(); // attention event -> save
+		expect(h.store.load()?.whisper).toBeNull();
+		h.whisper = [wf("A", "done")]; // whisper's FIRST successful pass: already-done workflow
+		h.nowMs += PUSH_WAKE_COALESCE_MS + 1;
+		await h.watcher.tick();
+		expect(h.sends).toBe(1); // baseline settles A silently — no second send
+	});
+
+	it("one ping per tick with both detectors firing; audit lists both, whisper trigger primary", async () => {
+		h.whisper = [wf("A", "running")];
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick();
+		h.whisper = [wf("A", "halted")];
+		h.report = { sessions: [att("wt-1", "failed")] };
+		await h.watcher.tick();
+		expect(h.sends).toBe(1);
+		expect(h.audits).toEqual([
+			{
+				ts: h.nowMs,
+				trigger: "workflow-halted",
+				outcome: "sent",
+				detectors: ["whisper", "attention"],
+			},
+		]);
+	});
+
+	it("blank whisper does not block the attention pass, and vice versa", async () => {
+		h.whisper = [];
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick();
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		await h.watcher.tick();
+		expect(h.sends).toBe(1); // attention alone proceeded
+		h.rejectReport = true;
+		h.whisper = [wf("A", "running")];
+		h.nowMs += PUSH_WAKE_COALESCE_MS + 1;
+		await h.watcher.tick();
+		h.whisper = [wf("A", "done")];
+		await h.watcher.tick();
+		expect(h.sends).toBe(2); // whisper alone proceeded
+	});
+
+	it("raced no-token from the sender is audited (attempt path)", async () => {
+		h.sendOutcome = "no-token";
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick();
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		await h.watcher.tick();
+		expect(h.audits.map((a) => a.outcome)).toEqual(["no-token"]);
+		expect(h.store.load()?.lastPingAt).toBe(h.nowMs); // reached the sender: attempt reserved
+	});
+
+	it("dead-token-cleared is audited and consumed (ported regression)", async () => {
+		h.sendOutcome = "dead-token-cleared";
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick();
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		await h.watcher.tick();
+		expect(h.audits).toEqual([
+			{
+				ts: h.nowMs,
+				trigger: "attention-waiting",
+				outcome: "dead-token-cleared",
+				detectors: ["attention"],
+			},
+		]);
+		expect(h.store.load()?.lastPingAt).toBe(h.nowMs); // attempt reserved
+		await h.watcher.tick(); // unchanged input: consumed, nothing new
+		expect(h.audits).toHaveLength(1);
 	});
 
 	it("a rejected getStates does not escape tick(): resolves, warns, and self-heals without deadlocking `ticking`", async () => {
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 		try {
-			const dir = mkdtempSync(join(tmpdir(), "pw-watch-err-"));
-			const stateStore = new PushWakeStateStore({ dir });
-			let calls = 0;
-			const getStates = vi.fn(async () => {
-				calls += 1;
-				if (calls === 1) throw new Error("boom");
-				return [state("wf-1", calls === 2 ? "running" : "done")];
-			});
-			const send = vi.fn(async () => "sent" as const);
-			const watcher = createPushWakeWatcher({
-				getStates,
-				stateStore,
-				isEnabled: () => true,
-				hasToken: () => true,
-				send,
-				audit: () => {},
-				now: () => NOW,
-			});
-
-			// Rejected getStates must not escape tick() as an unhandled rejection.
-			await expect(watcher.tick()).resolves.toBeUndefined();
+			h.rejectWhisper = true;
+			await expect(h.watcher.tick()).resolves.toBeUndefined();
 			expect(warnSpy).toHaveBeenCalledWith(
 				"[push-wake] tick failed:",
 				expect.any(Error),
 			);
-			expect(send).not.toHaveBeenCalled();
+			expect(h.sends).toBe(0);
 
-			// Self-heal: `ticking` was reset in `finally`, so the next tick actually
-			// runs (not short-circuited by the `if (ticking) return;` guard) and
-			// baselines wf-1 normally (no send yet — first observation).
-			await watcher.tick();
-			expect(getStates).toHaveBeenCalledTimes(2);
-			expect(send).not.toHaveBeenCalled();
+			// Self-heal: `ticking` was reset in `finally`, so the next tick
+			// actually runs (not short-circuited by the `if (ticking) return;`
+			// guard) and baselines wf-1 normally (no send yet — first
+			// observation).
+			h.rejectWhisper = false;
+			h.whisper = [wf("A", "running")];
+			await h.watcher.tick();
+			expect(h.sends).toBe(0);
 
-			// And the watcher keeps working normally afterwards: a real transition
-			// on a subsequent healthy tick still sends.
-			await watcher.tick();
-			expect(send).toHaveBeenCalledTimes(1);
+			// And the watcher keeps working normally afterwards: a real
+			// transition on a subsequent healthy tick still sends.
+			h.whisper = [wf("A", "done")];
+			await h.watcher.tick();
+			expect(h.sends).toBe(1);
 		} finally {
 			warnSpy.mockRestore();
 		}
@@ -234,21 +468,21 @@ describe("push-wake watcher", () => {
 	it("start()/stop() manage the interval without double-starting", async () => {
 		vi.useFakeTimers();
 		try {
-			// harness() defaults to enabled: true, so getStates is actually invoked
-			// on every tick — required for this call-count assertion to mean anything.
-			const h = harness();
-			h.setStates([]);
+			// enabled: true by default, so getStates is actually invoked on
+			// every tick — required for this call-count assertion to mean
+			// anything.
+			h.whisper = [];
 			h.watcher.start();
 			h.watcher.start(); // idempotent: must not leak a second interval
 			// 3 intervals @ the default 3000ms cadence = 9000ms.
 			await vi.advanceTimersByTimeAsync(9_000);
 			// 1 immediate tick (from start()) + 3 interval ticks = 4. A leaked
 			// second interval would double every subsequent count (8, not 4).
-			expect(h.getStates).toHaveBeenCalledTimes(4);
+			expect(h.whisperReads).toBe(4);
 			h.watcher.stop();
-			const before = h.getStates.mock.calls.length;
+			const before = h.whisperReads;
 			await vi.advanceTimersByTimeAsync(10_000);
-			expect(h.getStates.mock.calls.length).toBe(before);
+			expect(h.whisperReads).toBe(before);
 		} finally {
 			vi.useRealTimers();
 		}

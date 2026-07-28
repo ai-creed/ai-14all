@@ -11,6 +11,14 @@ const entry: PushWakeAuditEntry = {
 	ts: 1751932800000,
 	trigger: "workflow-done",
 	outcome: "sent",
+	detectors: ["whisper"],
+};
+
+const suppressedEntry: PushWakeAuditEntry = {
+	ts: 1751932800000,
+	trigger: "attention-waiting",
+	outcome: "suppressed-connected",
+	detectors: ["whisper", "attention"],
 };
 
 describe("PushWakeAuditLogger", () => {
@@ -37,6 +45,12 @@ describe("PushWakeAuditLogger", () => {
 			entry,
 			{ ...entry, trigger: "escalated", outcome: "retry-exhausted" },
 		]);
+	});
+
+	it("appends a two-detector attention entry with a gate-skip outcome", () => {
+		const logger = new PushWakeAuditLogger({ logsDir: dir });
+		logger.append(suppressedEntry);
+		expect(readLines()).toEqual([suppressedEntry]);
 	});
 
 	it("append-only: a new instance does not truncate prior entries", () => {
