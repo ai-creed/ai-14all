@@ -62,6 +62,7 @@ describe("deriveCoverageFooter", () => {
 			windowFromMs: 0,
 			windowToMs: 1,
 			appComplete: false,
+			mode: "day",
 		});
 		expect(r.text).toContain("app time since aug 2");
 		expect(r.text).toContain("runs since jul 14");
@@ -80,6 +81,7 @@ describe("deriveCoverageFooter", () => {
 			windowFromMs: 0,
 			windowToMs: 1,
 			appComplete: false,
+			mode: "day",
 		});
 		expect(r.text).toContain("app time & runs since jul 21");
 		expect(r.glyph).toBe("◐");
@@ -96,6 +98,7 @@ describe("deriveCoverageFooter", () => {
 			windowFromMs: 0,
 			windowToMs: 1,
 			appComplete: false,
+			mode: "day",
 		});
 		expect(r.text).toContain("no app time retained");
 		expect(r.text).toContain("no runs retained");
@@ -113,6 +116,7 @@ describe("deriveCoverageFooter", () => {
 			windowFromMs: 0,
 			windowToMs: 1,
 			appComplete: false,
+			mode: "day",
 		});
 		expect(r.text).toContain("app time since jul 21");
 		expect(r.text).toContain("no runs retained");
@@ -129,6 +133,7 @@ describe("deriveCoverageFooter", () => {
 			windowFromMs: 0,
 			windowToMs: 1,
 			appComplete: false,
+			mode: "day",
 		});
 		expect(r.text).toContain("(365-day retention; capture began jul 21)");
 	});
@@ -145,11 +150,12 @@ describe("deriveCoverageFooter", () => {
 			windowFromMs: 0,
 			windowToMs: 1,
 			appComplete: false,
+			mode: "day",
 		});
 		expect(r.text).not.toContain("365-day retention");
 	});
 
-	it("healthy: complete window -> ● capture healthy", () => {
+	it("day mode, complete + covering window -> ● capture healthy", () => {
 		const from = day(2026, 6, 21);
 		const r = deriveCoverageFooter({
 			anchors: {
@@ -161,12 +167,14 @@ describe("deriveCoverageFooter", () => {
 			windowFromMs: from,
 			windowToMs: from + 86_400_000,
 			appComplete: true,
+			mode: "day",
 		});
 		expect(r.glyph).toBe("●");
+		expect(r.framing).toBe("capture healthy");
 		expect(r.text).toContain("capture healthy");
 	});
 
-	it("incomplete window with a covering anchor still reads mixed coverage (not healthy)", () => {
+	it("day mode, incomplete window -> ◐ partial window (never mixed coverage)", () => {
 		const from = day(2026, 6, 21);
 		const r = deriveCoverageFooter({
 			anchors: {
@@ -178,9 +186,32 @@ describe("deriveCoverageFooter", () => {
 			windowFromMs: from,
 			windowToMs: from + 86_400_000,
 			appComplete: false, // series completeness is not "complete"
+			mode: "day",
 		});
 		expect(r.glyph).toBe("◐");
+		expect(r.framing).toBe("partial window");
+		expect(r.text).toContain("partial window");
+		expect(r.text).not.toContain("mixed coverage");
+	});
+
+	it("week mode: ALWAYS ◐ mixed coverage, even when the app anchor fully covers the window (no ● leak)", () => {
+		const from = day(2026, 6, 21);
+		const r = deriveCoverageFooter({
+			anchors: {
+				earliestDayMs: day(2026, 2, 31),
+				appRetainedSinceMs: from - 86_400_000,
+				runsRetainedSinceMs: from - 86_400_000,
+			},
+			firstCaptureAt: from - 86_400_000,
+			windowFromMs: from,
+			windowToMs: from + 86_400_000,
+			appComplete: true, // would be healthy under day-mode rules
+			mode: "week",
+		});
+		expect(r.glyph).toBe("◐");
+		expect(r.framing).toBe("mixed coverage");
 		expect(r.text).toContain("mixed coverage");
+		expect(r.text).not.toContain("capture healthy");
 	});
 
 	// Composed (b): the suffix condition is driven by a REAL pruned store's
@@ -210,6 +241,7 @@ describe("deriveCoverageFooter", () => {
 			windowFromMs: now - 7 * DAY,
 			windowToMs: now,
 			appComplete: false,
+			mode: "day", // the composed window is a 7d (day-mode) range
 		});
 		expect(r.glyph).toBe("◐");
 		expect(r.text).toContain("365-day retention; capture began");

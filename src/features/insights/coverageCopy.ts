@@ -12,6 +12,7 @@ export interface CoverageFooterInput {
 	windowFromMs: number;
 	windowToMs: number;
 	appComplete: boolean; // series completeness === "complete" for the window
+	mode: "day" | "week"; // domain mode — drives the three-way framing below
 }
 
 const RETENTION_CLIP_GRACE_MS = 86_400_000; // 1 day
@@ -53,11 +54,21 @@ function appRunsClauses(
 	return [appClause(appRetainedSinceMs), runsClause(runsRetainedSinceMs)];
 }
 
+// Three-way framing (spec §6 / prototype), mode-aware:
+//   mode === "week"              -> ALWAYS "◐ mixed coverage" (the prototype
+//                                    forces this for the `all` range — no "●"
+//                                    leak even when the app anchor covers the
+//                                    domain start).
+//   mode === "day"  && healthy   -> "● capture healthy"
+//   mode === "day"  && !healthy  -> "◐ partial window"
+// `framing` is returned separately from `text` so the widget can style the
+// framing span (`.is-partial`) apart from the clause list.
 export function deriveCoverageFooter(input: CoverageFooterInput): {
 	glyph: "●" | "◐";
+	framing: string;
 	text: string;
 } {
-	const { anchors, firstCaptureAt, windowFromMs, appComplete } = input;
+	const { anchors, firstCaptureAt, windowFromMs, appComplete, mode } = input;
 	const { earliestDayMs, appRetainedSinceMs, runsRetainedSinceMs } = anchors;
 
 	const clauses = appRunsClauses(appRetainedSinceMs, runsRetainedSinceMs);
@@ -66,11 +77,16 @@ export function deriveCoverageFooter(input: CoverageFooterInput): {
 	}
 
 	const healthy =
+		mode === "day" &&
 		appComplete &&
 		appRetainedSinceMs !== null &&
 		appRetainedSinceMs <= windowFromMs;
 	const glyph: "●" | "◐" = healthy ? "●" : "◐";
-	const framing = healthy ? "capture healthy" : "mixed coverage";
+	const framing = healthy
+		? "capture healthy"
+		: mode === "week"
+			? "mixed coverage"
+			: "partial window";
 
 	const retainedAnchors = [appRetainedSinceMs, runsRetainedSinceMs].filter(
 		(v): v is number => v !== null,
@@ -86,5 +102,9 @@ export function deriveCoverageFooter(input: CoverageFooterInput): {
 		? ` (365-day retention; capture began ${formatShortDate(firstCaptureAt)})`
 		: "";
 
-	return { glyph, text: `${framing} — ${clauses.join(" · ")}${suffix}` };
+	return {
+		glyph,
+		framing,
+		text: `${framing} — ${clauses.join(" · ")}${suffix}`,
+	};
 }
