@@ -63,11 +63,11 @@ Seen-state persists via the existing `PushWakeStateStore` pattern (a second keye
 The watcher (existing `push-wake-watcher.ts` cadence, 3s tick) runs both detectors and applies, in order:
 
 1. **Enabled gate** — `xbpService.getStatus().enabled && isPushWakeOn()` (unchanged).
-2. **Suppress-while-connected** — if the host currently holds a live phone peer session (`xbp-peer-session.ts` connection state), skip the send and audit `suppressed-connected`. Known edge: iOS may keep the socket up ~30s after backgrounding; a ping lost to that window is recovered by the pull on next open. Accepted.
+2. **Suppress-while-connected** — if the host currently holds a live, authenticated phone connection, skip the send and audit `suppressed-connected`. No existing signal expresses this (the SDK peer is connectionless and pairing-ceremony state is reset after confirmation); the child spec §3 defines it as socket-liveness AND recent authenticated capability request (45s window). Known edge: iOS may keep the socket up ~30s after backgrounding; the recency half bounds that window, and a ping lost to the residue is recovered by the pull on next open. Accepted.
 3. **Global coalesce** — if any ping (either detector) was sent within the last 60s, skip and audit `coalesced`. Pings are content-free, so one ping already summons the user to the aggregate state.
 4. **Send** — one content-free ping regardless of how many events the tick produced.
 
-Audit log gains the two new outcomes (`suppressed-connected`, `coalesced`) alongside the existing `sent` / `dead-token-cleared` / `retry-exhausted` / `no-token`.
+Audit log gains `suppressed-connected`, `coalesced`, and `persist-failed` alongside the existing `sent` / `dead-token-cleared` / `retry-exhausted`, and starts auditing the previously-silent `no-token` skip; entries carry detector attribution. The exact entry type, the persist-failed fail-quiet rule, and the audited-vs-silent path table are the child spec's §2–§4.
 
 ## 6. Data flow
 
@@ -108,7 +108,7 @@ Any failure here is a bug to fix inside this workstream, not a deferral.
 | NSE pull fails (host unreachable, timeout) | Generic banner "Xavier — something needs you" | User opens app → pull. Degradation, not loss. |
 | Token dead (`DeviceNotRegistered`) | Token cleared, audited | Phone re-registers on next connect (existing state-action). |
 | Crash between persist and send | Ping lost | Pull covers it; never re-pings a settled session. |
-| Phone backgrounded but socket lingers | Ping suppressed as "connected" | Pull on next open. Accepted edge (§5.2). |
+| Phone backgrounded but socket lingers | Ping suppressed as "connected" until the 45s authenticated-recency window lapses | Pull on next open. Accepted edge (§5.2); bounded by the recency half of the signal. |
 | Attention flaps (waiting↔active rapidly) | At most one ping per 60s globally | Coalesce + once-per-transition bound the noise. |
 
 ## 9. Ops gate (runbook, one-time)
@@ -121,7 +121,8 @@ Any failure here is a bug to fix inside this workstream, not a deferral.
 
 ## 10. Testing strategy
 
-- **Unit (ai-14all):** detector transition table (enter/escalate/re-arm/first-sight/unknown states); payload content-free invariant (exact four keys, constant title, nothing event-derived); watcher ordering (persist-before-send), suppression, and coalesce; audit outcomes.
+- **Unit (ai-14all):** detector transition table (enter/escalate/re-arm/first-sight/unknown states); payload content-free invariant (exact four keys, constant title, nothing event-derived); watcher ordering (persist-before-send, fail-quiet on persist failure), suppression, and coalesce; audit outcomes.
+- **E2E (ai-14all, Playwright):** cumulative-suite coverage of the new user-visible behavior (attention transition → recorded content-free POST; suppression while the fake phone is connected) — child spec §6; required by ai-14all's AGENTS.md, and not substituted by the manual device gate (§9.5).
 - **Existing suites stay green:** whisper detector tests unchanged; sender tests updated for the new payload.
 - **Conformance:** the NSE's XCTest conformance suite (`XavierNSETests`) already covers envelope/crypto; not re-run unless NSE code changes.
 - **Device (manual, gated):** §9.5 — the only check code cannot prove.
