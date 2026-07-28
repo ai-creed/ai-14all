@@ -40,6 +40,10 @@ export function createPushWakeWatcher(deps: {
 	let ticking = false;
 	let state: PushWakeWatcherStateV2 | null | undefined; // undefined = not loaded
 	let persistFailStreakAudited = false;
+	// Latches the attention-poll-rejection warning so a permanently-down
+	// provider doesn't log every 3s (same pattern as persistFailStreakAudited).
+	// Reset on the next successful poll — see the try/catch below.
+	let attentionRejectStreakWarned = false;
 
 	async function tick(): Promise<void> {
 		if (ticking) return;
@@ -62,17 +66,35 @@ export function createPushWakeWatcher(deps: {
 			// untouched. A RESOLVED report is authoritative, even when empty
 			// (prunes everything); it also counts as the first successful pass
 			// that establishes a null namespace (baseline: record, no fire).
+			//
+			// The try/catch guards ONLY the network/IPC hop (`getSessionReport`).
+			// `detectAttentionEvents` runs outside it deliberately: a throw there
+			// is a detector bug, not an unavailable provider, and must propagate
+			// to the outer catch (same treatment the whisper side already gets)
+			// instead of being silently swallowed as "unavailable" forever.
 			const attentionSeen = state?.attention ?? null;
-			let attentionPass: {
+			let report: {
+				sessions: ReadonlyArray<{ worktreeId: string; attention: string }>;
+			} | null = null;
+			try {
+				report = await deps.getSessionReport();
+				attentionRejectStreakWarned = false; // successful poll re-arms the latch
+			} catch (e) {
+				// Warn once per rejection streak — a permanently-down provider
+				// must not log every 3s. No audit-table change (§4 outcomes are
+				// unchanged); this is diagnostic-only signal.
+				if (!attentionRejectStreakWarned) {
+					console.warn("[push-wake] attention report unavailable:", e);
+					attentionRejectStreakWarned = true;
+				}
+			}
+			const attentionPass: {
 				events: ReturnType<typeof detectAttentionEvents>["events"];
 				next: typeof attentionSeen;
-			};
-			try {
-				const report = await deps.getSessionReport();
-				attentionPass = detectAttentionEvents(attentionSeen, report.sessions);
-			} catch {
-				attentionPass = { events: [], next: attentionSeen };
-			}
+			} =
+				report === null
+					? { events: [], next: attentionSeen }
+					: detectAttentionEvents(attentionSeen, report.sessions);
 
 			const whisperEvents = whisperPass.events;
 			const attentionEvents = attentionPass.events;

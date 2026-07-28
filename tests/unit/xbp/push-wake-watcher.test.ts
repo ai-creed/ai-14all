@@ -48,7 +48,22 @@ function makeHarness(dir: string) {
 		sends: 0,
 		audits: [] as PushWakeAuditEntry[],
 		failSaves: false,
+		// Extension for the re-entrancy regression: when true, send() suspends
+		// on an externally-controlled promise instead of resolving
+		// synchronously, so a test can hold a tick "in flight" across a send
+		// that (in production) can take ~20s against the 3s poll interval.
+		deferSend: false,
+		resolveSend: async () => {},
 		watcher: undefined as unknown as ReturnType<typeof createPushWakeWatcher>,
+	};
+	const pendingSendResolvers: Array<(outcome: PushSendOutcome) => void> = [];
+	h.resolveSend = async () => {
+		// Poll until the in-flight tick's send() has actually registered its
+		// resolver — resolving before that would be a no-op and leave the
+		// caller's `await tick` hanging forever.
+		while (pendingSendResolvers.length === 0) await Promise.resolve();
+		const resolve = pendingSendResolvers.shift()!;
+		resolve(h.sendOutcome);
 	};
 	const failableStore = {
 		load: () => h.store.load(),
@@ -72,6 +87,11 @@ function makeHarness(dir: string) {
 		hasLivePhoneConnection: () => h.connected,
 		send: async () => {
 			h.sends += 1;
+			if (h.deferSend) {
+				return await new Promise<PushSendOutcome>((resolve) => {
+					pendingSendResolvers.push(resolve);
+				});
+			}
 			return h.sendOutcome;
 		},
 		audit: (e) => h.audits.push(e),
@@ -182,6 +202,33 @@ describe("push-wake watcher", () => {
 		expect(h.audits).toHaveLength(1);
 	});
 
+	it("gate precedence: suppressed-connected wins over no-token on a fresh transition", async () => {
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick(); // baseline
+		h.connected = true;
+		h.hasToken = false;
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		await h.watcher.tick();
+		expect(h.sends).toBe(0);
+		expect(h.audits.map((a) => a.outcome)).toEqual(["suppressed-connected"]);
+	});
+
+	it("gate precedence: suppressed-connected wins over coalesced on a fresh transition inside the coalesce window", async () => {
+		h.report = { sessions: [att("wt-1", "active"), att("wt-2", "active")] };
+		await h.watcher.tick(); // baseline
+		h.report = { sessions: [att("wt-1", "waiting"), att("wt-2", "active")] };
+		await h.watcher.tick(); // sent; establishes lastPingAt (inside the coalesce window from here on)
+		expect(h.audits.map((a) => a.outcome)).toEqual(["sent"]);
+		h.connected = true; // now suppressed
+		h.report = { sessions: [att("wt-1", "waiting"), att("wt-2", "failed")] };
+		await h.watcher.tick(); // fresh transition, well inside the 60s coalesce window
+		expect(h.sends).toBe(1); // unchanged from before — no new send
+		expect(h.audits.map((a) => a.outcome)).toEqual([
+			"sent",
+			"suppressed-connected",
+		]);
+	});
+
 	it("no-token consumption: token appearing later does not fire a stale burst", async () => {
 		h.hasToken = false;
 		h.report = { sessions: [att("wt-1", "active")] };
@@ -290,6 +337,34 @@ describe("push-wake watcher", () => {
 		await h.watcher.tick();
 		expect(h.sends).toBe(1); // no second send
 		expect(h.audits).toHaveLength(1); // no new audit
+	});
+
+	it("attention rejection warns once per streak; a recovered poll resets the latch so a later rejection warns again", async () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		try {
+			h.rejectReport = true;
+			await h.watcher.tick(); // rejection #1: attention pass skipped, warns once
+			expect(h.store.load()?.attention).toBeNull(); // skipped: namespace untouched
+			expect(warnSpy).toHaveBeenCalledTimes(1);
+			expect(warnSpy).toHaveBeenCalledWith(
+				"[push-wake] attention report unavailable:",
+				expect.any(Error),
+			);
+			await h.watcher.tick(); // still rejecting: same streak, silent
+			await h.watcher.tick();
+			expect(warnSpy).toHaveBeenCalledTimes(1);
+
+			h.rejectReport = false; // recovered poll
+			await h.watcher.tick(); // resolves; resets the latch — no new warn on success
+			expect(warnSpy).toHaveBeenCalledTimes(1);
+
+			h.rejectReport = true; // a later rejection after recovery
+			await h.watcher.tick();
+			expect(warnSpy).toHaveBeenCalledTimes(2); // latch re-armed: warns again
+			expect(h.sends).toBe(0); // no attention event ever actually fired in this test
+		} finally {
+			warnSpy.mockRestore();
+		}
 	});
 
 	it("namespace preservation converse: blank whisper rides through an attention-event save", async () => {
@@ -433,6 +508,26 @@ describe("push-wake watcher", () => {
 		expect(h.store.load()?.lastPingAt).toBe(h.nowMs); // attempt reserved
 		await h.watcher.tick(); // unchanged input: consumed, nothing new
 		expect(h.audits).toHaveLength(1);
+	});
+
+	it("re-entrancy guard: an overlapping tick() while a send is in flight does not double-send", async () => {
+		h.report = { sessions: [att("wt-1", "active")] };
+		await h.watcher.tick(); // baseline
+		h.report = { sessions: [att("wt-1", "waiting")] };
+		h.deferSend = true;
+		// Simulates a real send (~20s) outliving the 3s poll interval: tick1
+		// suspends inside send(); tick2 is the interval firing again before
+		// tick1 resolves. Neither is awaited before the other starts — exactly
+		// the overlap the `ticking` guard exists to prevent.
+		const tick1 = h.watcher.tick();
+		const tick2 = h.watcher.tick(); // `ticking` is already true synchronously
+		// (set on tick1's very first line, before its first await) — so tick2
+		// must return immediately without ever reaching send().
+		await tick2;
+		await h.resolveSend(); // let tick1's send() resolve
+		await tick1;
+		expect(h.sends).toBe(1); // send() invoked exactly once, not twice
+		expect(h.audits).toHaveLength(1); // exactly one audit entry, not two
 	});
 
 	it("a rejected getStates does not escape tick(): resolves, warns, and self-heals without deadlocking `ticking`", async () => {
