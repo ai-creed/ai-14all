@@ -3,10 +3,11 @@
 **Status:** Design approved (2026-07-28) via the interactive prototype
 `docs/design-specs/2026-07-28-insights-dashboard-prototype.html`,
 iterated with the user across three rounds. Revised same day after SDD
-spec review (round 1): pull-based usage range query, one shared
+spec review — round 1: pull-based usage range query, one shared
 local-calendar bucket domain, read-result error envelope, schema v3 span
-index, tui zero-motion override, prototype v4 consistency fixes. Not yet
-implemented.
+index, tui zero-motion override, prototype v4 consistency fixes;
+round 2: seven-column floor for the `all` range and retention-truthful
+coverage anchors (§4.5). Not yet implemented.
 
 ## 1. What this is
 
@@ -54,10 +55,11 @@ zones) and a **by-workspace** view (runs + tokens per workspace).
 6. **Ranges:** `today / 7d / 30d / all`. `today`, `7d` render 7 daily
    columns (week rule: never fewer than seven, current day marked); `30d`
    renders 30 daily columns; `all` renders **weekly buckets since the
-   earliest data across sources** — the domain starts at
-   `min(earliestDayMs, firstCaptureAt)` (whichever sources exist; §4
-   "bucket domain"), so the ledger's months of token history and the
-   capture-bound app/runs series share one bucket domain, with the
+   earliest retained data across sources** — the domain starts at the
+   data-start anchor `min(earliestDayMs, appRetainedSinceMs,
+   runsRetainedSinceMs)` (§4.5/§4.7), padded to a **seven-column floor**
+   when history is shorter, so the ledger's months of token history and
+   the capture-bound app/runs series share one bucket domain, with the
    capture-start rule (§2.9) marking where the detailed sources begin.
 7. **Views:** `overview` (four zones + stat tiles) and `workspaces`
    (grouped table). The range picker applies to both.
@@ -73,7 +75,11 @@ zones) and a **by-workspace** view (runs + tokens per workspace).
    runs start at first capture. Pre-capture buckets render as quiet
    baseline stubs; the footer states coverage explicitly; long windows use
    the `◐ mixed coverage` framing. Detailed and aggregate sources are
-   never summed into one number.
+   never summed into one number. **Truth survives retention:** every
+   "since <date>" caption derives from what the store still holds (the
+   retained anchors, §4.5), never from the immutable first-capture
+   marker — a year-old capture whose oldest rows the 365-day prune has
+   removed must not claim history it no longer has.
 10. **Telemetry framing (standing rule):** usage analytics, never
     provider-limit monitoring. Costs are always labeled `≈ … est`. No
     limit gauges anywhere on this surface.
@@ -187,8 +193,9 @@ interface AppTimeSeriesResult {
 	// buckets[i] covers [bucketEdgesMs[i], bucketEdgesMs[i+1])
 	buckets: Array<{ startMs: number; focusedMs: number; engagedMs: number }>;
 	completeness: Completeness;    // whole-domain, from the app.uptime union
-	firstCaptureAt: number | null; // meta read; drives the capture-start rule
 }
+// The capture line + "since" captions come from the coverage anchors
+// (§4.5), which the renderer already holds before this call.
 // InsightsWorkerToMain += { kind: "seriesResult"; requestId; result: AppTimeSeriesResult }
 //                       + { kind: "queryError"; requestId; message } (§4.1)
 ```
@@ -243,18 +250,43 @@ CREATE INDEX idx_obs_span ON observations (source, kind, occurred_end);
   never a full-table `SCAN` — the same style as the E1 retention guard in
   `tests/unit/insights/store/schema.test.ts`.
 
-### 4.5 First-capture read (domain anchor)
+### 4.5 Coverage anchors (domain + truthful "since" dates)
 
-The `all` domain needs `firstCaptureAt` **before** the series fetch. The
-host already receives it in every worker status message
-(`status.firstCaptureAt`) but currently keeps only a boolean
-(`firstCaptureSeen`); it now caches the value and answers a new O(1)
-invoke without any worker round-trip:
+The `all` domain and every "since <date>" caption need anchors **before**
+the series fetch — and `firstCaptureAt` alone is not a truthful anchor.
+The retention prune (`services/insights/retention.ts`,
+`OBSERVATION_RETENTION_DAYS = 365`, `DELETE … WHERE event_ts < cutoff`)
+removes the oldest observations while the `first_capture_at` meta key is
+immutable, so a store can hold data since first capture, since the
+retention floor, or — capture long disabled — nothing at all despite a
+years-old marker. The only truthful anchor is the store itself. New
+correlated worker query:
 
-- `insights.firstCaptureAt(): Promise<number | null>` (IPC
-  `insights:firstCaptureAt`). `null` until the first status after boot or
-  when capture has never run — the renderer then falls back to the 7-day
-  floor (§4.7).
+```ts
+// worker-protocol.ts
+// InsightsQuery += { name: "coverageAnchors" }
+
+interface CoverageAnchorsResult {
+	firstCaptureAt: number | null;      // meta read — "capture began" copy, empty state
+	appRetainedSinceMs: number | null;  // MIN(event_ts) WHERE kind = 'app.uptime'
+	runsRetainedSinceMs: number | null; // MIN(event_ts) WHERE kind = 'whisper.workflow'
+}
+```
+
+- Both MINs are leftmost seeks on the existing v1 index
+  `idx_obs_kind_ts (kind, event_ts)` — O(log N), read-only. This is
+  exact, not approximate: app spans always set `event_ts`
+  (`span-observation.ts` uses `span.endMs`) and the prune deletes by
+  `event_ts`, so `MIN(event_ts)` is precisely "the earliest row the
+  prune has spared".
+- Preload `insights.coverageAnchors()` (IPC `insights:coverageAnchors`),
+  enveloped per §4.1. No host-side caching of status fields is involved.
+- Fetch order in the hook: `coverageAnchors` + `usage.queryRange` in
+  parallel → compute the bucket domain (§4.7) → series + runs queries.
+- **Every "app time & runs since <date>" caption uses the retained
+  anchors, never `firstCaptureAt`** (§6). `firstCaptureAt` appears only
+  in the "capture began <date>" clause of the retention-clipped footer
+  variant and in the empty-state condition.
 
 ### 4.6 New usage read — exact-range rollup
 
@@ -313,9 +345,15 @@ export type UsageRangeResult =
 - **Domains per range:** `today`/`7d` → the 7 local days ending today
   (charts show the window; tiles filter to the selected range — for
   `today`, the last day bucket). `30d` → 30 local days. `all` → local
-  Monday-start weeks from `weekStart(min(earliestDayMs, firstCaptureAt))`
-  (ignore whichever is null; both null → fall back to the 7-day window)
-  through the current week. Never fewer than 7 columns in any mode.
+  Monday-start weeks from `weekStart(dataStartMs)` through the current
+  week, where `dataStartMs = min(earliestDayMs, appRetainedSinceMs,
+  runsRetainedSinceMs)` over the non-null anchors (all null → fall back
+  to the 7-day window). **Seven-column floor:** when that domain yields
+  fewer than 7 weeks (e.g. the first data landed this week), the start
+  extends back to `currentWeekStart − 6 weeks`; the padded weeks render
+  as quiet baseline stubs for **every** source, and the footer keeps
+  quoting the real anchors — the stubs never imply data. Never fewer
+  than 7 columns in any mode.
 - **Tiles:** focused/engaged = Σ series buckets in the selected range;
   runs = `insights.query` results filtered to the range; tokens/cost =
   Σ `days` in the range from `usage.queryRange`.
@@ -341,7 +379,7 @@ export type UsageRangeResult =
 - `src/features/insights/bucketEdges.ts` — the shared local-calendar edge
   generator + week-fold helpers (decision 12).
 - `src/features/insights/useInsightsDashboardData.ts` — range/view state
-  + the fetch orchestration of §4.7 (firstCaptureAt + queryRange →
+  + the fetch orchestration of §4.5/§4.7 (coverageAnchors + queryRange →
   domain → series/runs), envelope handling (§2.13), poll + retry.
 - `src/components/ui/chart.tsx` — vendored shadcn chart primitives.
 - `src/dashboard.tsx` + `dashboard.html` — the detached-window entry:
@@ -362,19 +400,22 @@ export type UsageRangeResult =
   file), notify the main window on open/close so the overlay can restore
   on reattach.
 - `electron/main/services/insights-host.ts` — envelope mapping (§4.1),
-  `queryError` handling, `queryAppTimeSeries` correlated request, cached
-  `firstCaptureAt` (§4.5).
+  `queryError` handling, `queryAppTimeSeries` + `coverageAnchors`
+  correlated requests (§4.3/§4.5).
 - `electron/main/services/usage-host.ts` — correlated `queryRange`
   request map + timeout (§4.6).
 - IPC: `insights:openWindow`, `insights:reattach`,
-  `insights:firstCaptureAt`, `usage:queryRange` (+ preload
-  `insights.detach()` / `insights.reattach()` / `insights.firstCaptureAt()`
-  / `usage.queryRange()` and an `insights.onWindowClosed` listener for
-  chip-bar/overlay state), typed in `shared/contracts/commands.ts`.
+  `insights:coverageAnchors`, `usage:queryRange` (+ preload
+  `insights.detach()` / `insights.reattach()` /
+  `insights.coverageAnchors()` / `usage.queryRange()` and an
+  `insights.onWindowClosed` listener for chip-bar/overlay state), typed
+  in `shared/contracts/commands.ts`.
 
 **Workers:**
 - `services/insights/store/app-time-series.ts` (new view) +
-  `worker-protocol.ts` messages (`appTimeSeries` query, `seriesResult`,
+  `services/insights/store/coverage-anchors.ts` (two indexed MIN seeks +
+  meta read, §4.5) + `worker-protocol.ts` messages (`appTimeSeries` and
+  `coverageAnchors` queries, `seriesResult`, `anchorsResult`,
   `queryError`) + worker query try/catch.
 - `services/insights/store/schema.ts` v3 (`idx_obs_span`) + schema test
   extension (§4.4).
@@ -386,9 +427,11 @@ export type UsageRangeResult =
 
 - **Loading:** tiles show `· · ·`; body shows `querying local store…`.
   No skeleton animation beyond that (motion restrained).
-- **Empty** (capture off / no capture ever — `ok: true` with no data and
-  `firstCaptureAt: null`): `◌ / no insights data yet / capture starts
-  when insights is enabled in settings…` + `open settings` action.
+- **Empty** (nothing to show anywhere — `ok: true` reads with no data:
+  both retained anchors `null` and no ledger days; `firstCaptureAt` may
+  still be non-null if a long-ago capture was fully pruned):
+  `◌ / no insights data yet / capture starts when insights is enabled in
+  settings…` + `open settings` action.
 - **Error** (any insights read `ok: false`, or `usage.queryRange`
   timeout): `! / insights store unavailable / …recover on retry` +
   `retry` action (danger tokens; layout preserved). Retry refetches every
@@ -400,7 +443,14 @@ export type UsageRangeResult =
 - **Partial coverage:** footer variants exactly as prototyped
   (`◐ partial window — app time & runs since <date> …`,
   `◐ mixed coverage — … tokens since <date> (ledger)`,
-  `● capture healthy — …`).
+  `● capture healthy — …`) — every `<date>` from the retained anchors
+  (§4.5), never `firstCaptureAt`.
+- **Retention-clipped coverage** (when `firstCaptureAt` precedes the
+  earliest retained anchor by more than one day — i.e. the prune has
+  removed the oldest capture):
+  `◐ mixed coverage — app time & runs retained since <retained date>
+  (365-day retention; capture began <first-capture date>) · tokens since
+  <ledger date> (ledger)`.
 - Footer right side: `updated HH:MM:SS · local store · no network`.
 
 ## 7. Accessibility & quality bar
@@ -429,12 +479,19 @@ export type UsageRangeResult =
 - **AC3 — ranges & buckets.** All zones in a view share one bucket
   domain from the single edge generator, local-calendar aligned;
   today/7d → 7 daily columns with local today marked; 30d → 30 daily;
-  all → weekly buckets since `min(earliestDayMs, firstCaptureAt)`;
-  never fewer than 7 columns in any mode.
+  all → weekly buckets from the data-start anchor (§4.7) with the
+  seven-column floor — an `all` domain whose first data lands in the
+  current week still renders 7 weekly columns (6 truthful stubs + the
+  current week); never fewer than 7 columns in any mode.
 - **AC4 — coverage honesty.** Token buckets render wherever the ledger
   has days — including pre-capture buckets; app-time and runs buckets
-  stub before `firstCaptureAt`; footer copy matches §6; aggregate and
-  detailed sources are never summed.
+  stub before their **retained** anchors (§4.5); every "since <date>"
+  caption derives from the retained anchors, never from
+  `firstCaptureAt` alone; when retention has pruned the oldest capture,
+  the retention-clipped footer variant (§6) shows both the
+  retained-since date and "capture began" — the dashboard never claims
+  data older than what the store still holds. Footer copy matches §6;
+  aggregate and detailed sources are never summed.
 - **AC5 — workspaces view.** Table rows come from
   `usage.queryRange().byWorkspace` for the exact selected range (tokens,
   provider-mix share bar, `≈ $ est`) joined with runs grouped from
@@ -459,7 +516,14 @@ export type UsageRangeResult =
 **Verification:** `pnpm typecheck && pnpm lint && pnpm test` green;
 `pnpm test:e2e insights` green — the existing insights e2e assertions are
 updated to unwrap the §4.1 envelope (`.data`), an expected edit of this
-slice; new e2e covering AC1–AC2 happy paths.
+slice; new e2e covering AC1–AC2 happy paths. Required unit regression
+cases: (a) **short-history `all`** — edge generator with a data-start
+anchor inside the current week yields exactly 7 weekly columns, the
+first 6 rendered as stubs (AC3); (b) **retention-clipped anchors** — a
+store whose `first_capture_at` predates its oldest retained row (seed a
+v3 store, prune, then read anchors) reports
+`appRetainedSinceMs > firstCaptureAt`, and the footer derivation
+selects the retention-clipped variant (AC4).
 
 ## 9. Follow-up ledger (explicitly out of slice 1)
 
