@@ -447,6 +447,12 @@ const api: Ai14AllDesktopApi = {
 		queryAppTime(range) {
 			return ipcRenderer.invoke("insights:queryAppTime", range);
 		},
+		queryAppTimeSeries(bucketEdgesMs: number[]) {
+			return ipcRenderer.invoke("insights:queryAppTimeSeries", bucketEdgesMs);
+		},
+		coverageAnchors() {
+			return ipcRenderer.invoke("insights:coverageAnchors");
+		},
 		checkNoticePending() {
 			return ipcRenderer.invoke("insights:noticePending");
 		},

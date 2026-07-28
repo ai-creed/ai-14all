@@ -46,7 +46,13 @@ export function registerInsightsIpc(
 	ipcMain: Pick<IpcMain, "handle">,
 	host: Pick<
 		InsightsHost,
-		"deleteAll" | "ackNotice" | "isNoticePending" | "query" | "queryAppTime"
+		| "deleteAll"
+		| "ackNotice"
+		| "isNoticePending"
+		| "query"
+		| "queryAppTime"
+		| "queryAppTimeSeries"
+		| "coverageAnchors"
 	>,
 	setInsightsEnabled: (enabled: boolean) => void | Promise<void>,
 	testSeam?: { seam: InsightsTestSeam; env: { AI14ALL_E2E?: string } },
@@ -73,6 +79,12 @@ export function registerInsightsIpc(
 	ipcMain.handle("insights:queryAppTime", (_event, range: unknown) =>
 		host.queryAppTime(normalizeRange(range)),
 	);
+	// Series edges are renderer-supplied and validated IN THE HOST (§4.1
+	// bad-request) — pass through untouched so validation lives in one place.
+	ipcMain.handle("insights:queryAppTimeSeries", (_event, edges: unknown) =>
+		host.queryAppTimeSeries(edges as number[]),
+	);
+	ipcMain.handle("insights:coverageAnchors", () => host.coverageAnchors());
 
 	// Test seam: registered ONLY under the E2E flag, and then it accepts only the
 	// enumerated signals — anything else is rejected without touching the

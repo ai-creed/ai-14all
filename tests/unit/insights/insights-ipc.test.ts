@@ -20,6 +20,20 @@ import {
 
 type IpcHandler = (event: unknown, ...args: unknown[]) => unknown;
 
+// The host surface registerInsightsIpc consumes — kept as one alias so the
+// Pick<...> key list (widened for queryAppTimeSeries/coverageAnchors) stays in
+// sync across every stub in this file instead of drifting per call site.
+type InsightsIpcHost = Pick<
+	InsightsHost,
+	| "deleteAll"
+	| "ackNotice"
+	| "isNoticePending"
+	| "query"
+	| "queryAppTime"
+	| "queryAppTimeSeries"
+	| "coverageAnchors"
+>;
+
 // Minimal ipcMain double: records handle() registrations and lets tests invoke
 // them by channel. Cast to Pick<IpcMain, "handle"> at the registrar seam (the
 // registrar only calls handle()).
@@ -51,15 +65,14 @@ const sett = (
 describe("insights IPC", () => {
 	it("registers setEnabled + deleteAll + noticeAck + noticePending; setEnabled routes to the persist+derive closure (never host.setEnabled)", async () => {
 		const ipc = stubIpcMain();
-		const host: Pick<
-			InsightsHost,
-			"deleteAll" | "ackNotice" | "isNoticePending" | "query" | "queryAppTime"
-		> = {
+		const host: InsightsIpcHost = {
 			deleteAll: vi.fn().mockResolvedValue(undefined),
 			ackNotice: vi.fn(),
 			isNoticePending: vi.fn().mockReturnValue(true),
 			query: vi.fn().mockResolvedValue({ runs: [], completeness: "unknown" }),
 			queryAppTime: vi.fn(),
+			queryAppTimeSeries: vi.fn(),
+			coverageAnchors: vi.fn(),
 		};
 		const setInsightsEnabled = vi.fn();
 		registerInsightsIpc(asIpc(ipc), host, setInsightsEnabled);
@@ -88,10 +101,9 @@ describe("insights IPC", () => {
 			isNoticePending: vi.fn(),
 			query,
 			queryAppTime: vi.fn(),
-		} as unknown as Pick<
-			InsightsHost,
-			"deleteAll" | "ackNotice" | "isNoticePending" | "query" | "queryAppTime"
-		>;
+			queryAppTimeSeries: vi.fn(),
+			coverageAnchors: vi.fn(),
+		} as unknown as InsightsIpcHost;
 		registerInsightsIpc(asIpc(ipc), host, vi.fn());
 
 		expect(ipc.has("insights:query")).toBe(true);
@@ -157,10 +169,19 @@ describe("insights seam guard + appTime query", () => {
 				engagedMs: 2,
 				completeness: "partial",
 			}),
-		}) as unknown as Pick<
-			InsightsHost,
-			"deleteAll" | "ackNotice" | "isNoticePending" | "query" | "queryAppTime"
-		>;
+			queryAppTimeSeries: vi.fn().mockResolvedValue({
+				ok: true,
+				data: { buckets: [], completeness: "partial" },
+			}),
+			coverageAnchors: vi.fn().mockResolvedValue({
+				ok: true,
+				data: {
+					firstCaptureAt: null,
+					appRetainedSinceMs: null,
+					runsRetainedSinceMs: null,
+				},
+			}),
+		}) as unknown as InsightsIpcHost;
 
 	it("registers insights:queryAppTime and normalizes the range", async () => {
 		const ipc = stubIpcMain();
@@ -175,6 +196,38 @@ describe("insights seam guard + appTime query", () => {
 		expect(
 			(h as unknown as { queryAppTime: ReturnType<typeof vi.fn> }).queryAppTime,
 		).toHaveBeenLastCalledWith({ fromMs: 0, toMs: 0 });
+	});
+
+	it("registers insights:queryAppTimeSeries and insights:coverageAnchors, routing straight to the host", async () => {
+		const ipc = stubIpcMain();
+		const h = host();
+		registerInsightsIpc(asIpc(ipc), h, vi.fn());
+
+		expect(ipc.has("insights:queryAppTimeSeries")).toBe(true);
+		await ipc.invoke("insights:queryAppTimeSeries", [0, 1000]);
+		expect(
+			(h as unknown as { queryAppTimeSeries: ReturnType<typeof vi.fn> })
+				.queryAppTimeSeries,
+		).toHaveBeenCalledWith([0, 1000]);
+
+		expect(ipc.has("insights:coverageAnchors")).toBe(true);
+		await ipc.invoke("insights:coverageAnchors");
+		expect(
+			(h as unknown as { coverageAnchors: ReturnType<typeof vi.fn> })
+				.coverageAnchors,
+		).toHaveBeenCalled();
+	});
+
+	it("insights:queryAppTimeSeries passes non-array input through UNVALIDATED — the host owns the bad-request path", async () => {
+		const ipc = stubIpcMain();
+		const h = host();
+		registerInsightsIpc(asIpc(ipc), h, vi.fn());
+
+		await ipc.invoke("insights:queryAppTimeSeries", "garbage");
+		expect(
+			(h as unknown as { queryAppTimeSeries: ReturnType<typeof vi.fn> })
+				.queryAppTimeSeries,
+		).toHaveBeenCalledWith("garbage");
 	});
 
 	it("the seam is ABSENT on BOTH sides without AI14ALL_E2E (unreachable in production)", () => {

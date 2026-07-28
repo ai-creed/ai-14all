@@ -438,6 +438,17 @@ export interface InsightsAppTime {
 	completeness: InsightsCompleteness;
 }
 
+export interface InsightsAppTimeSeries {
+	buckets: Array<{ startMs: number; focusedMs: number; engagedMs: number }>;
+	completeness: InsightsCompleteness;
+}
+
+export interface InsightsCoverageAnchors {
+	firstCaptureAt: number | null;
+	appRetainedSinceMs: number | null;
+	runsRetainedSinceMs: number | null;
+}
+
 // Read-result envelope (spec §4/§10.4): every insights read resolves ok/false
 // rather than throwing, so a wedged worker, a mid-wipe read, or a malformed
 // request all surface as a typed reason instead of an unhandled rejection.
@@ -646,19 +657,34 @@ export type Ai14AllDesktopApi = {
 		ackNotice(): Promise<void>;
 		// Typed read contract (spec §10.4 getWhisperRuns): fetch the whisper runs
 		// started within [range.fromMs, range.toMs) plus a coverage completeness
-		// flag. Resolves an empty result (never rejects) when capture is disabled
-		// (no worker) or the worker fails to answer in time.
-		query(range: { fromMs: number; toMs: number }): Promise<{
-			runs: InsightsWhisperRun[];
-			completeness: InsightsCompleteness;
-		}>;
+		// flag. Resolves an InsightsReadResult envelope; capture-off resolves ok
+		// with empty data (never rejects) when capture is disabled (no worker) or
+		// the worker fails to answer in time.
+		query(range: { fromMs: number; toMs: number }): Promise<
+			InsightsReadResult<{
+				runs: InsightsWhisperRun[];
+				completeness: InsightsCompleteness;
+			}>
+		>;
 		// Aggregated app-time read contract (spec §7): focused/engaged ms clipped
-		// to the range plus uptime-derived completeness. Resolves an empty result
+		// to the range plus uptime-derived completeness. Resolves an
+		// InsightsReadResult envelope; capture-off resolves ok with empty data
 		// (never rejects) when capture is disabled or the worker does not answer.
 		queryAppTime(range: {
 			fromMs: number;
 			toMs: number;
-		}): Promise<InsightsAppTime>;
+		}): Promise<InsightsReadResult<InsightsAppTime>>;
+		// Bucketed app-time series read contract (spec §4.3): the same aggregation
+		// as queryAppTime, split across the caller-supplied bucket edges. Mirrors
+		// queryAppTime's envelope/timeout semantics.
+		queryAppTimeSeries(
+			bucketEdgesMs: number[],
+		): Promise<InsightsReadResult<InsightsAppTimeSeries>>;
+		// Retention/coverage-anchors read contract (spec §4.5): the earliest
+		// capture and per-source retention floors, used to bound how far back the
+		// dashboard can honestly render. Mirrors query's envelope/timeout
+		// semantics.
+		coverageAnchors(): Promise<InsightsReadResult<InsightsCoverageAnchors>>;
 		onNotice(listener: () => void): () => void;
 		// Pull-on-mount recovery for the one-time first-capture notice: the
 		// boot-time `insights:notice` push fires before InsightsNotice mounts (the

@@ -319,18 +319,24 @@ test("app-focus collector: durable within one poll, no engaged inflation, crash 
 				),
 			[type, arg] as const,
 		);
-	const appTime = async (fromMs: number, toMs: number) =>
-		page.evaluate(
+	const appTime = async (fromMs: number, toMs: number) => {
+		const r = await page.evaluate(
 			([f, t]) =>
 				(
 					window as unknown as {
 						ai14all: {
 							insights: {
-								queryAppTime: (r: { fromMs: number; toMs: number }) => Promise<{
-									focusedMs: number;
-									engagedMs: number;
-									completeness: string;
-								}>;
+								queryAppTime: (r: { fromMs: number; toMs: number }) => Promise<
+									| {
+											ok: true;
+											data: {
+												focusedMs: number;
+												engagedMs: number;
+												completeness: string;
+											};
+									  }
+									| { ok: false; reason: string }
+								>;
 							};
 						};
 					}
@@ -340,6 +346,11 @@ test("app-focus collector: durable within one poll, no engaged inflation, crash 
 				}),
 			[fromMs, toMs] as const,
 		);
+		if (!r.ok) {
+			throw new Error("insights read failed: " + JSON.stringify(r));
+		}
+		return r.data;
+	};
 
 	// AC1: focus + ONE active poll must be durable BEFORE any blur/flush.
 	await seam("focus", { atMs: t0 });
