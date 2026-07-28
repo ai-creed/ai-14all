@@ -13,7 +13,9 @@ source-specific footer copy; round 4: app-time anchor spans all
 series-visible app kinds (live sessions have no `app.uptime` closure
 yet) and one untracked-usage inclusion rule for rows, tiles, and
 charts; round 5: explicit workspace-level view-model aggregation
-(`buildWorkspaceRows`, §4.8) over the raw per-provider usage rows.
+(`buildWorkspaceRows`, §4.8) over the raw per-provider usage rows;
+round 6: §4.8 seeds every registry workspace and the untracked row
+before folding, and null-`repoId` run groups fold into untracked.
 Not yet implemented.
 
 ## 1. What this is
@@ -452,8 +454,10 @@ interface WorkspaceRowVM {
 
 function buildWorkspaceRows(
 	usageRows: UsageRow[],             // queryRange().byWorkspace, unfiltered
-	runGroups: Map<string, { done: number; halted: number; failed: number }>,
-	                                   // insights.query runs grouped by repoId
+	runGroups: Map<string | null, { done: number; halted: number; failed: number }>,
+	                                   // insights.query runs grouped by repoId —
+	                                   // the run contract permits repoId: null
+	                                   // (unattributed runs), so null IS a key
 	workspaces: WorkspaceIndex,        // renderer registry: workspaceId →
 	                                   //   { title, repoId, rootPath, worktreeCount }
 ): { rows: WorkspaceRowVM[]; totals: Pick<WorkspaceRowVM, "runs" | "tokens" | "costUsd"> }
@@ -461,28 +465,41 @@ function buildWorkspaceRows(
 
 Rules:
 
+- **Seed rows first, fold data second.** The row set is created
+  up-front: one zero-valued row per `WorkspaceIndex` entry **plus the
+  untracked row, unconditionally** — then usage rows and run groups
+  fold into them. A zero-activity registered workspace and an empty
+  untracked group therefore still render (AC5's "exactly one row per
+  workspace plus one untracked row" holds with no data at all); zero
+  rows contribute nothing, so totals are unaffected. An implementation
+  that creates rows only from present usage/run data is non-conformant.
 - **Grouping is a partition:** group key `workspaceId ?? "untracked"`.
-  Every usage row lands in exactly one group, so `Σ rows[].tokens`
+  Every usage row lands in exactly one seeded group, so `Σ rows[].tokens`
   equals the raw total by construction — nothing dropped, nothing
   double-counted, and per-provider/per-worktree duplicates cannot reach
-  the UI.
+  the UI. A usage row whose `workspaceId` is missing from the index
+  still creates its own row (fallback title below) — it is never
+  silently merged into untracked.
 - **Provider mix:** per-provider token subtotals within the group,
   sorted desc; the share bar renders these proportions, the tooltip
   states the numbers. Invariant: `Σ mix[].tokens === tokens` for every
   row.
 - **Cost:** sum of the group's non-null `costUsd`; `null` (rendered `—`)
   only when no row in the group is priced. Always labeled `≈ … est`.
-- **Runs join:** run groups key on `repoId`; a workspace matches
-  through the repository identity in the renderer registry. Run groups
-  with no matching workspace fold into the untracked row's triple —
-  runs are never dropped — so `Σ rows[].runs` equals the overview run
-  tiles.
+- **Runs join:** run groups key on `repoId: string | null`; a workspace
+  matches through the repository identity in the renderer registry.
+  The **`null` key** (unattributed runs — the run contract explicitly
+  permits `repoId: null`) and any non-null `repoId` matching no
+  registered workspace fold into the untracked row's triple — runs are
+  never dropped — so `Σ rows[].runs` equals the overview run tiles.
 - **Name/detail:** workspace title from the renderer registry
   (fallback: the group's first `worktreeTitle`); untracked uses the
   prototyped `untracked / outside managed workspaces` copy.
-- **Sort & totals:** rows sorted by tokens desc; `totals` sums the VM
-  rows and — by the partition arguments above — equals the overview
-  tiles for the same range.
+- **Sort & totals:** rows sorted by tokens desc, ties by name asc with
+  the untracked row last within its tie group (so all-zero states are
+  deterministic: registered workspaces alphabetical, untracked last);
+  `totals` sums the VM rows and — by the seed + partition arguments
+  above — equals the overview tiles for the same range.
 
 ## 5. Components & files
 
@@ -637,12 +654,15 @@ Rules:
   one untracked row** — never a row per provider or per worktree — each
   with its provider-mix share bar (`Σ mix tokens = row tokens`), `≈ $
   est` cost, and runs joined by `repoId` (done/halted/failed in status
-  colors; unmatched run groups fold into untracked); sorted by tokens;
-  **one inclusion rule** (decision 14): untracked buckets are in every
-  sum and the untracked row always renders, so the totals row
-  **exactly** equals the overview tiles for the same range; the
-  popover's `includeUntracked` preference has no effect on this
-  surface; no per-row share rounding anywhere.
+  colors; null-`repoId` and unmatched-`repoId` run groups fold into
+  untracked, never dropped); sorted by tokens; **row presence is
+  unconditional** (§4.8 seeding): every registry workspace renders even
+  with zero activity, and the untracked row renders even with no
+  untracked data; **one inclusion rule** (decision 14): untracked
+  buckets are in every sum, so the totals row **exactly** equals the
+  overview tiles for the same range; the popover's `includeUntracked`
+  preference has no effect on this surface; no per-row share rounding
+  anywhere.
 - **AC6 — states & errors.** Loading/empty/error render the designed
   states; empty (capture off) and error (store failure) are
   distinguishable per the §4.1 envelope; a transient query failure
@@ -692,7 +712,15 @@ provider/worktree duplicates); every row satisfies
 `Σ mix[].tokens === tokens`; row costs sum to the range `cost.total`;
 a run group with no matching workspace folds into the untracked row;
 and `Σ rows.tokens = Σ days = Σ byProvider.tokens` with
-`totals` equal to the overview-tile sums (AC5).
+`totals` equal to the overview-tile sums (AC5); (g) **unconditional
+row presence** — a `buildWorkspaceRows` fixture whose registry contains
+a workspace with **no** usage rows and no run groups, whose usage data
+contains **no** untracked buckets, and whose run groups include a
+`repoId: null` entry plus a non-null `repoId` matching no workspace:
+the zero-activity workspace renders a zero row, the untracked row still
+renders and carries both folded run groups' triples, no run is dropped
+(`Σ rows.runs` equals the seeded run totals), and `totals` still equals
+the overview-tile sums (AC5).
 
 ## 9. Follow-up ledger (explicitly out of slice 1)
 
