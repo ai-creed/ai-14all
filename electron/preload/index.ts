@@ -430,6 +430,9 @@ const api: Ai14AllDesktopApi = {
 		setChipRange(range) {
 			return ipcRenderer.invoke("usage:setChipRange", range);
 		},
+		queryRange(query) {
+			return ipcRenderer.invoke("usage:queryRange", query);
+		},
 	},
 	insights: {
 		setEnabled(enabled) {

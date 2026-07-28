@@ -723,6 +723,16 @@ export function registerIpcHandlers(
 		const range = raw === "month" ? "month" : "week";
 		usageHost?.setChipRange(range);
 	});
+	ipcMain.handle("usage:queryRange", (_event, raw: unknown) => {
+		const q = (raw ?? {}) as { fromMs?: unknown; toMs?: unknown };
+		const num = (v: unknown): number =>
+			typeof v === "number" && Number.isFinite(v) ? v : 0;
+		// No host (usage telemetry not wired for this window) → same no-worker
+		// state UsageHost itself resolves for every other no-proc case.
+		if (!usageHost)
+			return Promise.resolve({ ok: false, reason: "disabled" as const });
+		return usageHost.queryRange({ fromMs: num(q.fromMs), toMs: num(q.toMs) });
+	});
 
 	// --- Insights capture ---
 

@@ -647,6 +647,11 @@ export type Ai14AllDesktopApi = {
 		setEnabled(enabled: boolean): Promise<void>;
 		setIncludeUntracked(includeUntracked: boolean): Promise<void>;
 		setChipRange(range: "week" | "month"): Promise<void>;
+		// Correlated cross-scope range read (decision 14): independent of
+		// chipRange/includeUntracked — those popover config knobs never affect it.
+		queryRange(
+			query: import("../models/usage.js").UsageRangeQuery,
+		): Promise<import("../models/usage.js").UsageRangeResult>;
 	};
 	insights: {
 		// Programmatic sub-toggle write (spec §7.3). The handler persists the
