@@ -97,8 +97,12 @@ async function pressCommandPalette(page: Page): Promise<void> {
 
 test.beforeEach(async () => {
 	repo = createTestRepo();
-	userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-insights-db-ud-")));
-	whisperRoot = realpathSync(mkdtempSync(join(tmpdir(), "ofa-insights-db-wr-")));
+	userDataDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-insights-db-ud-")),
+	);
+	whisperRoot = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-insights-db-wr-")),
+	);
 	cpSync(
 		join(HERE, "fixtures", "whisper-state-v7.db"),
 		join(whisperRoot, "state.db"),
