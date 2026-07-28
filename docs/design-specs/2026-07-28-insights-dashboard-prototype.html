@@ -1,0 +1,907 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Insights dashboard — app-time slice 1 (v3)</title>
+<style>
+/* ============================================================
+   Token blocks mirrored verbatim from src/styles/tokens.css
+   (dashboard-design worktree, 2026-07-28). --danger mirrors
+   --destructive; provider tokens copied per theme (tui inherits
+   the :root values, mirrored here explicitly). --accent kept OFF
+   this surface — today-emphasis uses --primary (tui's --accent
+   resolves to the bg2 ladder step and would vanish on the card).
+   Charts: in implementation these become shadcn ChartContainer
+   config colors (--chart-*) mapped to exactly these tokens.
+   ============================================================ */
+[data-theme="dark"] {
+  --background: oklch(0.129 0.042 264.695);
+  --foreground: oklch(0.984 0.003 247.858);
+  --card: oklch(0.208 0.042 265.755);
+  --popover: oklch(0.208 0.042 265.755);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);
+  --primary: oklch(0.929 0.013 255.508);
+  --primary-foreground: oklch(0.208 0.042 265.755);
+  --secondary: oklch(0.279 0.041 260.031);
+  --border: oklch(1 0 0 / 10%);
+  --ring: oklch(0.551 0.027 264.364);
+  --warning: oklch(0.828 0.122 75);
+  --info: oklch(0.72 0.13 235);
+  --success: oklch(0.72 0.15 155);
+  --danger: oklch(0.704 0.191 22.216);
+  --provider-claude: #d97706;
+  --provider-codex: #2563eb;
+  --provider-ezio: #d6519e;
+  --shell-border-width: 1px;
+}
+[data-theme="light"] {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.129 0.042 264.695);
+  --card: oklch(1 0 0);
+  --popover: oklch(1 0 0);
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.42 0.046 257.417);
+  --primary: oklch(0.208 0.042 265.755);
+  --primary-foreground: oklch(0.984 0.003 247.858);
+  --secondary: oklch(0.968 0.007 247.896);
+  --border: oklch(0.929 0.013 255.508);
+  --ring: oklch(0.55 0.04 256.788);
+  --warning: oklch(0.43 0.14 60);
+  --info: oklch(0.42 0.17 250);
+  --success: oklch(0.52 0.15 155);
+  --danger: oklch(0.45 0.24 27.325);
+  --provider-claude: #b45309;
+  --provider-codex: #1d4ed8;
+  --provider-ezio: #b3247e;
+  --shell-border-width: 1px;
+}
+[data-theme="warm"] {
+  --background: #221c15;
+  --foreground: #f6efe4;
+  --card: #2a231b;
+  --popover: #342c22;
+  --muted: #3d2817;
+  --muted-foreground: #cab999;
+  --primary: #e58a5e;
+  --primary-foreground: #221c15;
+  --secondary: #3d2817;
+  --border: #4a3f31;
+  --ring: #9a8266;
+  --warning: #dda85e;
+  --info: oklch(0.72 0.13 235);
+  --success: oklch(0.74 0.14 150);
+  --danger: #d97058;
+  --provider-claude: #e58a5e;
+  --provider-codex: #5a9bd6;
+  --provider-ezio: #d97aae;
+  --shell-border-width: 1px;
+}
+[data-theme="tui"] {
+  --background: oklch(0.16 0.015 240);
+  --foreground: oklch(0.96 0.01 200);
+  --card: oklch(0.2 0.015 240);
+  --popover: oklch(0.2 0.015 240);
+  --muted: oklch(0.26 0.015 240);
+  --muted-foreground: oklch(0.68 0.02 230);
+  --primary: oklch(0.78 0.13 175);
+  --primary-foreground: oklch(0.16 0.015 240);
+  --secondary: oklch(0.26 0.015 240);
+  --border: oklch(0.34 0.015 240);
+  --ring: oklch(0.78 0.13 175);
+  --warning: oklch(0.828 0.122 75);
+  --info: oklch(0.72 0.13 235);
+  --success: oklch(0.74 0.13 165);
+  --danger: oklch(0.704 0.191 22.216);
+  --provider-claude: #d97706; /* tui inherits :root provider values */
+  --provider-codex: #2563eb;
+  --provider-ezio: #d6519e;
+  --shell-border-width: 2px; /* box-drawing weight, per tokens.css tui block */
+}
+
+:root {
+  --font-ui: "SF Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, monospace;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px;
+  --space-4: 16px; --space-5: 20px; --space-6: 24px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  background: var(--background);
+  color: var(--foreground);
+  display: flex;
+  gap: 28px;
+  padding: 24px;
+  align-items: flex-start;
+}
+/* per-theme page washes, mirroring src/styles/base.css body rules */
+[data-theme="dark"] body { background: radial-gradient(circle at top, #10181f 0%, var(--background) 55%); }
+[data-theme="warm"] body { background: radial-gradient(circle at top, #2c2318 0%, var(--background) 60%); }
+[data-theme="tui"] body { background: var(--background); line-height: 1.4; }
+
+button { font: inherit; }
+button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0s !important; animation-duration: 0s !important; }
+}
+
+/* ---------------- Controls column ---------------- */
+.controls { width: 264px; flex-shrink: 0; font-size: 12px; line-height: 1.5; }
+.controls h1 { font-size: 15px; margin: 0 0 4px; letter-spacing: .02em; }
+.controls .sub { color: var(--muted-foreground); margin: 0 0 18px; }
+.controls .group { margin-bottom: 18px; }
+.controls .lbl {
+  text-transform: uppercase; letter-spacing: .08em; font-size: 10px;
+  color: var(--muted-foreground); margin-bottom: 6px;
+}
+.controls .row { display: flex; flex-wrap: wrap; gap: 4px; }
+.ctl-btn {
+  background: none; color: var(--muted-foreground);
+  border: var(--shell-border-width) solid var(--border);
+  border-radius: 0; padding: 3px 10px; font-size: 11px; cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+.ctl-btn:hover { color: var(--foreground); border-color: var(--muted-foreground); }
+.ctl-btn.on { background: var(--muted); color: var(--foreground); }
+.controls .note { color: var(--muted-foreground); font-size: 11px; }
+.controls .note b { color: var(--foreground); font-weight: 600; }
+.controls .note p { margin: 0 0 8px; }
+
+/* ---------------- Stage ---------------- */
+.stage { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.stage-cap { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-foreground); }
+
+.idb-shell { width: min(1080px, 100%); }
+.idb-titlebar {
+  display: none;
+  align-items: center; gap: var(--space-2);
+  padding: 5px var(--space-3);
+  background: var(--popover);
+  border: var(--shell-border-width) solid var(--border);
+  border-bottom: none;
+  font-size: 10px; color: var(--muted-foreground);
+  letter-spacing: .04em;
+}
+.idb-shell.is-window .idb-titlebar { display: flex; }
+.idb-titlebar .tb-title { flex: 1; text-align: center; }
+.tb-btn {
+  background: none; border: none; color: var(--muted-foreground);
+  cursor: pointer; font-size: 10px; padding: 1px 6px;
+  transition: color 150ms ease;
+}
+.tb-btn:hover { color: var(--foreground); }
+
+/* ---------------- Dashboard frame ---------------- */
+.idb-frame {
+  background: var(--card);
+  border: var(--shell-border-width) solid var(--border);
+  border-radius: 0;
+  display: flex; flex-direction: column;
+}
+.idb-head {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--shell-border-width) solid var(--border);
+}
+.idb-title {
+  font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.idb-title b { color: var(--foreground); font-weight: 600; }
+.idb-head .spacer { flex: 1; }
+.idb-seg {
+  display: inline-flex; background: var(--background);
+  border: var(--shell-border-width) solid var(--border);
+  border-radius: 0; overflow: hidden;
+}
+.idb-seg button {
+  padding: 3px 10px; font-size: 10px; letter-spacing: .04em;
+  color: var(--muted-foreground); background: none; border: none; cursor: pointer;
+  transition: color 150ms ease, background 150ms ease;
+}
+.idb-seg button.on { background: var(--popover); color: var(--foreground); }
+.idb-seg button:hover:not(.on) { color: var(--foreground); }
+.idb-act {
+  background: none; border: var(--shell-border-width) solid var(--border);
+  color: var(--muted-foreground); border-radius: 0;
+  padding: 2px var(--space-2); font-size: 10px; cursor: pointer;
+  white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-1);
+  transition: color 150ms ease, border-color 150ms ease;
+}
+.idb-act:hover { border-color: var(--muted-foreground); color: var(--foreground); }
+.idb-shell.is-window .idb-act--detach { display: none; }
+
+/* headline stat tiles */
+.idb-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border-bottom: var(--shell-border-width) solid var(--border);
+}
+.idb-stat {
+  padding: var(--space-3);
+  border-right: var(--shell-border-width) solid var(--border);
+  min-width: 0;
+}
+.idb-stat:last-child { border-right: none; }
+.idb-stat .k {
+  font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted-foreground); margin-bottom: 6px;
+}
+.idb-stat .v {
+  font-size: 22px; font-weight: 700; color: var(--foreground);
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.idb-stat .s { font-size: 10px; color: var(--muted-foreground); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.idb-stat .s .ok { color: var(--success); }
+.idb-stat .s .warn { color: var(--warning); }
+.idb-stat .s .bad { color: var(--danger); }
+
+/* widget grid (overview) */
+.idb-grid { display: grid; grid-template-columns: 2fr 1fr; }
+.idb-cell {
+  padding: var(--space-3);
+  border-bottom: var(--shell-border-width) solid var(--border);
+  border-right: var(--shell-border-width) solid var(--border);
+  min-width: 0;
+}
+.idb-cell:nth-child(2n) { border-right: none; }
+.idb-grid--half { grid-template-columns: 1fr 1fr; }
+.idb-grid--half .idb-cell { border-bottom: none; }
+.idb-cell-h {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--space-2); gap: var(--space-2);
+}
+.idb-cell-h .k {
+  font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.idb-legend { display: flex; gap: var(--space-2); font-size: 9px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+.idb-legend .sw { display: inline-block; width: 8px; height: 8px; margin-right: 3px; vertical-align: -1px; border-radius: 0; }
+
+/* area chart (implementation: shadcn ChartContainer + Recharts AreaChart) */
+.idb-area { width: 100%; height: 150px; display: block; }
+.idb-area .grid-line { stroke: var(--border); stroke-width: 1; }
+.idb-area .axis-t { font-size: 8px; fill: var(--muted-foreground); font-family: var(--font-ui); }
+.idb-area .area-foc { fill: var(--muted-foreground); fill-opacity: .18; stroke: var(--muted-foreground); stroke-width: 1.5; }
+.idb-area .area-eng { fill: var(--primary); fill-opacity: .28; stroke: var(--primary); stroke-width: 2; }
+.idb-area .today-line { stroke: var(--primary); stroke-width: 1; }
+.idb-area .cap-line { stroke: var(--border); stroke-width: 1; }
+.idb-labels { display: flex; gap: 2px; margin-top: 3px; }
+.idb-label {
+  flex: 1; min-width: 2px; overflow: hidden; font-size: 8px; line-height: 1.2;
+  text-align: center; color: var(--muted-foreground);
+}
+.idb-label.is-today { color: var(--primary); font-weight: 700; }
+.idb-labels.is-sparse .idb-label { overflow: visible; white-space: nowrap; text-align: left; }
+
+/* rhythm: 24 hour columns */
+.idb-rhythm { display: flex; align-items: flex-end; gap: 1px; height: 150px; }
+.idb-rcol { flex: 1; min-width: 2px; background: none; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.idb-rcol .fill { width: 100%; background: var(--primary); }
+.idb-rcol.is-off .fill { background: var(--muted); }
+.idb-rlabels { display: flex; gap: 1px; margin-top: 3px; }
+.idb-rlabel { flex: 1; min-width: 2px; font-size: 8px; text-align: center; color: var(--muted-foreground); overflow: visible; white-space: nowrap; }
+
+/* stacked bar charts (implementation: shadcn BarChart, stacked) */
+.idb-bars { display: flex; align-items: flex-end; gap: 2px; height: 110px; }
+.idb-bars.is-dense { gap: 1px; }
+.idb-bcol {
+  flex: 1; min-width: 2px; display: flex; flex-direction: column-reverse;
+  align-items: stretch; height: 100%; justify-content: flex-start;
+}
+.idb-bcol .seg { width: 100%; }
+.idb-bcol.is-today { min-height: 2px; box-shadow: inset 0 -2px 0 0 var(--primary); }
+.idb-bcol.is-precapture { min-height: 2px; box-shadow: inset 0 -2px 0 0 var(--border); }
+.seg--done { background: var(--success); }
+.seg--halted { background: var(--warning); }
+.seg--failed { background: var(--danger); }
+.seg--claude { background: var(--provider-claude); }
+.seg--codex { background: var(--provider-codex); }
+.seg--ezio { background: var(--provider-ezio); }
+.sw--done { background: var(--success); }
+.sw--halted { background: var(--warning); }
+.sw--failed { background: var(--danger); }
+.sw--claude { background: var(--provider-claude); }
+.sw--codex { background: var(--provider-codex); }
+.sw--ezio { background: var(--provider-ezio); }
+.sw--eng { background: var(--primary); }
+.sw--foc { background: var(--muted-foreground); }
+
+/* ---------------- workspace view ---------------- */
+.idb-ws { padding: var(--space-3); }
+.idb-ws-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) auto minmax(140px, 1fr) 76px 76px;
+  gap: 0 var(--space-3);
+  align-items: center;
+}
+.idb-ws-grid .hd {
+  font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted-foreground); padding-bottom: 6px;
+  border-bottom: var(--shell-border-width) solid var(--border);
+}
+.idb-ws-grid .hd.r, .idb-ws-grid .cell.r { text-align: right; }
+.idb-ws-grid .cell {
+  padding: 7px 0;
+  border-bottom: var(--shell-border-width) solid var(--border);
+  font-variant-numeric: tabular-nums; font-size: 11px;
+  min-width: 0;
+}
+.idb-ws-grid .row-last .cell { border-bottom: none; }
+.ws-name { font-size: 12px; color: var(--foreground); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-path { font-size: 10px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-runs { white-space: nowrap; color: var(--muted-foreground); }
+.ws-runs .ok { color: var(--success); }
+.ws-runs .warn { color: var(--warning); }
+.ws-runs .bad { color: var(--danger); }
+.ws-share { height: 6px; background: none; display: flex; }
+.ws-share .p { height: 100%; }
+.ws-share .p--claude { background: var(--provider-claude); }
+.ws-share .p--codex { background: var(--provider-codex); }
+.ws-share .p--ezio { background: var(--provider-ezio); }
+.ws-tok { color: var(--foreground); font-weight: 600; }
+.ws-cost { color: var(--muted-foreground); }
+.idb-ws-total {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) auto minmax(140px, 1fr) 76px 76px;
+  gap: 0 var(--space-3);
+  border-top: var(--shell-border-width) solid var(--border);
+  margin-top: -1px; padding: 8px 0 0;
+  font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 700;
+  color: var(--foreground);
+}
+.idb-ws-total .r { text-align: right; }
+.idb-ws-note { margin-top: var(--space-3); font-size: 10px; color: var(--muted-foreground); }
+.idb-ws-note .g { color: var(--info); }
+
+/* footer */
+.idb-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--shell-border-width) solid var(--border);
+  font-size: 10px; color: var(--muted-foreground);
+}
+.idb-foot .is-partial { color: var(--warning); }
+
+/* ---------------- data states ---------------- */
+.idb-state { display: none; padding: var(--space-6) var(--space-4); text-align: center; }
+.idb-state .glyph { font-size: 26px; color: var(--muted-foreground); display: block; margin-bottom: var(--space-2); }
+.idb-state .h { font-size: 13px; color: var(--foreground); font-weight: 600; margin-bottom: 4px; }
+.idb-state .p { font-size: 11px; color: var(--muted-foreground); margin: 0 auto var(--space-3); max-width: 420px; line-height: 1.5; }
+.idb-state--error .glyph, .idb-state--error .h { color: var(--danger); }
+.idb-shell.state-loading .idb-stat .v { color: var(--muted-foreground); }
+.idb-shell.state-loading .idb-body { display: none; }
+.idb-shell.state-loading .idb-loading-line { display: block; }
+.idb-loading-line { display: none; font-size: 11px; color: var(--muted-foreground); padding: var(--space-6) 0; text-align: center; }
+.idb-shell.state-empty .idb-stats, .idb-shell.state-empty .idb-body,
+.idb-shell.state-error .idb-stats, .idb-shell.state-error .idb-body { display: none; }
+.idb-shell.state-empty .idb-state--empty { display: block; }
+.idb-shell.state-error .idb-state--error { display: block; }
+/* view switching */
+#ws-body { display: none; }
+.idb-shell.view-ws #ov-body { display: none; }
+.idb-shell.view-ws #ws-body { display: block; }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <h1>insights ▸ dashboard</h1>
+  <p class="sub">slice 1 v3 — overlay + detachable window; overview & by-workspace views</p>
+
+  <div class="group">
+    <div class="lbl">theme</div>
+    <div class="row" id="theme-row">
+      <button class="ctl-btn on" data-theme-btn="dark">dark</button>
+      <button class="ctl-btn" data-theme-btn="light">light</button>
+      <button class="ctl-btn" data-theme-btn="warm">warm</button>
+      <button class="ctl-btn" data-theme-btn="tui">tui</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="lbl">host frame</div>
+    <div class="row" id="host-row">
+      <button class="ctl-btn on" data-host="overlay">overlay</button>
+      <button class="ctl-btn" data-host="window">detached window</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="lbl">data state</div>
+    <div class="row" id="state-row">
+      <button class="ctl-btn on" data-state-btn="live">live</button>
+      <button class="ctl-btn" data-state-btn="loading">loading</button>
+      <button class="ctl-btn" data-state-btn="empty">empty</button>
+      <button class="ctl-btn" data-state-btn="error">error</button>
+    </div>
+  </div>
+
+  <div class="group note">
+    <div class="lbl">what changed in v3</div>
+    <p><b>all range</b> — weekly buckets since data began, per-source honest: tokens reach the ledger's march history; app time & runs start at capture (jul 21), marked by the vertical rule in the area chart.</p>
+    <p><b>workspaces view</b> — runs + tokens + est. cost per workspace (whisper runs carry repo attribution; the ledger is cwd-keyed). Focused/engaged per workspace needs the workspace-active collector — noted as follow-up.</p>
+    <p><b>30d fix</b> — token bars no longer show pre-capture stubs: the ledger has daily buckets for all 30 days; only app time & runs are capture-bound.</p>
+    <p style="margin-top:10px"><b>Charts:</b> mockup hand-draws (self-contained); implementation = shadcn ChartContainer + Recharts, --chart-* vars → these tokens.</p>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="stage-cap" id="stage-cap">expanded overlay — replaces the main column, like review expanded</div>
+
+  <div class="idb-shell" id="shell">
+    <div class="idb-titlebar">
+      <span class="tb-title">ai-14all — insights</span>
+      <button class="tb-btn" title="Reattach to main window">⇱ reattach</button>
+    </div>
+
+    <div class="idb-frame">
+      <div class="idb-head">
+        <span class="idb-title">insights ▸ <b>dashboard</b></span>
+        <div class="idb-seg" id="view-seg">
+          <button data-view="overview" class="on">overview</button>
+          <button data-view="ws">workspaces</button>
+        </div>
+        <div class="idb-seg" id="range-seg">
+          <button data-range="today">today</button>
+          <button data-range="7d" class="on">7d</button>
+          <button data-range="30d">30d</button>
+          <button data-range="all">all</button>
+        </div>
+        <span class="spacer"></span>
+        <button class="idb-act idb-act--detach" title="Detach into its own window">⧉ detach</button>
+        <button class="idb-act" title="Close">✕</button>
+      </div>
+
+      <div class="idb-stats" id="stats">
+        <div class="idb-stat">
+          <div class="k">focused</div>
+          <div class="v" id="v-focused">—</div>
+          <div class="s" id="s-focused">app in foreground</div>
+        </div>
+        <div class="idb-stat">
+          <div class="k">engaged</div>
+          <div class="v" id="v-engaged">—</div>
+          <div class="s" id="s-engaged">keyboard / pointer active</div>
+        </div>
+        <div class="idb-stat">
+          <div class="k">agent runs</div>
+          <div class="v" id="v-runs">—</div>
+          <div class="s" id="s-runs">—</div>
+        </div>
+        <div class="idb-stat">
+          <div class="k">tokens</div>
+          <div class="v" id="v-tokens">—</div>
+          <div class="s" id="s-tokens">—</div>
+        </div>
+      </div>
+
+      <div class="idb-body">
+        <div id="ov-body">
+          <div class="idb-grid">
+            <div class="idb-cell">
+              <div class="idb-cell-h">
+                <span class="k" id="area-title">app time — daily</span>
+                <div class="idb-legend">
+                  <span><span class="sw sw--eng"></span>engaged</span>
+                  <span><span class="sw sw--foc"></span>focused</span>
+                </div>
+              </div>
+              <svg class="idb-area" id="area" viewBox="0 0 660 150" preserveAspectRatio="none"></svg>
+              <div class="idb-labels" id="area-labels"></div>
+            </div>
+
+            <div class="idb-cell">
+              <div class="idb-cell-h">
+                <span class="k">rhythm — focus by hour</span>
+              </div>
+              <div class="idb-rhythm" id="rhythm"></div>
+              <div class="idb-rlabels">
+                <span class="idb-rlabel" style="flex:6; text-align:left">00</span>
+                <span class="idb-rlabel" style="flex:6; text-align:left">06</span>
+                <span class="idb-rlabel" style="flex:6; text-align:left">12</span>
+                <span class="idb-rlabel" style="flex:6; text-align:left">18</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="idb-grid idb-grid--half">
+            <div class="idb-cell">
+              <div class="idb-cell-h">
+                <span class="k" id="runs-title">agent workflows — runs by day</span>
+                <div class="idb-legend">
+                  <span><span class="sw sw--done"></span>done</span>
+                  <span><span class="sw sw--halted"></span>halted</span>
+                  <span><span class="sw sw--failed"></span>failed</span>
+                </div>
+              </div>
+              <div class="idb-bars" id="runs-bars"></div>
+              <div class="idb-labels" id="runs-labels"></div>
+            </div>
+
+            <div class="idb-cell">
+              <div class="idb-cell-h">
+                <span class="k" id="tok-title">token burn — daily, est.</span>
+                <div class="idb-legend">
+                  <span><span class="sw sw--claude"></span>claude</span>
+                  <span><span class="sw sw--codex"></span>codex</span>
+                  <span><span class="sw sw--ezio"></span>ezio</span>
+                </div>
+              </div>
+              <div class="idb-bars" id="tok-bars"></div>
+              <div class="idb-labels" id="tok-labels"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="ws-body">
+          <div class="idb-ws">
+            <div class="idb-ws-grid" id="ws-grid"></div>
+            <div class="idb-ws-total" id="ws-total"></div>
+            <div class="idb-ws-note">
+              <span class="g">›</span> focused / engaged per workspace lands with the
+              workspace-active collector (follow-up slice) — the "effort on project X" number.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="idb-loading-line">querying local store…</div>
+
+      <div class="idb-state idb-state--empty">
+        <span class="glyph">◌</span>
+        <div class="h">no insights data yet</div>
+        <p class="p">capture starts when insights is enabled in settings — the first samples appear within a minute of using the app.</p>
+        <button class="idb-act">open settings</button>
+      </div>
+
+      <div class="idb-state idb-state--error">
+        <span class="glyph">!</span>
+        <div class="h">insights store unavailable</div>
+        <p class="p">the local insights database could not be read. your data is intact; this view will recover on retry.</p>
+        <button class="idb-act">retry</button>
+      </div>
+
+      <div class="idb-foot">
+        <span id="foot-left">● capture healthy</span>
+        <span>updated 12:04:32 · local store · no network</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- fake data. today = tue 2026-07-28.
+   insights capture (app time + whisper runs) began 2026-07-21.
+   token ledger reaches back to 2026-03-31 (usage ledger history). ---------- */
+const H = 3600_000;
+const DAY_NAMES = ["S","M","T","W","T","F","S"];
+
+// Daily tokens exist for ALL 30 days (ledger); app time + runs only since jul 21.
+// [tokClaude, tokCodex, tokEzio] for jun 29 .. jul 20 (22 pre-capture days):
+const PRE_TOK = [
+  [12,4,1],[14,5,2],[11,6,1],[13,4,2],[8,3,1],[2,1,0],[1,0,0],
+  [13,5,2],[15,6,1],[12,4,3],[14,7,2],[9,3,1],[3,1,0],[0,0,0],
+  [16,6,2],[13,5,1],[15,8,3],[12,4,1],[10,5,2],[4,1,0],[1,1,0],[14,6,2],
+];
+// [label, dow, focusedH, engagedH, runsDone, runsHalted, runsFailed, tokC, tokX, tokE]
+const CAPTURED = [
+  ["jul 21", 2, 6.9, 4.4, 3, 1, 0, 18,  9, 3],
+  ["jul 22", 3, 6.2, 3.9, 5, 0, 1, 22,  6, 0],
+  ["jul 23", 4, 7.1, 4.6, 4, 2, 0, 15, 11, 5],
+  ["jul 24", 5, 5.4, 3.2, 2, 0, 0,  9,  4, 2],
+  ["jul 25", 6, 1.2, 0.6, 1, 0, 0,  3,  1, 0],
+  ["jul 26", 0, 0.0, 0.0, 0, 0, 0,  0,  0, 0],
+  ["jul 27", 1, 7.8, 5.1, 6, 1, 1, 26,  8, 4],
+  ["jul 28", 2, 4.2, 2.65, 3, 0, 0, 12,  5, 1], // today, in progress
+];
+const DAYS = [];
+PRE_TOK.forEach((tok, i) => {
+  DAYS.push({ label: "", dow: (0 + i) % 7, focused: 0, engaged: 0,
+    runs: [0,0,0], tok, appCaptured: false });
+});
+CAPTURED.forEach(([label, dow, f, e, rd, rh, rf, tc, tx, te]) => {
+  DAYS.push({ label, dow, focused: f * H, engaged: e * H,
+    runs: [rd, rh, rf], tok: [tc, tx, te], appCaptured: true });
+});
+const TODAY_IDX = DAYS.length - 1;
+
+// Weekly buckets, mar 30 -> jul 27 (18 weeks) for the "all" range.
+// label shown only at month starts; app time/runs only in the last two weeks.
+const WEEKS = [
+  { label: "",    tok: [28,10,0] }, { label: "apr", tok: [30,12,0] },
+  { label: "",    tok: [26,15,2] }, { label: "",    tok: [34,14,3] },
+  { label: "",    tok: [22, 9,1] }, { label: "may", tok: [40,18,4] },
+  { label: "",    tok: [45,16,6] }, { label: "",    tok: [38,22,5] },
+  { label: "",    tok: [30,12,3] }, { label: "jun", tok: [52,20,8] },
+  { label: "",    tok: [58,25,7] }, { label: "",    tok: [48,19,9] },
+  { label: "",    tok: [62,28,10] }, { label: "",   tok: [55,24,8] },
+  { label: "jul", tok: [70,30,12] }, { label: "",   tok: [66,26,9] },
+  { label: "",    tok: [95,35,14], focusedH: 26.8, engagedH: 16.7, runs: [15,3,1] },
+  { label: "now", tok: [38,13,5],  focusedH: 12.0, engagedH: 7.75, runs: [9,1,1] },
+].map(w => ({
+  label: w.label, dow: -1,
+  focused: (w.focusedH ?? 0) * H, engaged: (w.engagedH ?? 0) * H,
+  runs: w.runs ?? [0,0,0], tok: w.tok,
+  appCaptured: w.focusedH !== undefined,
+}));
+
+// avg focused minutes per hour-of-day across captured days
+const RHYTHM = [0,0,0,0,0,1,3,9,22,30,32,26,13,20,29,33,28,21,10,6,8,4,1,0];
+
+// Workspaces: share of tokens/runs + provider mix [claude, codex, ezio].
+const WS = [
+  { name: "ai-14all",             path: "~/Dev/ai-14all · 4 worktrees",  tokShare: .42, runShare: .45, mix: [.62,.28,.10] },
+  { name: "client-acme / webshop", path: "~/Freelance/acme-webshop",     tokShare: .16, runShare: .12, mix: [.30,.65,.05] },
+  { name: "ai-whisper",           path: "~/Dev/ai-whisper",              tokShare: .14, runShare: .18, mix: [.45,.45,.10] },
+  { name: "ai-cortex",            path: "~/Dev/ai-cortex",               tokShare: .12, runShare: .15, mix: [.55,.30,.15] },
+  { name: "ai-samantha",          path: "~/Dev/ai-samantha",             tokShare: .09, runShare: .07, mix: [.70,.20,.10] },
+  { name: "untracked",            path: "outside managed workspaces",    tokShare: .07, runShare: .03, mix: [.50,.40,.10] },
+];
+
+function fmt(ms) {
+  if (ms <= 0) return "0m";
+  const h = Math.floor(ms / H);
+  const m = Math.round((ms % H) / 60000);
+  return h > 0 ? h + "h " + String(m).padStart(2, "0") + "m" : m + "m";
+}
+function fmtTok(m) { return m >= 1000 ? (m / 1000).toFixed(2) + "B" : Math.round(m) + "M"; }
+function fmtCost(m) { return "≈ $" + Math.round(m * 0.85).toLocaleString("en-US"); }
+
+let range = "7d";
+let view = "overview";
+let dataState = "live";
+
+function windowFor(range) {
+  if (range === "all") return { items: WEEKS, mode: "week" };
+  if (range === "30d") return { items: DAYS.slice(-30), mode: "day30" };
+  return { items: DAYS.slice(-7), mode: "day7" }; // week rule: never fewer than 7
+}
+
+function isCurrent(items, i, mode) {
+  return i === items.length - 1 && (mode === "week" || DAYS.length - items.length + i === TODAY_IDX);
+}
+
+function chartLabels(el, items, mode) {
+  el.innerHTML = "";
+  el.classList.toggle("is-sparse", mode !== "day7");
+  items.forEach((d, i) => {
+    const lab = document.createElement("div");
+    lab.className = "idb-label";
+    if (mode === "day7") {
+      lab.textContent = DAY_NAMES[d.dow];
+      if (isCurrent(items, i, mode)) { lab.classList.add("is-today"); lab.textContent += "·"; }
+    } else if (isCurrent(items, i, mode)) {
+      lab.classList.add("is-today");
+      lab.textContent = mode === "week" ? "now" : "today";
+    } else if (mode === "day30" && d.label === "jul 21") {
+      lab.textContent = "capture ▸";
+    } else if (mode === "week" && d.label && d.label !== "now") {
+      lab.textContent = d.label;
+    }
+    el.appendChild(lab);
+  });
+}
+
+function renderArea(items, mode) {
+  const svg = document.getElementById("area");
+  const W = 660, Hpx = 150, PAD_T = 6;
+  const n = items.length;
+  const firstCap = items.findIndex(d => d.appCaptured);
+  const max = Math.max(...items.map(d => d.focused), H);
+  const x = i => n === 1 ? W / 2 : (i / (n - 1)) * W;
+  const y = v => Hpx - (v / max) * (Hpx - PAD_T);
+  const pts = series => {
+    let up = "";
+    for (let i = Math.max(firstCap, 0); i < n; i++)
+      up += (up ? " L" : "M") + x(i).toFixed(1) + "," + y(items[i][series]).toFixed(1);
+    let down = "";
+    for (let i = n - 1; i >= Math.max(firstCap, 0); i--)
+      down += " L" + x(i).toFixed(1) + "," + Hpx;
+    return up + down + " Z";
+  };
+  let s = "";
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const gy = (Hpx - PAD_T) * frac + PAD_T;
+    s += '<line class="grid-line" x1="0" y1="' + gy + '" x2="' + W + '" y2="' + gy + '"/>';
+  }
+  if (firstCap > 0) {
+    const cx = x(firstCap).toFixed(1);
+    s += '<line class="cap-line" x1="' + cx + '" y1="0" x2="' + cx + '" y2="' + Hpx + '"/>';
+  }
+  if (firstCap >= 0) {
+    s += '<path class="area-foc" d="' + pts("focused") + '"/>';
+    s += '<path class="area-eng" d="' + pts("engaged") + '"/>';
+    const tx = x(n - 1).toFixed(1);
+    s += '<line class="today-line" x1="' + tx + '" y1="' + y(items[n-1].focused).toFixed(1) + '" x2="' + tx + '" y2="' + Hpx + '"/>';
+  }
+  s += '<text class="axis-t" x="4" y="12">' + Math.round(max / H) + "h" + (mode === "week" ? "/wk" : "") + '</text>';
+  svg.innerHTML = s;
+}
+
+function renderStackBars(elId, labelsId, items, mode, seriesOf, classes, capturedOf, titleOf) {
+  const bars = document.getElementById(elId);
+  bars.innerHTML = "";
+  bars.classList.toggle("is-dense", mode !== "day7");
+  const totals = items.map(d => capturedOf(d) ? seriesOf(d).reduce((a, b) => a + b, 0) : 0);
+  const max = Math.max(...totals, 1);
+  items.forEach((d, i) => {
+    const col = document.createElement("div");
+    col.className = "idb-bcol";
+    if (isCurrent(items, i, mode)) col.classList.add("is-today");
+    if (!capturedOf(d)) col.classList.add("is-precapture");
+    if (capturedOf(d)) {
+      seriesOf(d).forEach((v, si) => {
+        if (v <= 0) return;
+        const seg = document.createElement("div");
+        seg.className = "seg " + classes[si];
+        seg.style.height = (v / max) * 100 + "%";
+        col.appendChild(seg);
+      });
+    }
+    col.title = capturedOf(d) ? titleOf(d) : "before capture began";
+    bars.appendChild(col);
+  });
+  chartLabels(document.getElementById(labelsId), items, mode);
+}
+
+function renderRhythm() {
+  const el = document.getElementById("rhythm");
+  el.innerHTML = "";
+  const max = Math.max(...RHYTHM, 1);
+  RHYTHM.forEach((v, h) => {
+    const col = document.createElement("div");
+    col.className = "idb-rcol" + (v === 0 ? " is-off" : "");
+    const fill = document.createElement("div");
+    fill.className = "fill";
+    fill.style.height = Math.max((v / max) * 100, v > 0 ? 2 : 1) + "%";
+    col.appendChild(fill);
+    col.title = String(h).padStart(2, "0") + ":00 — avg " + v + "m focused";
+    el.appendChild(col);
+  });
+}
+
+function renderWorkspaces(runs, tokTotal) {
+  const grid = document.getElementById("ws-grid");
+  const rows = WS.map(w => {
+    const tok = tokTotal * w.tokShare;
+    return {
+      ...w, tok,
+      done: Math.round(runs[0] * w.runShare),
+      halted: Math.round(runs[1] * w.runShare),
+      failed: Math.round(runs[2] * w.runShare),
+    };
+  }).sort((a, b) => b.tok - a.tok);
+  const maxTok = Math.max(...rows.map(r => r.tok), 1);
+  let html =
+    '<div class="hd">workspace</div><div class="hd">agent runs</div>' +
+    '<div class="hd">token share</div><div class="hd r">tokens</div><div class="hd r">est. cost</div>';
+  rows.forEach((r, i) => {
+    const last = i === rows.length - 1 ? " row-last" : "";
+    const w = (r.tok / maxTok) * 100;
+    html +=
+      '<div class="cell' + last + '"><div class="ws-name">' + r.name + '</div><div class="ws-path">' + r.path + '</div></div>' +
+      '<div class="cell ws-runs' + last + '"><span class="ok">' + r.done + '</span> · <span class="warn">' + r.halted + '</span> · <span class="bad">' + r.failed + '</span></div>' +
+      '<div class="cell' + last + '"><div class="ws-share" style="width:' + w.toFixed(1) + '%">' +
+        '<span class="p p--claude" style="width:' + (r.mix[0]*100) + '%"></span>' +
+        '<span class="p p--codex" style="width:' + (r.mix[1]*100) + '%"></span>' +
+        '<span class="p p--ezio" style="width:' + (r.mix[2]*100) + '%"></span>' +
+      '</div></div>' +
+      '<div class="cell r ws-tok' + last + '">' + fmtTok(r.tok) + '</div>' +
+      '<div class="cell r ws-cost' + last + '">' + fmtCost(r.tok) + '</div>';
+  });
+  grid.innerHTML = html;
+  const td = rows.reduce((a, r) => a + r.done, 0);
+  const th = rows.reduce((a, r) => a + r.halted, 0);
+  const tf = rows.reduce((a, r) => a + r.failed, 0);
+  document.getElementById("ws-total").innerHTML =
+    '<div>total</div>' +
+    '<div class="ws-runs"><span class="ok">' + td + '</span> · <span class="warn">' + th + '</span> · <span class="bad">' + tf + '</span></div>' +
+    '<div></div><div class="r">' + fmtTok(tokTotal) + '</div><div class="r">' + fmtCost(tokTotal) + '</div>';
+}
+
+function render() {
+  const { items, mode } = windowFor(range);
+  const agg = range === "today" ? [DAYS[TODAY_IDX]]
+    : range === "all" ? items
+    : items;
+  const appAgg = agg.filter(d => d.appCaptured);
+
+  const focused = appAgg.reduce((s, d) => s + d.focused, 0);
+  const engaged = appAgg.reduce((s, d) => s + d.engaged, 0);
+  const runs = appAgg.reduce((a, d) => [a[0]+d.runs[0], a[1]+d.runs[1], a[2]+d.runs[2]], [0,0,0]);
+  const tok = agg.reduce((a, d) => [a[0]+d.tok[0], a[1]+d.tok[1], a[2]+d.tok[2]], [0,0,0]);
+  const tokTotal = tok[0] + tok[1] + tok[2];
+
+  document.getElementById("v-focused").textContent = fmt(focused);
+  document.getElementById("s-focused").textContent =
+    range === "all" ? "since capture (jul 21)" : "app in foreground";
+  document.getElementById("v-engaged").textContent = fmt(engaged);
+  document.getElementById("s-engaged").textContent =
+    focused > 0 ? Math.round((engaged / focused) * 100) + "% of focused" : "keyboard / pointer active";
+  document.getElementById("v-runs").textContent = runs[0] + runs[1] + runs[2];
+  document.getElementById("s-runs").innerHTML =
+    '<span class="ok">' + runs[0] + ' done</span> · <span class="warn">' + runs[1] + ' halted</span> · <span class="bad">' + runs[2] + ' failed</span>';
+  document.getElementById("v-tokens").textContent = fmtTok(tokTotal);
+  document.getElementById("s-tokens").textContent = fmtCost(tokTotal).replace("≈", "≈") + " est · billable" + (range === "all" ? " · since mar 31" : "");
+
+  const suffix = mode === "week" ? "— weekly, since mar 31"
+    : mode === "day30" ? "— daily, last 30 days"
+    : range === "today" ? "— daily, this week" : "— daily, last 7 days";
+  document.getElementById("area-title").textContent = "app time " + suffix;
+  document.getElementById("runs-title").textContent = "agent workflows — runs " + (mode === "week" ? "by week" : "by day");
+  document.getElementById("tok-title").textContent = "token burn — " + (mode === "week" ? "weekly" : "daily") + ", est.";
+
+  renderArea(items, mode);
+  chartLabels(document.getElementById("area-labels"), items, mode);
+  renderStackBars("runs-bars", "runs-labels", items, mode,
+    d => d.runs, ["seg--done", "seg--halted", "seg--failed"],
+    d => d.appCaptured,
+    d => (d.label || "week") + " — " + d.runs[0] + " done, " + d.runs[1] + " halted, " + d.runs[2] + " failed");
+  renderStackBars("tok-bars", "tok-labels", items, mode,
+    d => d.tok, ["seg--claude", "seg--codex", "seg--ezio"],
+    () => true, // ledger covers every bucket, pre-capture included
+    d => (d.label || "week") + " — claude " + d.tok[0] + "M, codex " + d.tok[1] + "M, ezio " + d.tok[2] + "M");
+  renderRhythm();
+  renderWorkspaces(runs, tokTotal);
+
+  const missingApp = items.filter(d => !d.appCaptured).length;
+  document.getElementById("foot-left").innerHTML =
+    range === "all"
+      ? '<span class="is-partial">◐ mixed coverage</span> — app time & runs since jul 21 · tokens since mar 31 (ledger)'
+      : missingApp > 0 && range !== "today"
+        ? '<span class="is-partial">◐ partial window</span> — app time & runs since jul 21 (' + (items.length - missingApp) + " of " + items.length + " days) · tokens all " + items.length + " days"
+        : "● capture healthy — " + (range === "today" ? "today covered" : "all " + items.length + " days covered");
+}
+
+/* ---------- controls wiring ---------- */
+function wireRow(rowId, attr, fn) {
+  document.getElementById(rowId).addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    document.querySelectorAll("#" + rowId + " .ctl-btn").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    fn(b.dataset[attr]);
+  });
+}
+wireRow("theme-row", "themeBtn", v => { document.documentElement.dataset.theme = v; });
+wireRow("host-row", "host", v => {
+  const shell = document.getElementById("shell");
+  shell.classList.toggle("is-window", v === "window");
+  document.getElementById("stage-cap").textContent = v === "window"
+    ? "detached window — its own BrowserWindow, same preload, reattach in titlebar"
+    : "expanded overlay — replaces the main column, like review expanded";
+});
+wireRow("state-row", "stateBtn", v => {
+  dataState = v;
+  const shell = document.getElementById("shell");
+  shell.classList.remove("state-loading", "state-empty", "state-error");
+  if (v !== "live") shell.classList.add("state-" + v);
+  if (v === "loading") {
+    for (const id of ["v-focused", "v-engaged", "v-runs", "v-tokens"])
+      document.getElementById(id).textContent = "· · ·";
+  } else if (v === "live") {
+    render();
+  }
+});
+function wireSeg(segId, attr, fn) {
+  document.getElementById(segId).addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    document.querySelectorAll("#" + segId + " button").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    fn(b.dataset[attr]);
+  });
+}
+wireSeg("range-seg", "range", v => { range = v; if (dataState === "live") render(); });
+wireSeg("view-seg", "view", v => {
+  view = v;
+  document.getElementById("shell").classList.toggle("view-ws", v === "ws");
+});
+
+render();
+</script>
+</body>
+</html>
