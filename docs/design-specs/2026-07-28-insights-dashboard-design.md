@@ -7,7 +7,9 @@ spec review — round 1: pull-based usage range query, one shared
 local-calendar bucket domain, read-result error envelope, schema v3 span
 index, tui zero-motion override, prototype v4 consistency fixes;
 round 2: seven-column floor for the `all` range and retention-truthful
-coverage anchors (§4.5). Not yet implemented.
+coverage anchors (§4.5); round 3: anchors keyed to the sources' actual
+visibility predicates (`occurred_start`, not `event_ts`) with
+source-specific footer copy. Not yet implemented.
 
 ## 1. What this is
 
@@ -234,8 +236,14 @@ this for both the existing `getAppTime` and the new series view:
 export const TARGET_SCHEMA_VERSION = 3;
 const DDL_V3 = `
 CREATE INDEX idx_obs_span ON observations (source, kind, occurred_end);
+CREATE INDEX idx_obs_kind_occstart ON observations (kind, occurred_start);
 `;
 ```
+
+`idx_obs_span` serves the span-overlap reads; `idx_obs_kind_occstart`
+serves the §4.5 coverage anchors (`MIN(occurred_start)` under a `kind`
+equality is a leftmost seek — without it, each anchor read would scan
+every row of that kind, ~0.5M `app.uptime` rows at steady state).
 
 - The plan becomes a range seek:
   `SEARCH observations USING INDEX idx_obs_span (source=? AND kind=? AND occurred_end>?)`.
@@ -246,8 +254,10 @@ CREATE INDEX idx_obs_span ON observations (source, kind, occurred_end);
 - Guard: a schema test asserts (a) fresh migrate lands at
   `user_version = 3` with all v1+v2 objects intact, (b) an in-place
   v2 → v3 upgrade preserves rows and is idempotent, and (c)
-  `EXPLAIN QUERY PLAN` for the span query reports `idx_obs_span` and
-  never a full-table `SCAN` — the same style as the E1 retention guard in
+  `EXPLAIN QUERY PLAN` for the span query reports `idx_obs_span`, for
+  the anchor `MIN(occurred_start)` queries reports
+  `idx_obs_kind_occstart`, and never a full-table `SCAN` for either —
+  the same style as the E1 retention guard in
   `tests/unit/insights/store/schema.test.ts`.
 
 ### 4.5 Coverage anchors (domain + truthful "since" dates)
@@ -268,25 +278,38 @@ correlated worker query:
 
 interface CoverageAnchorsResult {
 	firstCaptureAt: number | null;      // meta read — "capture began" copy, empty state
-	appRetainedSinceMs: number | null;  // MIN(event_ts) WHERE kind = 'app.uptime'
-	runsRetainedSinceMs: number | null; // MIN(event_ts) WHERE kind = 'whisper.workflow'
+	appRetainedSinceMs: number | null;  // MIN(occurred_start) WHERE kind = 'app.uptime'
+	runsRetainedSinceMs: number | null; // MIN(occurred_start) WHERE kind = 'whisper.workflow'
 }
 ```
 
-- Both MINs are leftmost seeks on the existing v1 index
-  `idx_obs_kind_ts (kind, event_ts)` — O(log N), read-only. This is
-  exact, not approximate: app spans always set `event_ts`
-  (`span-observation.ts` uses `span.endMs`) and the prune deletes by
-  `event_ts`, so `MIN(event_ts)` is precisely "the earliest row the
-  prune has spared".
+- **Anchors key on `occurred_start` — the same column the range
+  predicates read — never on `event_ts`.** Retention deletes by
+  `event_ts` (delivery/last-update time), but visibility is governed by
+  span overlap on `occurred_start`/`occurred_end` (`app-time-view.ts`)
+  and by `started_at = occurred_start` (`whisper_runs` view). The two
+  can differ: a retained workflow that *started* before the retention
+  cutoff but was last updated after it has `started_at < event_ts`; an
+  `event_ts` anchor would start the domain after that run's start and
+  misstate the retained depth. `MIN(occurred_start)` over retained rows
+  is by definition the earliest instant each source can still show
+  (`MIN` ignores `NULL` `occurred_start` rows — exactly the rows the
+  range predicates also exclude). For `whisper.workflow`, revisions of
+  a run share the run's `occurred_start`, so the MIN over all retained
+  revision rows equals the earliest visible `started_at`.
+- Both MINs are leftmost seeks on the new v3 index
+  `idx_obs_kind_occstart (kind, occurred_start)` (§4.4) — O(log N),
+  read-only, plan-guarded.
 - Preload `insights.coverageAnchors()` (IPC `insights:coverageAnchors`),
   enveloped per §4.1. No host-side caching of status fields is involved.
 - Fetch order in the hook: `coverageAnchors` + `usage.queryRange` in
   parallel → compute the bucket domain (§4.7) → series + runs queries.
-- **Every "app time & runs since <date>" caption uses the retained
-  anchors, never `firstCaptureAt`** (§6). `firstCaptureAt` appears only
-  in the "capture began <date>" clause of the retention-clipped footer
-  variant and in the empty-state condition.
+- **Every "since <date>" caption is per source, from that source's
+  retained anchor, never `firstCaptureAt`** (§6 clause rules; the
+  combined `app time & runs since` copy renders only when both anchors
+  fall on the same local day). `firstCaptureAt` appears only in the
+  "capture began <date>" retention-clip suffix and in the empty-state
+  condition.
 
 ### 4.6 New usage read — exact-range rollup
 
@@ -440,17 +463,28 @@ export type UsageRangeResult =
   zone and token/cost columns render a quiet caption
   `usage telemetry off — enable in settings`; insights zones are
   unaffected. Never rendered as a zero.
-- **Partial coverage:** footer variants exactly as prototyped
-  (`◐ partial window — app time & runs since <date> …`,
-  `◐ mixed coverage — … tokens since <date> (ledger)`,
-  `● capture healthy — …`) — every `<date>` from the retained anchors
-  (§4.5), never `firstCaptureAt`.
-- **Retention-clipped coverage** (when `firstCaptureAt` precedes the
-  earliest retained anchor by more than one day — i.e. the prune has
-  removed the oldest capture):
-  `◐ mixed coverage — app time & runs retained since <retained date>
-  (365-day retention; capture began <first-capture date>) · tokens since
-  <ledger date> (ledger)`.
+- **Coverage footer — composed per source, never a blended date.** The
+  left footer is a glyph plus `·`-joined clauses derived from the §4.5
+  anchors (`firstCaptureAt` never supplies a "since" date):
+  - Glyph: `●` when every source covers the whole selected window
+    (`● capture healthy — …` as prototyped); `◐` with
+    `partial window` / `mixed coverage` framing otherwise.
+  - App-time clause: `app time since <appRetainedSinceMs>`, or
+    `no app time retained` when that anchor is null.
+  - Runs clause: `runs since <runsRetainedSinceMs>`, or
+    `no runs retained` when null. **Merge rule:** only when both
+    anchors fall on the same local day do the clauses combine into the
+    prototyped `app time & runs since <date>`; if they differ or one is
+    null, each source states its own date — the combined copy is never
+    shown for differing anchors.
+  - Tokens clause: `tokens since <earliestDayMs> (ledger)`.
+  - **Retention-clip suffix** (when `firstCaptureAt` precedes the
+    earliest non-null retained anchor by more than one day — the prune
+    has removed the oldest capture): append
+    `(365-day retention; capture began <first-capture date>)` once.
+    Example: `◐ mixed coverage — app time since aug 2 · runs since
+    jul 14 · tokens since mar 31 (ledger) (365-day retention; capture
+    began jul 21)`.
 - Footer right side: `updated HH:MM:SS · local store · no network`.
 
 ## 7. Accessibility & quality bar
@@ -485,13 +519,18 @@ export type UsageRangeResult =
   current week); never fewer than 7 columns in any mode.
 - **AC4 — coverage honesty.** Token buckets render wherever the ledger
   has days — including pre-capture buckets; app-time and runs buckets
-  stub before their **retained** anchors (§4.5); every "since <date>"
-  caption derives from the retained anchors, never from
-  `firstCaptureAt` alone; when retention has pruned the oldest capture,
-  the retention-clipped footer variant (§6) shows both the
-  retained-since date and "capture began" — the dashboard never claims
-  data older than what the store still holds. Footer copy matches §6;
-  aggregate and detailed sources are never summed.
+  stub before their **own retained anchors** (§4.5), which key on
+  `occurred_start` — the same column the range predicates read — so
+  every retained row (including a workflow started before the retention
+  cutoff but updated after it) is inside its source's stated depth;
+  every "since <date>" caption is per source, from that source's
+  retained anchor, never from `firstCaptureAt` and never a blended date
+  when the anchors differ (§6 merge rule); when retention has pruned
+  the oldest capture, the retention-clip suffix (§6) shows both the
+  retained-since date(s) and "capture began" — the dashboard never
+  claims data older than what the store still holds, and never hides
+  data the store does hold. Footer copy matches §6; aggregate and
+  detailed sources are never summed.
 - **AC5 — workspaces view.** Table rows come from
   `usage.queryRange().byWorkspace` for the exact selected range (tokens,
   provider-mix share bar, `≈ $ est`) joined with runs grouped from
@@ -508,10 +547,13 @@ export type UsageRangeResult =
   tui renders 2px borders, flat background, and zero
   transition/animation durations on this surface (§2.11 override).
 - **AC8 — no capture-path regressions, indexed reads.** Worker
-  tick/status byte-for-byte unchanged; schema v3 adds `idx_obs_span` via
-  the stepped migration; `EXPLAIN QUERY PLAN` for the span overlap query
-  reports `idx_obs_span` and no full-table `SCAN` (regression-tested,
-  §4.4); the series query is read-only and answered off the main thread.
+  tick/status byte-for-byte unchanged; schema v3 adds `idx_obs_span`
+  and `idx_obs_kind_occstart` via the stepped migration;
+  `EXPLAIN QUERY PLAN` for the span overlap query reports
+  `idx_obs_span`, for the anchor MIN queries reports
+  `idx_obs_kind_occstart`, and no full-table `SCAN` for either
+  (regression-tested, §4.4); the series and anchors queries are
+  read-only and answered off the main thread.
 
 **Verification:** `pnpm typecheck && pnpm lint && pnpm test` green;
 `pnpm test:e2e insights` green — the existing insights e2e assertions are
@@ -523,7 +565,15 @@ first 6 rendered as stubs (AC3); (b) **retention-clipped anchors** — a
 store whose `first_capture_at` predates its oldest retained row (seed a
 v3 store, prune, then read anchors) reports
 `appRetainedSinceMs > firstCaptureAt`, and the footer derivation
-selects the retention-clipped variant (AC4).
+selects the retention-clip suffix (AC4); (c) **boundary-crossing
+rows** — the same fixture seeds a retained `app.uptime` span and a
+retained `whisper.workflow` revision whose `occurred_start` precedes
+the retention cutoff while `event_ts` is after it: each anchor must
+equal that row's `occurred_start` (not its `event_ts`), and a range
+query from the anchor must return the row (AC4); (d) **differing
+anchors** — with `appRetainedSinceMs` and `runsRetainedSinceMs` on
+different local days, the footer derivation emits per-source clauses
+and never the merged `app time & runs since` copy (AC4/§6).
 
 ## 9. Follow-up ledger (explicitly out of slice 1)
 
