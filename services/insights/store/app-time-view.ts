@@ -33,7 +33,7 @@ function clippedSum(rows: SpanRow[], fromMs: number, toMs: number): number {
  * "a span touched this day" (spec §7). A forward-only collector knows nothing
  * about intervals it was not running, so an unobserved gap is never certified.
  */
-function uptimeCompleteness(
+export function uptimeCompleteness(
 	rows: SpanRow[],
 	fromMs: number,
 	toMs: number,
