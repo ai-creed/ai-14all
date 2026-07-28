@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 import { detectAttentionEvents } from "../../../services/xbp/push-wake-attention-detector";
 import type { PushWakeAttentionSeenState } from "../../../services/xbp/push-wake-state-store";
 
-const s = (worktreeId: string, attention: string) => ({ worktreeId, attention });
+const s = (worktreeId: string, attention: string) => ({
+	worktreeId,
+	attention,
+});
 const seen = (
 	sessions: Record<string, "waiting" | "failed">,
 ): PushWakeAttentionSeenState => ({ sessions });
@@ -24,9 +27,9 @@ describe("detectAttentionEvents", () => {
 	});
 
 	it("non-member -> waiting fires; non-member -> failed fires", () => {
-		expect(
-			detectAttentionEvents(seen({}), [s("a", "waiting")]).events,
-		).toEqual([{ trigger: "attention-waiting", worktreeId: "a" }]);
+		expect(detectAttentionEvents(seen({}), [s("a", "waiting")]).events).toEqual(
+			[{ trigger: "attention-waiting", worktreeId: "a" }],
+		);
 		expect(detectAttentionEvents(seen({}), [s("a", "failed")]).events).toEqual([
 			{ trigger: "attention-failed", worktreeId: "a" },
 		]);

@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { mkdtempSync, writeFileSync, readFileSync, renameSync, mkdirSync } from "node:fs";
+import {
+	mkdtempSync,
+	writeFileSync,
+	readFileSync,
+	renameSync,
+	mkdirSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -46,7 +52,10 @@ describe("PushWakeStateStore v2", () => {
 	it("null attention namespace is durably distinct from established-empty", () => {
 		new PushWakeStateStore({ dir }).save({ ...v2, attention: null });
 		expect(new PushWakeStateStore({ dir }).load()?.attention).toBeNull();
-		new PushWakeStateStore({ dir }).save({ ...v2, attention: { sessions: {} } });
+		new PushWakeStateStore({ dir }).save({
+			...v2,
+			attention: { sessions: {} },
+		});
 		expect(new PushWakeStateStore({ dir }).load()?.attention).toEqual({
 			sessions: {},
 		});
@@ -67,7 +76,12 @@ describe("PushWakeStateStore v2", () => {
 		expect(new PushWakeStateStore({ dir }).load()).toBeNull();
 		writeFileSync(
 			join(dir, "push-wake-state.json"),
-			JSON.stringify({ version: 2, whisper: "nope", attention: null, lastPingAt: null }),
+			JSON.stringify({
+				version: 2,
+				whisper: "nope",
+				attention: null,
+				lastPingAt: null,
+			}),
 		);
 		expect(new PushWakeStateStore({ dir }).load()).toBeNull();
 	});
