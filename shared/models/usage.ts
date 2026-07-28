@@ -126,6 +126,23 @@ export interface HourlyPoint {
 	tokens: Partial<Record<AgentProviderId, number>>;
 }
 
+export interface UsageRangeQuery {
+	fromMs: number;
+	toMs: number;
+}
+
+export interface UsageRangeData {
+	days: DailyPoint[];
+	byWorkspace: UsageRow[];
+	byProvider: ScopeRollupRow[];
+	cost: CostSnapshot;
+	earliestDayMs: number | null;
+}
+
+export type UsageRangeResult =
+	| ({ ok: true } & UsageRangeData)
+	| { ok: false; reason: "disabled" | "timeout" };
+
 export interface UsageSnapshot {
 	generatedAtMs: number;
 	providers: ProviderTelemetryInfo[]; // identity + capabilities + hasData

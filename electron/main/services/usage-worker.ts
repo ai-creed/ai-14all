@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { existsSync, watch } from "node:fs";
 import { jsonlDrivers } from "../../../services/usage/providers/index.js";
+import { buildRangeResult } from "../../../services/usage/range.js";
 import { buildSnapshot } from "../../../services/usage/snapshot.js";
 import { saveState } from "../../../services/usage/ledger-store.js";
 import {
@@ -151,5 +152,16 @@ parentPort.on("message", (e: { data: MainToWorker }) => {
 	} else if (msg.kind === "setIncludeUntracked" && cfg) {
 		cfg.includeUntracked = msg.includeUntracked;
 		scheduleEmit();
+	} else if (msg.kind === "queryRange" && cfg) {
+		parentPort.postMessage({
+			kind: "rangeResult",
+			requestId: msg.requestId,
+			result: buildRangeResult(
+				state.ledger,
+				cfg.known,
+				cfg.activeWorktreeIds,
+				msg.query,
+			),
+		});
 	}
 });
