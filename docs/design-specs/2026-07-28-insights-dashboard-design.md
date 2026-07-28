@@ -9,7 +9,10 @@ index, tui zero-motion override, prototype v4 consistency fixes;
 round 2: seven-column floor for the `all` range and retention-truthful
 coverage anchors (§4.5); round 3: anchors keyed to the sources' actual
 visibility predicates (`occurred_start`, not `event_ts`) with
-source-specific footer copy. Not yet implemented.
+source-specific footer copy; round 4: app-time anchor spans all
+series-visible app kinds (live sessions have no `app.uptime` closure
+yet) and one untracked-usage inclusion rule for rows, tiles, and
+charts. Not yet implemented.
 
 ## 1. What this is
 
@@ -123,6 +126,17 @@ zones) and a **by-workspace** view (runs + tokens per workspace).
     or failing store is `ok: false` → the **error** state with retry;
     usage telemetry off is its own quiet per-zone caption, never a fake
     zero. §4 defines the exact reasons and transport.
+14. **Untracked usage is always included on this surface — one
+    inclusion rule for rows, tiles, and charts.** `usage.queryRange`
+    applies no untracked filtering: tiles, the token-burn chart, and the
+    workspace table (its labeled `untracked · outside managed
+    workspaces` row, as prototyped) all derive from the same unfiltered
+    bucket set, so the table total ≡ the tiles by construction. The
+    popover's `includeUntracked` preference stays a popover-only
+    renderer filter and is **not consulted** by the dashboard — applying
+    it to rows but not tiles is exactly the mismatch AC5 forbids, and
+    hiding real spend from a productivity/cost surface would break §2.9
+    honesty.
 
 ## 3. Current state → target
 
@@ -278,10 +292,25 @@ correlated worker query:
 
 interface CoverageAnchorsResult {
 	firstCaptureAt: number | null;      // meta read — "capture began" copy, empty state
-	appRetainedSinceMs: number | null;  // MIN(occurred_start) WHERE kind = 'app.uptime'
+	// min over the three series-visible app kinds:
+	//   MIN(occurred_start) per kind ∈ {app.focused, app.engaged, app.uptime}
+	appRetainedSinceMs: number | null;
 	runsRetainedSinceMs: number | null; // MIN(occurred_start) WHERE kind = 'whisper.workflow'
 }
 ```
+
+- **The app-time anchor covers every series-visible app kind, not just
+  `app.uptime`.** The live collector closes `app.focused`/`app.engaged`
+  spans on every poll but closes `app.uptime` only on suspend, disable,
+  or quit (`focus-core.ts`) — so a machine's very first session has
+  visible focused/engaged series data while no uptime row exists yet.
+  Anchoring on uptime alone would report `no app time retained` (and
+  could satisfy the §6 empty condition) while the chart shows data.
+  `appRetainedSinceMs` is therefore the min of the per-kind
+  `MIN(occurred_start)` seeks over `app.focused`, `app.engaged`, and
+  `app.uptime` (four indexed seeks total for the anchors query).
+  `app.uptime` remains the sole completeness authority (§4.3) — this
+  change affects anchors only.
 
 - **Anchors key on `occurred_start` — the same column the range
   predicates read — never on `event_ts`.** Retention deletes by
@@ -357,6 +386,12 @@ export type UsageRangeResult =
 - Callers pass local-midnight-aligned bounds from the shared edge
   generator (decision 12); the ledger is local-day grained, so this is
   exact, not approximate.
+- **No untracked filtering anywhere in the result** (decision 14):
+  every bucket in the range contributes to `days`, `byWorkspace`,
+  `byProvider`, and `cost`; cwds outside managed workspaces group into
+  the labeled untracked row via the existing `workspaceGroupFor`
+  matching. The snapshot path's `includeUntracked` config is not an
+  input to this query.
 - The `usage:snapshot` push, `UsageStrip`, and `UsagePopover` are
   untouched.
 
@@ -380,12 +415,13 @@ export type UsageRangeResult =
 - **Tiles:** focused/engaged = Σ series buckets in the selected range;
   runs = `insights.query` results filtered to the range; tokens/cost =
   Σ `days` in the range from `usage.queryRange`.
-- **Workspaces view:** `byWorkspace` rows (tokens, provider mix, `≈ $
-  est` cost; untracked row filtered per the existing `includeUntracked`
-  config) joined with the client-side run grouping for the same range;
-  sorted by tokens desc; the totals row sums the displayed rows and —
-  because tiles and table read the same sums — **exactly** equals the
-  overview tiles for the same range (AC5). No app-time column (§9).
+- **Workspaces view:** all `byWorkspace` rows (tokens, provider mix,
+  `≈ $ est` cost), **including the labeled untracked row — never
+  filtered** (decision 14), joined with the client-side run grouping
+  for the same range; sorted by tokens desc; the totals row sums the
+  displayed rows and — because tiles and table read the same unfiltered
+  sums — **exactly** equals the overview tiles for the same range
+  (AC5). No app-time column (§9).
 - **Fetch cadence:** on mount, on range/view change, on a 30 s poll while
   visible, and on manual retry from the error state.
 
@@ -436,7 +472,7 @@ export type UsageRangeResult =
 
 **Workers:**
 - `services/insights/store/app-time-series.ts` (new view) +
-  `services/insights/store/coverage-anchors.ts` (two indexed MIN seeks +
+  `services/insights/store/coverage-anchors.ts` (four indexed MIN seeks +
   meta read, §4.5) + `worker-protocol.ts` messages (`appTimeSeries` and
   `coverageAnchors` queries, `seriesResult`, `anchorsResult`,
   `queryError`) + worker query try/catch.
@@ -454,7 +490,10 @@ export type UsageRangeResult =
   both retained anchors `null` and no ledger days; `firstCaptureAt` may
   still be non-null if a long-ago capture was fully pruned):
   `◌ / no insights data yet / capture starts when insights is enabled in
-  settings…` + `open settings` action.
+  settings…` + `open settings` action. Because the app anchor covers
+  the focused/engaged kinds (§4.5), a live first session with series
+  data but no `app.uptime` closure yet has a non-null anchor — the
+  empty state can never mask visible data.
 - **Error** (any insights read `ok: false`, or `usage.queryRange`
   timeout): `! / insights store unavailable / …recover on retry` +
   `retry` action (danger tokens; layout preserved). Retry refetches every
@@ -535,8 +574,11 @@ export type UsageRangeResult =
   `usage.queryRange().byWorkspace` for the exact selected range (tokens,
   provider-mix share bar, `≈ $ est`) joined with runs grouped from
   `insights.query` (done/halted/failed in status colors); sorted by
-  tokens; the totals row **exactly** equals the overview tiles for the
-  same range — both read the same sums; no per-row share rounding
+  tokens; **one inclusion rule** (decision 14): the untracked row is
+  always displayed and untracked buckets are in every sum, so the
+  totals row **exactly** equals the overview tiles for the same range —
+  both read the same unfiltered sums; the popover's `includeUntracked`
+  preference has no effect on this surface; no per-row share rounding
   anywhere.
 - **AC6 — states & errors.** Loading/empty/error render the designed
   states; empty (capture off) and error (store failure) are
@@ -573,7 +615,17 @@ equal that row's `occurred_start` (not its `event_ts`), and a range
 query from the anchor must return the row (AC4); (d) **differing
 anchors** — with `appRetainedSinceMs` and `runsRetainedSinceMs` on
 different local days, the footer derivation emits per-source clauses
-and never the merged `app time & runs since` copy (AC4/§6).
+and never the merged `app time & runs since` copy (AC4/§6);
+(e) **live-session anchor** — a store seeded like a running first
+session (`start → focus → idle poll`: closed `app.focused`/`app.engaged`
+spans, **no** `app.uptime` row) reports a non-null `appRetainedSinceMs`
+equal to the earliest span's `occurred_start`, and the state derivation
+does not choose the empty state (AC4/AC6); (f) **untracked
+aggregation** — a range fixture with tracked and untracked buckets and
+`includeUntracked: false` in the snapshot config: `byWorkspace`
+contains the untracked row, and
+`Σ byWorkspace.tokens = Σ days = Σ byProvider.tokens` — the displayed
+table total equals the tiles (AC5).
 
 ## 9. Follow-up ledger (explicitly out of slice 1)
 
@@ -592,7 +644,10 @@ and never the merged `app time & runs since` copy (AC4/§6).
 - Any change to capture, consent, retention, or the worker tick/status
   path.
 - Any change to the `usage:snapshot` push path, `UsageStrip`,
-  `UsagePopover`, or `UsageChart` (the dashboard is pull-only).
+  `UsagePopover`, or `UsageChart` (the dashboard is pull-only). The
+  popover's `includeUntracked` renderer filter keeps its current
+  behavior there — it simply is not an input to the dashboard
+  (decision 14).
 - Provider-limit UI of any kind (standing telemetry rule).
 - Keyboard-shortcut entry point; usage-strip click-through.
 - Backfill importers (Tier-2 raw-log history) — the dashboard reads what
