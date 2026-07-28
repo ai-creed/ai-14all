@@ -3,107 +3,352 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Insights dashboard — app-time slice 1 (v3)</title>
+<title>Insights dashboard — app-time slice 1 (v4)</title>
 <style>
 /* ============================================================
-   Token blocks mirrored verbatim from src/styles/tokens.css
-   (dashboard-design worktree, 2026-07-28). --danger mirrors
-   --destructive; provider tokens copied per theme (tui inherits
-   the :root values, mirrored here explicitly). --accent kept OFF
-   this surface — today-emphasis uses --primary (tui's --accent
-   resolves to the bg2 ladder step and would vanish on the card).
-   Charts: in implementation these become shadcn ChartContainer
-   config colors (--chart-*) mapped to exactly these tokens.
+   Token blocks mirrored BYTE-VERBATIM from src/styles/tokens.css
+   (dashboard-design worktree, 2026-07-28): the full :root block
+   (dark defaults, comments included) plus the complete
+   [data-theme=light|warm|tui] override blocks — the same cascade
+   structure as the live file, so switching data-theme reproduces
+   exactly the app's resolution (dark = no override block). Only
+   the Tailwind directives (@import, @custom-variant, @theme
+   inline, @layer base) are omitted — they are not tokens.
+   --accent is mirrored but unused on this surface: today-emphasis
+   uses --primary (tui remaps --accent to the bg2 ladder step).
+   Charts: implementation composes Recharts via shadcn
+   ChartContainer with ChartConfig colors referencing these tokens
+   directly — no --chart-* palette is introduced.
    ============================================================ */
-[data-theme="dark"] {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --popover: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --border: oklch(1 0 0 / 10%);
-  --ring: oklch(0.551 0.027 264.364);
-  --warning: oklch(0.828 0.122 75);
-  --info: oklch(0.72 0.13 235);
-  --success: oklch(0.72 0.15 155);
-  --danger: oklch(0.704 0.191 22.216);
-  --provider-claude: #d97706;
-  --provider-codex: #2563eb;
-  --provider-ezio: #d6519e;
-  --shell-border-width: 1px;
-}
-[data-theme="light"] {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --popover: oklch(1 0 0);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.42 0.046 257.417);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --border: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.55 0.04 256.788);
-  --warning: oklch(0.43 0.14 60);
-  --info: oklch(0.42 0.17 250);
-  --success: oklch(0.52 0.15 155);
-  --danger: oklch(0.45 0.24 27.325);
-  --provider-claude: #b45309;
-  --provider-codex: #1d4ed8;
-  --provider-ezio: #b3247e;
-  --shell-border-width: 1px;
-}
-[data-theme="warm"] {
-  --background: #221c15;
-  --foreground: #f6efe4;
-  --card: #2a231b;
-  --popover: #342c22;
-  --muted: #3d2817;
-  --muted-foreground: #cab999;
-  --primary: #e58a5e;
-  --primary-foreground: #221c15;
-  --secondary: #3d2817;
-  --border: #4a3f31;
-  --ring: #9a8266;
-  --warning: #dda85e;
-  --info: oklch(0.72 0.13 235);
-  --success: oklch(0.74 0.14 150);
-  --danger: #d97058;
-  --provider-claude: #e58a5e;
-  --provider-codex: #5a9bd6;
-  --provider-ezio: #d97aae;
-  --shell-border-width: 1px;
-}
-[data-theme="tui"] {
-  --background: oklch(0.16 0.015 240);
-  --foreground: oklch(0.96 0.01 200);
-  --card: oklch(0.2 0.015 240);
-  --popover: oklch(0.2 0.015 240);
-  --muted: oklch(0.26 0.015 240);
-  --muted-foreground: oklch(0.68 0.02 230);
-  --primary: oklch(0.78 0.13 175);
-  --primary-foreground: oklch(0.16 0.015 240);
-  --secondary: oklch(0.26 0.015 240);
-  --border: oklch(0.34 0.015 240);
-  --ring: oklch(0.78 0.13 175);
-  --warning: oklch(0.828 0.122 75);
-  --info: oklch(0.72 0.13 235);
-  --success: oklch(0.74 0.13 165);
-  --danger: oklch(0.704 0.191 22.216);
-  --provider-claude: #d97706; /* tui inherits :root provider values */
-  --provider-codex: #2563eb;
-  --provider-ezio: #d6519e;
-  --shell-border-width: 2px; /* box-drawing weight, per tokens.css tui block */
+/* ---- shadcn default tokens: DARK (app default, no data-theme) ---- */
+:root {
+	/* Sharp, square corners across all themes (docs/superpowers/specs/
+	 * 2026-06-23-tui-traits-to-all-themes-design.md §3.1). light/warm inherit
+	 * this; tui already declares 0. Zeros every border-radius: var(--radius*)
+	 * and rounded-sm/md/lg utility. Pills (rounded-full/999px) and dots (50%)
+	 * are deliberate shapes and keep their radius. */
+	--radius: 0rem;
+	--background: oklch(0.129 0.042 264.695);
+	--foreground: oklch(0.984 0.003 247.858);
+	--card: oklch(0.208 0.042 265.755);
+	--card-foreground: oklch(0.984 0.003 247.858);
+	--popover: oklch(0.208 0.042 265.755);
+	--popover-foreground: oklch(0.984 0.003 247.858);
+	--primary: oklch(0.929 0.013 255.508);
+	--primary-foreground: oklch(0.208 0.042 265.755);
+	--secondary: oklch(0.279 0.041 260.031);
+	--secondary-foreground: oklch(0.984 0.003 247.858);
+	--muted: oklch(0.279 0.041 260.031);
+	--muted-foreground: oklch(0.704 0.04 256.788);
+	--accent: oklch(0.279 0.041 260.031);
+	--accent-foreground: oklch(0.984 0.003 247.858);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.551 0.027 264.364);
+
+	/* ---- legacy bridge: existing shell.css names -> shadcn tokens ---- */
+	--app-bg: var(--background);
+	--panel-bg: var(--card);
+	--panel-bg-elevated: var(--popover);
+	--panel-border: var(--border);
+	--panel-border-strong: var(--ring);
+	--text-primary: var(--foreground);
+	--text-secondary: var(--muted-foreground);
+	--text-muted: var(--muted-foreground);
+	--accent-strong: var(--secondary);
+	--warning: oklch(0.828 0.122 75);
+	--info: oklch(0.72 0.13 235);
+	--success: oklch(0.72 0.15 155);
+	--danger: var(--destructive);
+	--ready: oklch(0.72 0.1 220);
+	--accent: var(--primary);
+
+	--radius-sm: max(0px, calc(var(--radius) - 4px));
+	--radius-md: max(0px, calc(var(--radius) - 3px));
+	--radius-lg: max(0px, calc(var(--radius) - 2px));
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-5: 20px;
+	--space-6: 24px;
+
+	/* Chrome border + pane separator + provider identity tokens. Defaults
+	 * live here WITH their per-theme overrides (spec §4.1: a custom property
+	 * overridden by any theme is a theme token). */
+	--shell-border-width: 1px;
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
+	/* Inline comment-thread textarea surface (review module, slice 6):
+	 * tokenized out of shell.css's `[data-theme="light"] .shell-inline-thread__
+	 * textarea` rule — a real per-theme color swap (dark/warm/tui write on the
+	 * app background; light instead uses the elevated popover surface for
+	 * contrast against its flat-white body), which spec §4.2 reserves for
+	 * tokens.css rather than a module's [data-theme] block. */
+	--inline-thread-textarea-bg: var(--app-bg);
+	--sha-color: #a78bfa;
+	--provider-claude: #d97706;
+	--provider-codex: #2563eb;
+	--provider-ezio: #d6519e;
+	--provider-cursor: #0891b2;
+	--provider-antigravity: #7c3aed;
+
+	/* Character-grid tokens: defaults mirror the tui values (1ch/1lh are
+	 * theme-agnostic units; no non-tui consumer exists today), so every
+	 * [data-theme]-declared token has its :root default here. */
+	--cell-w: 1ch;
+	--cell-h: 1lh;
+
+	/* Workspace panel type ladder (docs/design-specs/2026-06-24-workspace-panel-rework-design.md §5) */
+	--ws-fs-header: 11px;
+	--ws-fs-repo: 15px;
+	--ws-fs-branch: 13px;
+	--ws-fs-path: 12px;
+	--ws-fs-chip: 11px;
+	--rail: oklch(0.42 0.02 256); /* solid tree-rail (dark default) */
+
+	/* Syntax-highlighting tokens for markdown code blocks (spec D15/D16):
+	 * the GitHub-dark palette on the themed --popover code background.
+	 * --hljs-section lifted #1f6feb → #58a6ff (3.9:1 → 7.0:1) to clear the
+	 * 4.5:1 gate (hljs-contrast.test.ts); all others carried verbatim. */
+	--hljs-fg: #c9d1d9;
+	--hljs-comment: #8b949e;
+	--hljs-keyword: #ff7b72;
+	--hljs-entity: #d2a8ff;
+	--hljs-constant: #79c0ff;
+	--hljs-string: #a5d6ff;
+	--hljs-builtin: #ffa657;
+	--hljs-name: #7ee787;
+	--hljs-section: #58a6ff;
+	--hljs-bullet: #f2cc60;
+	--hljs-addition-fg: #aff5b4;
+	--hljs-addition-bg: #033a16;
+	--hljs-deletion-fg: #ffdcd7;
+	--hljs-deletion-bg: #67060c;
+
+	color: var(--foreground);
+	background: var(--background);
 }
 
+/* ---- shadcn default tokens: LIGHT ---- */
+[data-theme="light"] {
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.129 0.042 264.695);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.129 0.042 264.695);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.129 0.042 264.695);
+	--primary: oklch(0.208 0.042 265.755);
+	--primary-foreground: oklch(0.984 0.003 247.858);
+	--secondary: oklch(0.968 0.007 247.896);
+	--secondary-foreground: oklch(0.208 0.042 265.755);
+	--muted: oklch(0.968 0.007 247.896);
+	/* WCAG AAA (docs/theme-wcag-aaa-spec.md): secondary text — labels,
+	 * placeholders, timestamps, metadata. 0.5 was 5.99:1 (AA only); 0.42 ->
+	 * 8.46:1 on the flat-white surface, clearing AAA's 7:1. Most pervasive muted
+	 * text, so the highest-impact legibility fix; also lifts placeholders,
+	 * blockquotes and table headers (which bridge to it). */
+	--muted-foreground: oklch(0.42 0.046 257.417);
+	--accent-foreground: oklch(0.208 0.042 265.755);
+	/* AAA: 0.52 was ~6.26:1 (AA); 0.45 -> 8.48:1. --danger bridges to this. */
+	--destructive: oklch(0.45 0.24 27.325);
+	--border: oklch(0.929 0.013 255.508);
+	/* control border (inputs/textareas via border-input): 0.929 was 1.23:1.
+	 * 0.6 -> ~3.9:1 (WCAG 1.4.11). --border (decorative pane dividers) is left
+	 * lighter on purpose so the UI does not turn boxy. */
+	--input: oklch(0.6 0.04 257);
+	/* focus ring: 0.704 was 2.63:1; 0.55 -> 4.85:1 (WCAG 2.4.11). */
+	--ring: oklch(0.55 0.04 256.788);
+	--rail: oklch(0.8 0.012 256);
+	--accent: var(--primary);
+	/* AAA: 0.52 was ~5.54:1 (AA); 0.42 -> 8.58:1. */
+	--info: oklch(0.42 0.17 250);
+	/* light did NOT define --warning, so it inherited dark's gold (0.828) =
+	 * 1.73:1. AAA accessible amber: 0.55 was ~5.07:1 on white but only 4.31:1 on
+	 * the old gradient top (sub-AA); 0.43 -> 8.51:1 on the flat-white surface. */
+	--warning: oklch(0.43 0.14 60);
+	/* AAA: darker green for the reviewed marker on the flat-white surface. */
+	--success: oklch(0.52 0.15 155);
+	--ready: oklch(0.55 0.11 230);
+
+	/* GitHub-light palette (migrated from the deleted hljs-light.css).
+	 * --hljs-builtin darkened #e36209 → #953800 (3.5:1 → 7.4:1) and
+	 * --hljs-addition-fg #22863a → #116329 (4.5:1 → 7.1:1 on its bg) to
+	 * clear the gate; all others carried verbatim. Keyword (4.57:1) and
+	 * name (4.65:1) pass with slim margin — do not darken the background. */
+	--hljs-fg: #24292e;
+	--hljs-comment: #6a737d;
+	--hljs-keyword: #d73a49;
+	--hljs-entity: #6f42c1;
+	--hljs-constant: #005cc5;
+	--hljs-string: #032f62;
+	--hljs-builtin: #953800;
+	--hljs-name: #22863a;
+	--hljs-section: #005cc5;
+	--hljs-bullet: #735c0f;
+	--hljs-addition-fg: #116329;
+	--hljs-addition-bg: #f0fff4;
+	--hljs-deletion-fg: #b31d28;
+	--hljs-deletion-bg: #ffeef0;
+
+	/* Neutral pane separators — match --panel-border (like the tui theme). */
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
+	/* Elevated popover surface reads better than the flat-white app background
+	 * for the inline-thread textarea (review module, slice 6). */
+	--inline-thread-textarea-bg: var(--panel-bg-elevated);
+	--sha-color: #6d4cbc;
+	--provider-claude: #b45309;
+	--provider-codex: #1d4ed8;
+	--provider-ezio: #b3247e;
+	--provider-cursor: #0e7490;
+	--provider-antigravity: #6d28d9;
+}
+
+/* ---- warm theme: existing palette via shadcn token names ---- */
+[data-theme="warm"] {
+	--background: #221c15;
+	--foreground: #f6efe4;
+	--card: #2a231b;
+	--card-foreground: #f6efe4;
+	--popover: #342c22;
+	--popover-foreground: #f6efe4;
+	--border: #4a3f31;
+	/* focus ring: #6d5b46 was 2.60:1; #9a8266 -> 4.63:1 (WCAG 2.4.11). Control
+	 * borders (--input) are inherited white/15% = 3.38:1, already AA. */
+	--ring: #9a8266;
+	--rail: #6b5d48;
+	--primary: #e58a5e;
+	--primary-foreground: #221c15;
+	--secondary: #3d2817;
+	--secondary-foreground: #f6efe4;
+	--muted: #3d2817;
+	--muted-foreground: #cab999;
+	--accent: #e58a5e;
+	--accent-foreground: #221c15;
+	--destructive: #d97058;
+	--warning: #dda85e;
+	--success: oklch(0.74 0.14 150);
+	--danger: #d97058;
+	--ready: #4f9d8f;
+	/* warm did not define --info -> inherited dark's blue. Pinned explicitly so
+	 * a future :root edit cannot silently change it (passes at 6.95:1). */
+	--info: oklch(0.72 0.13 235);
+
+	/* Warm-native code palette (spec D16): amber keyword family around
+	 * --primary #e58a5e, sand strings, khaki comments — every value picked
+	 * ≥ 4.5:1 on the warm --popover #342c22 (hljs-contrast.test.ts). */
+	--hljs-fg: #f6efe4;
+	--hljs-comment: #cab999;
+	--hljs-keyword: #e58a5e;
+	--hljs-entity: #e8a9a0;
+	--hljs-constant: #7cc0b0;
+	--hljs-string: #d9c39a;
+	--hljs-builtin: #dda85e;
+	--hljs-name: #a3c585;
+	--hljs-section: #f0a06c;
+	--hljs-bullet: #d9b573;
+	--hljs-addition-fg: #b8e0b9;
+	--hljs-addition-bg: #1e3620;
+	--hljs-deletion-fg: #f0c4b8;
+	--hljs-deletion-bg: #4a201a;
+
+	/* Warm theme: a dark espresso/umber take on the terminal surfaces — keeps
+	 * the terminal-ish dark feel but trades the cool blue-grey for warm
+	 * browns, ivory text, and a terracotta accent. Preview with
+	 * document.documentElement.setAttribute("data-theme", "warm"). */
+	/* Neutral pane separators — match --panel-border (like the tui theme). */
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
+	--sha-color: #c4a0db;
+	--provider-claude: #e58a5e;
+	--provider-codex: #5a9bd6;
+	--provider-ezio: #d97aae;
+	--provider-cursor: #22b8d0;
+	--provider-antigravity: #8b5cf6;
+}
+
+/* ---- Terminal UI theme: WebTUI-style stepped ladder on shadcn token names
+ * (docs/tui-css-spec.md §4). Dark-launch palette — opt-in via the Theme menu;
+ * preview with document.documentElement.setAttribute("data-theme", "tui").
+ * Ladder mapping: background=bg0, card/popover=bg1, muted/secondary/accent=bg2,
+ * border=bg3 (solid, never alpha), foreground=fg0, muted-foreground=fg2.
+ * --primary is the xterm dark cursor teal so chrome matches the terminal. ---- */
+[data-theme="tui"] {
+	--radius: 0rem;
+	--background: oklch(0.16 0.015 240);
+	--foreground: oklch(0.96 0.01 200);
+	--card: oklch(0.2 0.015 240);
+	--card-foreground: var(--foreground);
+	--popover: oklch(0.2 0.015 240);
+	--popover-foreground: var(--foreground);
+	--primary: oklch(0.78 0.13 175);
+	--primary-foreground: oklch(0.16 0.015 240);
+	--secondary: oklch(0.26 0.015 240);
+	--secondary-foreground: var(--foreground);
+	--muted: oklch(0.26 0.015 240);
+	--muted-foreground: oklch(0.68 0.02 230);
+	--accent: oklch(0.26 0.015 240);
+	--accent-foreground: var(--foreground);
+	--destructive: oklch(0.704 0.191 22.216);
+	/* tui did not define these -> inherited dark's values (both pass on the tui
+	 * dark surface). Pinned explicitly so a future :root edit can't break tui. */
+	--warning: oklch(0.828 0.122 75);
+	--info: oklch(0.72 0.13 235);
+	--success: oklch(0.74 0.13 165);
+	--ready: oklch(0.75 0.1 200);
+	--border: oklch(0.34 0.015 240);
+	--input: oklch(0.26 0.015 240);
+	--ring: var(--primary);
+	--rail: oklch(0.44 0.015 240);
+
+	/* Ladder-conformant code palette (spec D16, docs/tui-css-spec.md):
+	 * cursor-teal keywords + xterm-style accents on the bg1 --popover.
+	 * Literal oklch values (no var() — the contrast test parses literals);
+	 * keyword deliberately equals --primary's value. */
+	--hljs-fg: oklch(0.96 0.01 200);
+	--hljs-comment: oklch(0.7 0.02 230);
+	--hljs-keyword: oklch(0.78 0.13 175);
+	--hljs-entity: oklch(0.85 0.08 300);
+	--hljs-constant: oklch(0.8 0.1 235);
+	--hljs-string: oklch(0.87 0.06 140);
+	--hljs-builtin: oklch(0.8 0.11 65);
+	--hljs-name: oklch(0.85 0.12 145);
+	--hljs-section: oklch(0.75 0.12 210);
+	--hljs-bullet: oklch(0.83 0.1 90);
+	--hljs-addition-fg: oklch(0.85 0.1 150);
+	--hljs-addition-bg: oklch(0.3 0.05 150);
+	--hljs-deletion-fg: oklch(0.85 0.08 25);
+	--hljs-deletion-bg: oklch(0.3 0.08 25);
+
+	/* Character-grid tokens (spec §4.6): pin line-height so 1lh is
+	 * deterministic for cell-sized layout and box-drawing borders. */
+	line-height: 1.4;
+	--cell-w: 1ch;
+	--cell-h: 1lh;
+
+	/* Pane accent borders become solid full-opacity lines instead of rgba
+	 * washes — crisp 1px lines read as box-drawing (spec D3). */
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
+	/* Heavier chrome borders read as box-drawing rules. The 1px default for
+	 * `--shell-border-width` is declared above in :root block, and chrome
+	 * borders draw with `var(--shell-border-width) solid …`; here it widens to 2px. */
+	--shell-border-width: 2px;
+}
+
+/* ---- prototype-only page scaffolding (NOT an app token) ---- */
 :root {
   --font-ui: "SF Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, monospace;
-  --space-1: 4px; --space-2: 8px; --space-3: 12px;
-  --space-4: 16px; --space-5: 20px; --space-6: 24px;
 }
 
 * { box-sizing: border-box; }
@@ -128,6 +373,14 @@ button { font: inherit; }
 button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0s !important; animation-duration: 0s !important; }
+}
+/* AC7: tui renders with ZERO motion — state changes snap. Extends the app's
+   tui teardown precedent (src/styles/base.css zeroes animation/transition
+   durations under tui); the implementation carries this as an .idb-scoped
+   override in src/styles/modules/insights.css. */
+[data-theme="tui"] * {
+  transition-duration: 0s !important;
+  animation-duration: 0s !important;
 }
 
 /* ---------------- Controls column ---------------- */
@@ -391,7 +644,7 @@ button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 
 <div class="controls">
   <h1>insights ▸ dashboard</h1>
-  <p class="sub">slice 1 v3 — overlay + detachable window; overview & by-workspace views</p>
+  <p class="sub">slice 1 v4 — overlay + detachable window; overview & by-workspace views</p>
 
   <div class="group">
     <div class="lbl">theme</div>
@@ -422,11 +675,12 @@ button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
   </div>
 
   <div class="group note">
-    <div class="lbl">what changed in v3</div>
-    <p><b>all range</b> — weekly buckets since data began, per-source honest: tokens reach the ledger's march history; app time & runs start at capture (jul 21), marked by the vertical rule in the area chart.</p>
-    <p><b>workspaces view</b> — runs + tokens + est. cost per workspace (whisper runs carry repo attribution; the ledger is cwd-keyed). Focused/engaged per workspace needs the workspace-active collector — noted as follow-up.</p>
-    <p><b>30d fix</b> — token bars no longer show pre-capture stubs: the ledger has daily buckets for all 30 days; only app time & runs are capture-bound.</p>
-    <p style="margin-top:10px"><b>Charts:</b> mockup hand-draws (self-contained); implementation = shadcn ChartContainer + Recharts, --chart-* vars → these tokens.</p>
+    <div class="lbl">what changed in v4 (spec-review fixes)</div>
+    <p><b>tokens</b> — the token blocks now mirror src/styles/tokens.css byte-verbatim (full :root + all three theme override blocks), instead of a hand-picked subset.</p>
+    <p><b>tui motion</b> — zero transition/animation durations under tui (AC7); controls snap.</p>
+    <p><b>workspace totals</b> — run counts are apportioned with largest-remainder so the table's totals row equals the overview tiles exactly, in every range (AC5). In the app both read the same real sums.</p>
+    <p style="margin-top:10px"><b>carried from v3</b> — all range: weekly buckets since data began, per-source honest (tokens reach the ledger's march history; app time & runs start at capture, jul 21). Workspaces view: runs + tokens + est. cost per workspace.</p>
+    <p style="margin-top:10px"><b>Charts:</b> mockup hand-draws (self-contained); implementation = shadcn ChartContainer + Recharts; ChartConfig colors reference these tokens directly (no --chart-* palette).</p>
   </div>
 </div>
 
@@ -765,17 +1019,29 @@ function renderRhythm() {
   });
 }
 
+// Largest-remainder apportionment: integer allocations that sum EXACTLY to
+// `total`, so the table's totals row always equals the overview tiles (AC5).
+// (Per-row Math.round drifted the totals — the v3 review finding. In the app
+// this function does not exist: rows are grouped from the same real run list
+// the tiles sum, so equality holds by construction.)
+function apportion(total, shares) {
+  const raw = shares.map(s => total * s);
+  const base = raw.map(Math.floor);
+  let rem = total - base.reduce((a, b) => a + b, 0);
+  const order = raw.map((v, i) => [v - base[i], i]).sort((a, b) => b[0] - a[0]);
+  for (let k = 0; k < rem; k++) base[order[k % order.length][1]] += 1;
+  return base;
+}
+
 function renderWorkspaces(runs, tokTotal) {
   const grid = document.getElementById("ws-grid");
-  const rows = WS.map(w => {
-    const tok = tokTotal * w.tokShare;
-    return {
-      ...w, tok,
-      done: Math.round(runs[0] * w.runShare),
-      halted: Math.round(runs[1] * w.runShare),
-      failed: Math.round(runs[2] * w.runShare),
-    };
-  }).sort((a, b) => b.tok - a.tok);
+  const doneAlloc = apportion(runs[0], WS.map(w => w.runShare));
+  const haltedAlloc = apportion(runs[1], WS.map(w => w.runShare));
+  const failedAlloc = apportion(runs[2], WS.map(w => w.runShare));
+  const rows = WS.map((w, i) => ({
+    ...w, tok: tokTotal * w.tokShare,
+    done: doneAlloc[i], halted: haltedAlloc[i], failed: failedAlloc[i],
+  })).sort((a, b) => b.tok - a.tok);
   const maxTok = Math.max(...rows.map(r => r.tok), 1);
   let html =
     '<div class="hd">workspace</div><div class="hd">agent runs</div>' +
