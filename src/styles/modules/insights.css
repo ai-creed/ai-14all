@@ -620,6 +620,21 @@
 		border-radius: 0;
 		flex-shrink: 0;
 	}
+
+	/* Task 15 finding: the tui zero-motion rule below (app.themes) only zeroes
+	 * transitions for [data-theme="tui"] — every other palette still ran the
+	 * .idb-seg/.tb-btn/.idb-act 150ms color/background transitions under
+	 * prefers-reduced-motion. Freeze them here (primitives.css's
+	 * @media(prefers-reduced-motion) precedent) so all four themes honor it,
+	 * matching the charts' own isAnimationActive={false} reduce handling. */
+	@media (prefers-reduced-motion: reduce) {
+		.idb-shell *,
+		.idb-shell *::before,
+		.idb-shell *::after {
+			transition: none !important;
+			animation: none !important;
+		}
+	}
 }
 
 @layer app.themes {
