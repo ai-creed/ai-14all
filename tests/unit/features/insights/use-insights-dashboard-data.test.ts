@@ -182,3 +182,187 @@ describe("useInsightsDashboardData — today range tile/table windowing (AC5)", 
 		).toBe(true);
 	});
 });
+
+// AC3 regression: `all` must never probe usage.queryRange with an unbounded
+// (epoch-to-now) window — the host (usage-host.ts) rejects any span over
+// 10*366 days as a caller-bug "timeout", and epoch-to-now always exceeds
+// that, so selecting `all` with telemetry enabled always rendered the error
+// state. The fix: `all`'s step-1 probe is the SAME small, recent window
+// today/7d already use (purely to fetch the window-independent
+// `earliestDayMs`); its real, potentially-months-back domain window is
+// queried SEPARATELY, once known. Distinguishes the two calls by requested
+// span (the recent probe is ~7 days; the real domain window here is set up
+// to span 40+ days back, so a >10-day threshold cleanly tells them apart)
+// and returns deliberately mismatched data, so a leak either direction (the
+// bug returning, or a regression routing the wrong response to the wrong
+// consumer) shows up as a wrong number rather than silently passing.
+describe("useInsightsDashboardData — `all` range: bounded domain probe (AC3)", () => {
+	beforeEach(() => {
+		vi.restoreAllMocks();
+		vi.useFakeTimers({ shouldAdvanceTime: true });
+		vi.setSystemTime(new Date("2026-07-29T12:00:00"));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("never probes from epoch or with an absurd span; chart/tiles/table all derive from the domain-window response", async () => {
+		const now = Date.now();
+		const EARLIEST_MS = now - 40 * ONE_DAY_MS; // >6 weeks back: a REAL all-range domain, well past the 7-day probe.
+		const TEN_YEARS_MS = 10 * 366 * ONE_DAY_MS;
+		const calls: UsageRangeQuery[] = [];
+
+		(window as unknown as { ai14all: unknown }).ai14all = {
+			insights: {
+				coverageAnchors: vi.fn().mockResolvedValue({
+					ok: true,
+					data: {
+						firstCaptureAt: EARLIEST_MS,
+						appRetainedSinceMs: EARLIEST_MS,
+						runsRetainedSinceMs: EARLIEST_MS,
+					},
+				}),
+				queryAppTimeSeries: vi
+					.fn()
+					.mockImplementation(async (edges: number[]) => ({
+						ok: true,
+						data: {
+							buckets: edges.slice(0, -1).map((startMs: number) => ({
+								startMs,
+								focusedMs: 0,
+								engagedMs: 0,
+							})),
+							completeness: "complete",
+						},
+					})),
+				query: vi.fn().mockResolvedValue({
+					ok: true,
+					data: { runs: [], completeness: "complete" },
+				}),
+			},
+			usage: {
+				queryRange: vi
+					.fn()
+					.mockImplementation(async (query: UsageRangeQuery) => {
+						calls.push(query);
+						const span = query.toMs - query.fromMs;
+						if (span > 10 * ONE_DAY_MS) {
+							// The real `all` domain-window query: many weeks back.
+							return {
+								ok: true,
+								days: [
+									{ dayStartMs: query.fromMs, tokens: { claude: 12_000_000 } },
+								],
+								byWorkspace: [
+									{
+										workspaceId: "ws-all",
+										worktreeId: null,
+										worktreePath: null,
+										worktreeTitle: "all-time row",
+										provider: "claude",
+										active: false,
+										tokens: {
+											input: 0,
+											output: 0,
+											billable: 12_000_000,
+											raw: 12_000_000,
+										},
+										costUsd: 45.6,
+									},
+								],
+								byProvider: [],
+								cost: {
+									perProvider: { claude: 45.6 },
+									total: 45.6,
+									currency: "USD",
+									notional: true,
+									unpricedTokens: 0,
+								},
+								earliestDayMs: EARLIEST_MS,
+							};
+						}
+						// The cheap step-1 recent probe (~7 days) — must NEVER feed
+						// tiles/table/chart for `all`; distinct, smaller numbers so any
+						// leak is obvious.
+						return {
+							ok: true,
+							days: [{ dayStartMs: query.fromMs, tokens: { claude: 111 } }],
+							byWorkspace: [
+								{
+									workspaceId: "ws-recent-probe",
+									worktreeId: null,
+									worktreePath: null,
+									worktreeTitle: "recent-probe row",
+									provider: "claude",
+									active: false,
+									tokens: { input: 0, output: 0, billable: 111, raw: 111 },
+									costUsd: 0.01,
+								},
+							],
+							byProvider: [],
+							cost: {
+								perProvider: { claude: 0.01 },
+								total: 0.01,
+								currency: "USD",
+								notional: true,
+								unpricedTokens: 0,
+							},
+							earliestDayMs: EARLIEST_MS,
+						};
+					}),
+			},
+		} satisfies StubApi;
+
+		const { result } = renderHook(() => useInsightsDashboardData([]));
+		await waitFor(() => expect(result.current.status).toBe("live"));
+
+		act(() => {
+			result.current.setRange("all");
+		});
+		await waitFor(() => expect(result.current.range).toBe("all"));
+		await waitFor(() =>
+			expect(result.current.workspaceRows.totals.tokens).toBe(12_000_000),
+		);
+
+		// (c) no error state — the whole point of the fix.
+		expect(result.current.status).toBe("live");
+
+		// (a) no call, ever (mount's `7d` fetch included), probed from epoch or
+		// with a span the host's degenerate-range guard would reject.
+		expect(calls.length).toBeGreaterThan(0);
+		for (const c of calls) {
+			expect(c.fromMs).not.toBe(0);
+			expect(c.toMs - c.fromMs).toBeLessThanOrEqual(TEN_YEARS_MS);
+		}
+
+		// (b) tiles/table derive from the domain-window response, not the
+		// recent probe.
+		expect(result.current.tiles.tokens).toBe(12_000_000);
+		expect(result.current.tiles.costUsd).toBe(45.6);
+		expect(result.current.workspaceRows.totals.tokens).toBe(12_000_000);
+		expect(result.current.workspaceRows.totals.costUsd).toBe(45.6);
+		expect(
+			result.current.workspaceRows.rows.some((r) => r.key === "ws-all"),
+		).toBe(true);
+		expect(
+			result.current.workspaceRows.rows.some(
+				(r) => r.key === "ws-recent-probe",
+			),
+		).toBe(false);
+
+		// (b) the token chart's own data source (`usage`) ALSO derives from the
+		// domain-window response, not the recent probe.
+		expect(
+			result.current.usage?.byWorkspace.some((r) => r.workspaceId === "ws-all"),
+		).toBe(true);
+		expect(
+			result.current.usage?.byWorkspace.some(
+				(r) => r.workspaceId === "ws-recent-probe",
+			),
+		).toBe(false);
+		expect(
+			result.current.usage?.days.some((d) => d.tokens.claude === 111),
+		).toBe(false);
+	});
+});

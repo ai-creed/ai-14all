@@ -6,21 +6,46 @@
 //      than its 7-day domain probe window (AC5): costUsd/byWorkspace have no
 //      per-day breakout to filter after the fact, unlike `days` (tokens).
 //      Day-mode domains are anchor-independent, so `tileProbe` is knowable
-//      up front, before anchors resolve.
+//      up front, before anchors resolve. `probe` itself is ALWAYS a small,
+//      bounded window — today/7d/30d probe their own (small) domain size
+//      directly; `all` probes the same small window today/7d use, purely to
+//      fetch `earliestDayMs` (window-independent — services/usage/range.ts
+//      computes it over the WHOLE ledger regardless of the requested span)
+//      and the disabled/timeout signal. `all`'s real domain can span back to
+//      the earliest retained day, which the usage-host's degenerate-range
+//      guard (usage-host.ts) would reject if probed directly at this point —
+//      and isn't knowable yet anyway, since it needs real anchors. Its own
+//      domain-window query is issued later, once the real domain is known
+//      (step 3/4 below).
 //   2. Any insights read ok:false -> "error" (remembered for retry); usage
 //      "disabled" -> usageDisabled (NOT error); usage "timeout" -> "error".
 //      The tile probe (when issued) is resolved the same way.
 //   3. domain = domainForRange(range, {earliestDayMs, appRetainedSinceMs,
 //      runsRetainedSinceMs}, now).
 //   4. queryAppTimeSeries(domain.edges) + query(domain window) +
-//      queryAppTimeSeries(rhythmEdges(...)) in parallel.
+//      queryAppTimeSeries(rhythmEdges(...)) in parallel — PLUS a second
+//      usage.queryRange(domain window) in the SAME Promise.all when the
+//      range is `all` (its real domain is only knowable now, hence
+//      post-domain rather than bundled into step 1 like `today`'s tile
+//      probe). Bounded by how far back real retained data goes (app-time/
+//      runs retention floors at 365 days; the usage ledger may retain
+//      longer, but nowhere near the host's 10-year guard), so this is always
+//      safe to query directly. Skipped when usage is already known disabled
+//      from step 1/2 — a second call would just re-confirm that.
 //   5. Empty decision (both retained anchors null AND usage disabled/no
 //      ledger days).
 //   6. Tiles: filtered to the selected range's tile window; tokens/cost pull
-//      from the tile-window usage data (step 1), not the domain-window one.
+//      from the SECOND usage query's data when one was issued (today's tile
+//      probe, or `all`'s domain-window query) — otherwise (7d/30d, whose
+//      tile window always equals their step-1 probe window) from the
+//      step-1 probe directly.
 //   7. workspaceRows from the SAME tile-window-filtered runs AND the SAME
-//      tile-window usage data, so the table totals equal the tiles by
+//      usage data tiles use, so the table totals equal the tiles by
 //      construction (AC5).
+//   7b. The chart (`usage`, exposed to TokenBurnChart) reads from the SAME
+//      source as tiles/table for `all` (its step-1 probe is a recent window
+//      irrelevant to the weekly chart) — everywhere else (today/7d/30d) it
+//      stays on the step-1 probe, which already covers the full domain.
 //   8. footer via deriveCoverageFooter.
 //   9. 30s poll while document.visibilityState === "visible"; retry = refetch.
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -160,6 +185,20 @@ function sumDayTokens(
 	return sum;
 }
 
+// A successful usage.queryRange result carries `ok: true` alongside the
+// UsageRangeData fields directly (not nested) — this just strips the `ok`
+// discriminant. Shared by every usage.queryRange call site below (the step-1
+// probe, `today`'s tile probe, and `all`'s domain-window query).
+function toUsageRangeData(r: { ok: true } & UsageRangeData): UsageRangeData {
+	return {
+		days: r.days,
+		byWorkspace: r.byWorkspace,
+		byProvider: r.byProvider,
+		cost: r.cost,
+		earliestDayMs: r.earliestDayMs,
+	};
+}
+
 export function useInsightsDashboardData(
 	workspaces: WorkspaceIndex,
 ): DashboardData {
@@ -210,15 +249,15 @@ export function useInsightsDashboardData(
 		const currentRange = rangeRef.current;
 		const api = window.ai14all;
 
-		// Step 1: anchors + usage probe(s), parallel. `all` probes full ledger
-		// depth (fromMs: 0) so `earliestDayMs` and `days` cover every source
-		// day; other ranges probe exactly the day window the range will render
-		// (domainForRange ignores the anchors argument for day-mode ranges,
-		// which is also why `probeDomain` below is safe to compute with null
-		// anchors and reuse for `tileWindowFor`).
-		const probeDomain: Domain | null =
+		// Step 1: anchors + a cheap, always-bounded usage probe, parallel
+		// (module doc, step 1). today/7d/30d probe their own (small,
+		// anchor-independent) domain size directly; `all` probes the SAME
+		// small window today/7d use — its real, potentially-much-larger domain
+		// window isn't knowable yet (needs real anchors) and is queried
+		// separately once it is (step 4 below).
+		const probeDomain: Domain =
 			currentRange === "all"
-				? null
+				? { mode: "day", edges: dayEdges(now, 7) }
 				: domainForRange(
 						currentRange,
 						{
@@ -228,19 +267,17 @@ export function useInsightsDashboardData(
 						},
 						now,
 					);
-		const probe =
-			probeDomain === null
-				? { fromMs: 0, toMs: dayEdges(now, 1)[1] }
-				: {
-						fromMs: probeDomain.edges[0],
-						toMs: probeDomain.edges[probeDomain.edges.length - 1],
-					};
+		const probe = {
+			fromMs: probeDomain.edges[0],
+			toMs: probeDomain.edges[probeDomain.edges.length - 1],
+		};
 		// `today` is the only range whose tile window is narrower than its
 		// domain probe window (module doc, step 1) — every other range's tile
-		// window already equals the probe window above, so no second fetch is
-		// needed for them.
+		// window either already equals the probe window above (7d/30d) or is
+		// resolved by its own later, post-domain query (`all`; step 4), so no
+		// second fetch is needed here for them.
 		const tileProbe =
-			currentRange === "today" && probeDomain
+			currentRange === "today"
 				? tileWindowFor(currentRange, probeDomain)
 				: null;
 
@@ -261,13 +298,7 @@ export function useInsightsDashboardData(
 		let usageData: UsageRangeData | null = null;
 		let disabled = false;
 		if (usageResult.ok) {
-			usageData = {
-				days: usageResult.days,
-				byWorkspace: usageResult.byWorkspace,
-				byProvider: usageResult.byProvider,
-				cost: usageResult.cost,
-				earliestDayMs: usageResult.earliestDayMs,
-			};
+			usageData = toUsageRangeData(usageResult);
 		} else if (usageResult.reason === "disabled") {
 			disabled = true;
 		} else {
@@ -278,21 +309,17 @@ export function useInsightsDashboardData(
 			return;
 		}
 
-		// Tile/table figures (costUsd, byWorkspace, token sums) read from the
-		// narrower tile probe when one was issued (today, per Step 1); every
-		// other range's tile window equals its domain probe window, so the
-		// domain-window `usageData` already IS the tile data and no second
-		// result needs folding in.
+		// Tile/table (and, for `all`, chart) figures read from the narrower
+		// tile probe when one was issued (today, per Step 1); every other
+		// range's tile window equals its step-1 probe window, so `usageData`
+		// already IS the tile/chart data and no second result needs folding
+		// in yet (`all` gets its own second result below, once its domain is
+		// known).
 		let tileUsageData = usageData;
+		let chartUsageData = usageData;
 		if (tileProbe && tileUsageResult) {
 			if (tileUsageResult.ok) {
-				tileUsageData = {
-					days: tileUsageResult.days,
-					byWorkspace: tileUsageResult.byWorkspace,
-					byProvider: tileUsageResult.byProvider,
-					cost: tileUsageResult.cost,
-					earliestDayMs: tileUsageResult.earliestDayMs,
-				};
+				tileUsageData = toUsageRangeData(tileUsageResult);
 			} else if (tileUsageResult.reason === "disabled") {
 				tileUsageData = null;
 			} else {
@@ -312,21 +339,60 @@ export function useInsightsDashboardData(
 		};
 		const dom = domainForRange(currentRange, domainAnchors, now);
 
-		// Step 4: series/runs/rhythm, parallel.
-		const [seriesResult, runsResult, rhythmResult] = await Promise.all([
-			api.insights.queryAppTimeSeries(dom.edges),
-			api.insights.query({
-				fromMs: dom.edges[0],
-				toMs: dom.edges[dom.edges.length - 1],
-			}),
-			api.insights.queryAppTimeSeries(rhythmEdges(dom.edges[0], now)),
-		]);
+		// `all`'s real domain-window usage query (module doc, step 4): only
+		// knowable now (needs the real anchors `dom` was just built from), and
+		// skipped when usage is already known disabled above (a second call
+		// would just re-confirm that).
+		const domainWindow =
+			currentRange === "all" && !disabled
+				? { fromMs: dom.edges[0], toMs: dom.edges[dom.edges.length - 1] }
+				: null;
+
+		// Step 4: series/runs/rhythm — PLUS `all`'s domain-window usage query
+		// when there is one — parallel.
+		const [seriesResult, runsResult, rhythmResult, domainUsageResult] =
+			await Promise.all([
+				api.insights.queryAppTimeSeries(dom.edges),
+				api.insights.query({
+					fromMs: dom.edges[0],
+					toMs: dom.edges[dom.edges.length - 1],
+				}),
+				api.insights.queryAppTimeSeries(rhythmEdges(dom.edges[0], now)),
+				domainWindow
+					? api.usage.queryRange(domainWindow)
+					: Promise.resolve(null),
+			]);
 
 		if (!seriesResult.ok || !runsResult.ok || !rhythmResult.ok) {
 			if (generationRef.current !== my) return; // superseded — discard
 			setStatus("error");
 			setUpdatedAt(Date.now());
 			return;
+		}
+
+		// `all`: chart AND tiles AND table all read from this domain-window
+		// result (module doc, step 4/6/7b) — its step-1 probe was only ever a
+		// cheap, recent window used to fetch `earliestDayMs`, irrelevant to
+		// the actual (weekly, potentially months-back) domain being rendered.
+		if (domainWindow && domainUsageResult) {
+			if (domainUsageResult.ok) {
+				const resolved = toUsageRangeData(domainUsageResult);
+				tileUsageData = resolved;
+				chartUsageData = resolved;
+			} else if (domainUsageResult.reason === "disabled") {
+				// Rare race (telemetry disabled between step 1 and here, since a
+				// known-disabled step 1 skips this query entirely): keep
+				// `usageDisabled` consistent with the now-absent data.
+				disabled = true;
+				tileUsageData = null;
+				chartUsageData = null;
+			} else {
+				// "timeout" -> error, mirroring the other usage reads above.
+				if (generationRef.current !== my) return; // superseded — discard
+				setStatus("error");
+				setUpdatedAt(Date.now());
+				return;
+			}
 		}
 
 		const seriesData = seriesResult.data;
@@ -358,13 +424,15 @@ export function useInsightsDashboardData(
 				r.startedAt < tileWindow.toMs,
 		);
 		const runCounts = countRunOutcomes(runsInRange.map((r) => r.status));
-		// AC5: tokens/cost read from the TILE-window usage data (Step 1), not
-		// the 7-day domain-window `usageData` — for `today` those differ.
+		// AC5: tokens/cost read from `tileUsageData` — the SECOND usage query's
+		// data when one was issued (today's tile probe; `all`'s domain-window
+		// query), otherwise (7d/30d) the step-1 probe directly, per module doc
+		// step 6.
 		const tokens = sumDayTokens(tileUsageData?.days ?? [], tileWindow);
 		const costUsd = tileUsageData?.cost.total ?? null;
 
-		// Step 7: workspace rows, from the SAME tile-filtered runs AND
-		// tile-window usage data used above, so the table totals equal the
+		// Step 7: workspace rows, from the SAME tile-filtered runs AND the
+		// SAME usage data tiles used above, so the table totals equal the
 		// tiles by construction (AC5).
 		const rows = buildWorkspaceRows(
 			tileUsageData?.byWorkspace ?? [],
@@ -387,7 +455,11 @@ export function useInsightsDashboardData(
 
 		if (generationRef.current !== my) return; // superseded — discard
 		setAnchors(anchorsData);
-		setUsage(usageData);
+		// The chart (TokenBurnChart, via `usage`) reads `chartUsageData` —
+		// `usageData` itself for every range except `all` (module doc, step
+		// 7b), whose step-1 probe is a recent window irrelevant to its actual
+		// (weekly, domain-window) chart data.
+		setUsage(chartUsageData);
 		setUsageDisabled(disabled);
 		setDomain(dom);
 		setSeries(seriesData);

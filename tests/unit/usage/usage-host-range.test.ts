@@ -207,6 +207,15 @@ describe("UsageHost.queryRange", () => {
 		).resolves.toEqual({ ok: false, reason: "disabled" });
 	});
 
+	// This guard exists for absurd/malformed CALLER-BUG inputs (a descending
+	// range, NaN, toMs near Number.POSITIVE_INFINITY/1e18, …) — it is NOT a
+	// signal that probing from epoch is an expected or supported access
+	// pattern. No real caller should ever legitimately hit the 10-year cap
+	// from `fromMs: 0`: the insights dashboard hook, in particular, never
+	// probes wider than its actual, real-data-bounded domain window (AC3 —
+	// see useInsightsDashboardData.ts's `all`-range handling, which replaced
+	// an earlier epoch-to-now probe that always tripped this guard whenever
+	// telemetry was enabled).
 	it("rejects a degenerate or absurdly wide range as a caller bug (timeout) WITHOUT ever forwarding it to the worker", async () => {
 		const { host, proc } = startedWithFakeProc();
 
@@ -230,10 +239,35 @@ describe("UsageHost.queryRange", () => {
 			),
 		).toBe(false);
 
-		// A legitimate range right AT the cap is still accepted and forwarded.
+		// The guard's boundary is inclusive (a span right AT the cap is still
+		// accepted and forwarded) — this exercises the guard's own edge, not a
+		// realistic caller shape (see the `now`-anchored acceptance case below
+		// for that).
 		const p = host.queryRange({ fromMs: 0, toMs: TEN_YEARS_MS });
 		const posted = sentQueryRange(proc);
 		expect(posted).toBeDefined();
+		proc.emit("message", rangeResultOf(posted?.requestId));
+		await expect(p).resolves.toMatchObject({ ok: true });
+	});
+
+	it("accepts a legitimate, now-anchored ~9.5-year window — forwarded, not rejected", async () => {
+		// Shaped like a REAL wide probe (e.g. a long-lived `all`-range domain
+		// window), not the guard's own from-epoch boundary case above: anchored
+		// to `now`, well under the 10-year cap, nowhere near `fromMs: 0`.
+		const { host, proc } = startedWithFakeProc();
+		const now = Date.now();
+		const NINE_AND_HALF_YEARS_MS = 9.5 * 366 * 86_400_000;
+
+		const p = host.queryRange({
+			fromMs: now - NINE_AND_HALF_YEARS_MS,
+			toMs: now,
+		});
+
+		const posted = sentQueryRange(proc);
+		expect(posted).toBeDefined();
+		expect(posted?.query.fromMs).toBe(now - NINE_AND_HALF_YEARS_MS);
+		expect(posted?.query.toMs).toBe(now);
+
 		proc.emit("message", rangeResultOf(posted?.requestId));
 		await expect(p).resolves.toMatchObject({ ok: true });
 	});

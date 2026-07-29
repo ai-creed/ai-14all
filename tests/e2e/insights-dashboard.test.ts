@@ -294,3 +294,56 @@ test("AC2: OS-close just closes — the overlay does NOT reopen", async () => {
 		0,
 	);
 });
+
+// AC3 boundary regression: the `all` range's usage.queryRange probe used to
+// be an unbounded epoch-to-now window, which the REAL usage-host.ts
+// (electron/main/services/usage-host.ts) rejects as a degenerate/oversized-
+// range caller bug (`timeout`) — with telemetry enabled, selecting `all`
+// therefore always rendered the error state. Invisible to either layer's own
+// unit tests (each mocks the other side of the IPC boundary) — only visible
+// crossing the REAL host<->dashboard boundary, which is exactly what this
+// spec's harness exercises: telemetry genuinely enabled, a real usage worker
+// utility process (not the AI14ALL_E2E_USAGE_SNAPSHOT seam, which would
+// short-circuit usage.queryRange to `disabled` and never reach the guard at
+// all), seeded with a real 12M-token event.
+test("AC3: `all` range never errors with telemetry enabled — the real host boundary", async () => {
+	await page.click(".insights-entry-button");
+	await expect(
+		page.locator('[data-testid="insights-dashboard"]'),
+	).toBeVisible();
+
+	await page
+		.locator('[data-testid="insights-dashboard"]')
+		.getByRole("button", { name: "all", exact: true })
+		.click();
+
+	// A range switch doesn't flip the shell back to its "loading" state
+	// (useInsightsDashboardData only sets that once, on mount — a refetch
+	// keeps rendering the PREVIOUS status/data until the new cycle lands, to
+	// avoid flicker), so there's no generic "still fetching" signal to wait
+	// out here. Anchor on the token-burn zone's own header instead: it only
+	// reads "weekly" once `all`'s domain (mode: "week") has actually landed —
+	// on the bug, the early `usage.queryRange` failure returns BEFORE the
+	// domain is ever computed, so this text would never appear and the wait
+	// below fails outright (a real, generous timeout: two sequential IPC
+	// round-trips through the usage worker utility process, hence 15s,
+	// mirroring the AC2 detached-window assertion above).
+	await expect(
+		page.locator('[data-testid="insights-dashboard"] [data-zone="tokens"] .k'),
+	).toContainText("weekly", { timeout: 15_000 });
+
+	await expect(
+		page.locator('[data-testid="insights-dashboard"] .idb-state--error'),
+	).toHaveCount(0);
+	// all-time includes the seeded 12M-token event (fmtTokens -> "12M"):
+	await expect(
+		page.locator(
+			'[data-testid="insights-dashboard"] [data-testid="tile-tokens"] .v',
+		),
+	).toHaveText("12M");
+	// mode === "week" for `all` always frames as "mixed coverage" (§6), the
+	// prototype's deliberate no-"●"-leak rule for the all-time domain.
+	await expect(
+		page.locator('[data-testid="insights-dashboard"] .idb-foot'),
+	).toContainText("mixed coverage");
+});
