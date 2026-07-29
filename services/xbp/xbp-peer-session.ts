@@ -71,6 +71,8 @@ export class XbpPeerSession {
 	private phoneNode: string | null = null;
 	private readonly coalescer: { trigger(): void; cancel(): void };
 	private killed = false;
+	private lastAuthedConnection: { generation: number; at: number } | null =
+		null;
 
 	constructor(
 		private readonly opts: {
@@ -85,6 +87,10 @@ export class XbpPeerSession {
 			ptyInput?: XbpPtyInputExecutor;
 			coalesceMs?: number;
 			now?: () => number;
+			// Generation of the socket that delivered the frame currently being
+			// dispatched (attachable-transport). Optional: absent in tests that
+			// don't care about connection liveness.
+			getInboundGeneration?: () => number | null;
 		},
 	) {
 		const now = opts.now ?? Date.now;
@@ -106,6 +112,8 @@ export class XbpPeerSession {
 		// dropping the previous live peer here must not read as onPeerDetach().
 		this.detach("re-pair");
 
+		const now = this.opts.now ?? Date.now;
+
 		const peer = new Peer({
 			backend: this.opts.backend,
 			identity: this.opts.identity,
@@ -124,6 +132,13 @@ export class XbpPeerSession {
 		const killGuard =
 			<A, R>(capabilityId: string, handler: (args: A) => R | Promise<R>) =>
 			(args: A): R | Promise<R> => {
+				// Stamped BEFORE the kill-switch check (push-wake v2 §3 gate 2): the
+				// kill switch halts capability execution, never connectivity — a
+				// killed request still proves the phone is live on this socket.
+				const generation = this.opts.getInboundGeneration?.() ?? null;
+				if (generation !== null) {
+					this.lastAuthedConnection = { generation, at: now() };
+				}
 				if (this.killed) {
 					this.opts.audit.append({
 						cap: capabilityId,
@@ -345,6 +360,14 @@ export class XbpPeerSession {
 		this.killed = on;
 	}
 
+	// The push-wake suppress signal's authenticated half (child spec §3 gate 2):
+	// the last capability request that arrived, bound to the socket that
+	// carried it. Stamped BEFORE the kill-switch check — kill switch halts
+	// capability execution, never connectivity.
+	getLastAuthedConnection(): { generation: number; at: number } | null {
+		return this.lastAuthedConnection;
+	}
+
 	detach(cause: "peer-detach" | "re-pair" = "peer-detach"): void {
 		// De-authorize the phone but keep serving: the shared transport and the
 		// change coalescer stay up so a fresh attach() (re-pair) works immediately.
@@ -353,6 +376,7 @@ export class XbpPeerSession {
 		this.peer?.stop();
 		this.peer = null;
 		this.phoneNode = null;
+		this.lastAuthedConnection = null;
 		// A first-ever attach() finds no live peer here — nothing was actually
 		// torn down, so it must not fire onRePair()/onPeerDetach() for nothing.
 		if (hadLivePeer) {

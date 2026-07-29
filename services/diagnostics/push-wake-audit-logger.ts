@@ -3,8 +3,23 @@ import { join } from "node:path";
 
 export type PushWakeAuditEntry = {
 	ts: number;
-	trigger: "workflow-done" | "workflow-halted" | "escalated";
-	outcome: "sent" | "dead-token-cleared" | "retry-exhausted";
+	// Primary trigger for the tick: first whisper event if any, else first
+	// attention event.
+	trigger:
+		| "workflow-done"
+		| "workflow-halted"
+		| "escalated"
+		| "attention-waiting"
+		| "attention-failed";
+	outcome:
+		| "sent"
+		| "dead-token-cleared"
+		| "retry-exhausted"
+		| "no-token"
+		| "suppressed-connected"
+		| "coalesced"
+		| "persist-failed";
+	detectors: Array<"whisper" | "attention">; // nonempty
 };
 
 const MAX_BYTES = 5 * 1024 * 1024;

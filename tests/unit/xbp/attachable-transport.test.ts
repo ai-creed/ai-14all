@@ -74,4 +74,40 @@ describe("createAttachableTransport", () => {
 		a.receive(new Uint8Array([1]));
 		expect(got).toHaveLength(0);
 	});
+
+	it("assigns increasing generations and reports the active socket's generation", () => {
+		const t = createAttachableTransport();
+		const a = fakeSocket();
+		const b = fakeSocket();
+		t.attach(a.socket);
+		t.attach(b.socket);
+		// b attached last => active
+		const genB = t.currentInboundGeneration();
+		expect(genB).not.toBeNull();
+		a.receive(new Uint8Array([1])); // frame delivery flips active to a
+		const genA = t.currentInboundGeneration();
+		expect(genA).not.toBeNull();
+		expect(genA).not.toBe(genB);
+	});
+
+	it("isSocketLive tracks the specific socket's lifetime", () => {
+		const t = createAttachableTransport();
+		const a = fakeSocket();
+		const b = fakeSocket();
+		t.attach(a.socket);
+		a.receive(new Uint8Array([1]));
+		const genA = t.currentInboundGeneration() as number;
+		t.attach(b.socket);
+		expect(t.isSocketLive(genA)).toBe(true);
+		a.drop();
+		expect(t.isSocketLive(genA)).toBe(false); // a is gone even though b remains open
+	});
+
+	it("currentInboundGeneration is null when the active socket closed", () => {
+		const t = createAttachableTransport();
+		const a = fakeSocket();
+		t.attach(a.socket);
+		a.drop();
+		expect(t.currentInboundGeneration()).toBeNull();
+	});
 });

@@ -659,10 +659,12 @@ app.whenReady().then(async () => {
 	});
 	const pushWakeWatcher = createPushWakeWatcher({
 		getStates: getWhisperStates,
+		getSessionReport: xbpSessionReport,
 		stateStore: new PushWakeStateStore({ dir: xbpDir }),
 		isEnabled: () =>
 			(xbpService?.getStatus().enabled ?? false) && isPushWakeOn(),
 		hasToken: () => pushTokenStore.exists(),
+		hasLivePhoneConnection: () => xbpService?.hasLivePhoneConnection() ?? false,
 		send: createPushWakeSender({
 			loadToken: () => {
 				try {
@@ -672,6 +674,9 @@ app.whenReady().then(async () => {
 				}
 			},
 			clearToken: () => pushTokenStore.clear(),
+			// E2E seam (child spec §1): main-process fetch is invisible to
+			// Playwright routing, so the override must live here.
+			endpoint: process.env.AI14ALL_PUSH_WAKE_ENDPOINT || undefined,
 		}).send,
 		audit: (entry) => pushWakeAudit.append(entry),
 	});
