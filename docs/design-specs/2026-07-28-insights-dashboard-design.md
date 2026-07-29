@@ -796,6 +796,15 @@ class (AC5).
 6. **`haltReason` refinement of the `halted` class** (§4.9) —
    distinguishing error halts from operator stops/cancels in the
    outcome display.
+7. **Usage-ledger depth vs the host's 10-year range guard** — the
+   `all` domain query spans the ledger's real depth, and the daily
+   usage ledger has no retention; if it ever exceeds the
+   `usage.queryRange` span cap (~10 years), `all` trips the guard
+   again. Needs ledger rollups or a documented clamp before then
+   (same family as item 2's insights rollups).
+8. **App-focus collector binds the main window only** — time spent in
+   the detached dashboard window currently counts as main-window blur.
+   Revisit alongside the workspace-active collector (item 1).
 
 ## 10. Out of scope
 
