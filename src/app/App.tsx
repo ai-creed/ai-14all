@@ -2289,9 +2289,7 @@ function AppContent() {
 					    fixed-position notice occludes interactive chrome somewhere in
 					    every corner of this shell (Task 15 + merge-gate findings) —
 					    in-flow, it pushes the layout down and blocks nothing. */}
-					<InsightsNotice
-						onOpenSettings={() => setSettingsDialogOpen(true)}
-					/>
+					<InsightsNotice onOpenSettings={() => setSettingsDialogOpen(true)} />
 					<div
 						className="shell-layout"
 						data-testid="shell-layout"
