@@ -131,9 +131,13 @@ export function InsightsOverlay({
 				right: rect.right,
 				bottom: rect.bottom,
 				zIndex: 30,
-				overflow: "auto",
+				// Full-size host (spec §2 decision 1, v5): flex row + the shell's
+				// flex:1/stretch make the dashboard fill the main-column rect —
+				// no centering, no card. Scrolling under the chart min-height
+				// floors happens INSIDE the shell (.idb-body), so this container
+				// never scrolls; hidden guards against transient overflow.
+				overflow: "hidden",
 				display: "flex",
-				justifyContent: "center",
 				padding: "var(--space-4)",
 				background: "var(--background)",
 			}}

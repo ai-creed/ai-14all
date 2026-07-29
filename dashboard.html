@@ -18,9 +18,18 @@
 		/>
 		<title>ai-14all — insights</title>
 		<style>
+			/* Full-size host (spec §2 decision 1, v5): the height chain lets the
+			   .idb-shell fill the window viewport — #root is the flex-column
+			   parent its flex:1 grows in. */
 			html,
 			body {
 				margin: 0;
+				height: 100%;
+			}
+			#root {
+				height: 100%;
+				display: flex;
+				flex-direction: column;
 			}
 		</style>
 	</head>

@@ -8,8 +8,19 @@
  * the prototype's static-markup #ov-body/#ws-body view-toggle IDs, which the
  * real component switches via conditional rendering) is dropped. */
 @layer app.components {
+	/* Full-size hosts (spec §2 decision 1, prototype v5): the shell fills its
+	 * host instead of floating as a fixed-width card. In the overlay (flex-row
+	 * container) flex:1 fills the width and align-stretch fills the height; in
+	 * the detached window (#root flex-column, dashboard.html) flex:1 fills the
+	 * height and width:100% the width. min-height 0 lets the window host hand
+	 * the too-short case down to .idb-body's scroll instead of overflowing. */
 	.idb-shell {
-		width: min(1080px, 100%);
+		width: 100%;
+		flex: 1;
+		min-width: 0;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
 	}
 	.idb-titlebar {
 		display: none;
@@ -50,6 +61,20 @@
 		border-radius: 0;
 		display: flex;
 		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+	}
+	/* The region between the fixed head/stats and the fixed footer: grows to
+	 * fill the frame, and is the scroll container when the host is shorter
+	 * than the chart min-height floors. The two .idb-grid children keep
+	 * min-height:auto (content floor) so they never shrink below the floors —
+	 * shortness turns into scrolling here, never into clipped charts. */
+	.idb-body {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		overflow: auto;
 	}
 	.idb-head {
 		display: flex;
@@ -165,16 +190,20 @@
 		color: var(--danger);
 	}
 
-	/* widget grid (overview) */
+	/* widget grid (overview) — each of the two rows takes an equal share of
+	 * the leftover .idb-body height on top of its content minimum */
 	.idb-grid {
 		display: grid;
 		grid-template-columns: 2fr 1fr;
+		flex: 1;
 	}
 	.idb-cell {
 		padding: var(--space-3);
 		border-bottom: var(--shell-border-width) solid var(--border);
 		border-right: var(--shell-border-width) solid var(--border);
 		min-width: 0;
+		display: flex;
+		flex-direction: column;
 	}
 	.idb-cell:nth-child(2n) {
 		border-right: none;
@@ -227,10 +256,13 @@
 		padding: var(--space-6) 0;
 	}
 
-	/* area chart (implementation: shadcn ChartContainer + Recharts AreaChart) */
+	/* area chart (implementation: shadcn ChartContainer + Recharts AreaChart).
+	 * v5: the old fixed heights on .idb-area/.idb-rhythm/.idb-bars are floors;
+	 * each chart grows to fill its cell's share of the leftover host height. */
 	.idb-area {
 		width: 100%;
-		height: 150px;
+		flex: 1 1 0;
+		min-height: 150px;
 		display: block;
 	}
 	.idb-area .grid-line {
@@ -291,7 +323,8 @@
 		display: flex;
 		align-items: flex-end;
 		gap: 1px;
-		height: 150px;
+		flex: 1 1 0;
+		min-height: 150px;
 	}
 	.idb-rcol {
 		flex: 1;
@@ -329,7 +362,8 @@
 		display: flex;
 		align-items: flex-end;
 		gap: 2px;
-		height: 110px;
+		flex: 1 1 0;
+		min-height: 110px;
 	}
 	.idb-bars.is-dense {
 		gap: 1px;
@@ -338,8 +372,12 @@
 	 * (widgets/PrecaptureChrome.tsx) reuses the .idb-bars/.idb-bcol markup so
 	 * every capture-bound zone (apptime included) shares one visual
 	 * technique, but it sits BELOW the real Recharts chart as a thin marker
-	 * strip, not a second full-height bar chart. */
+	 * strip, not a second full-height bar chart. It must therefore opt OUT of
+	 * the v5 grow-to-fill contract .idb-bars now carries (flex/min-height
+	 * above), or the 8px strip would balloon to a second chart-sized band. */
 	.idb-bars--chrome {
+		flex: none;
+		min-height: 0;
 		height: 8px;
 		margin-top: 2px;
 	}
@@ -526,7 +564,9 @@
 		color: var(--info);
 	}
 
-	/* footer */
+	/* footer — margin-top:auto pins it to the frame's bottom edge in the
+	 * loading/empty/error states, where no .idb-body grows to push it down
+	 * (a no-op in the live view, where .idb-body has flex:1). */
 	.idb-foot {
 		display: flex;
 		align-items: center;
@@ -535,6 +575,7 @@
 		border-top: var(--shell-border-width) solid var(--border);
 		font-size: 10px;
 		color: var(--muted-foreground);
+		margin-top: auto;
 	}
 	.idb-foot .is-partial {
 		color: var(--warning);
