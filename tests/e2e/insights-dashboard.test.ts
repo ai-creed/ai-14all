@@ -92,6 +92,40 @@ function seedClaudeUsage(home: string): void {
 	writeFileSync(join(dir, "session.jsonl"), line + "\n");
 }
 
+// A SECOND, ancient claude usage event (~11 years before now) — same JSONL
+// shape as seedClaudeUsage above, in its OWN project dir so it doesn't
+// collide with that one's session file. 3,000,000 billable tokens: combined
+// with the "recent" event's 12M, `all`'s tokens tile should read exactly
+// "15M" (fmtTokens rounds to whole millions) — the AC3 long-lived-ledger
+// regression below (§4.7/AC3: `all` must start at the real
+// min(earliestDayMs, anchors) with NO exception, however deep the ledger
+// goes; there is no span cap anywhere in the real host<->worker path
+// anymore). Only `all`'s domain window reaches back this far — every OTHER
+// test in this file stays on the default "7d" range and never sees it, so
+// this is additive: it does not change any existing test's assertions.
+function seedAncientClaudeUsage(home: string): void {
+	const dir = join(home, ".claude", "projects", "-tmp-proj-ancient");
+	mkdirSync(dir, { recursive: true });
+	const elevenYearsAgo = new Date();
+	elevenYearsAgo.setFullYear(elevenYearsAgo.getFullYear() - 11);
+	const line = JSON.stringify({
+		type: "assistant",
+		timestamp: elevenYearsAgo.toISOString(),
+		cwd: "/tmp/-tmp-proj-ancient",
+		sessionId: "e2e-ac3-ancient-session",
+		message: {
+			model: "claude-opus-4-7",
+			usage: {
+				input_tokens: 3_000_000,
+				output_tokens: 0,
+				cache_creation_input_tokens: 0,
+				cache_read_input_tokens: 0,
+			},
+		},
+	});
+	writeFileSync(join(dir, "session.jsonl"), line + "\n");
+}
+
 const launch = (): Promise<ElectronApplication> =>
 	electron.launch({
 		args: ["out/main/index.js"],
@@ -143,6 +177,7 @@ test.beforeEach(async () => {
 	);
 	tempHome = realpathSync(mkdtempSync(join(tmpdir(), "ofa-insights-db-home-")));
 	seedClaudeUsage(tempHome);
+	seedAncientClaudeUsage(tempHome);
 	cpSync(
 		join(HERE, "fixtures", "whisper-state-v7.db"),
 		join(whisperRoot, "state.db"),
@@ -295,18 +330,26 @@ test("AC2: OS-close just closes — the overlay does NOT reopen", async () => {
 	);
 });
 
-// AC3 boundary regression: the `all` range's usage.queryRange probe used to
-// be an unbounded epoch-to-now window, which the REAL usage-host.ts
-// (electron/main/services/usage-host.ts) rejects as a degenerate/oversized-
-// range caller bug (`timeout`) — with telemetry enabled, selecting `all`
-// therefore always rendered the error state. Invisible to either layer's own
-// unit tests (each mocks the other side of the IPC boundary) — only visible
-// crossing the REAL host<->dashboard boundary, which is exactly what this
-// spec's harness exercises: telemetry genuinely enabled, a real usage worker
-// utility process (not the AI14ALL_E2E_USAGE_SNAPSHOT seam, which would
-// short-circuit usage.queryRange to `disabled` and never reach the guard at
-// all), seeded with a real 12M-token event.
-test("AC3: `all` range never errors with telemetry enabled — the real host boundary", async () => {
+// AC3 boundary regression, in two parts, both requiring the REAL host<->
+// dashboard boundary this spec's harness exercises (telemetry genuinely
+// enabled, a real usage worker utility process — NOT the
+// AI14ALL_E2E_USAGE_SNAPSHOT seam, which would short-circuit
+// usage.queryRange to `disabled` and never reach any of this):
+//   1. `all`'s usage.queryRange probe used to be an unbounded epoch-to-now
+//      window, which usage-host.ts USED to reject outright as a degenerate/
+//      oversized-range caller bug (`timeout`) — with telemetry enabled,
+//      selecting `all` therefore always rendered the error state.
+//   2. That rejection was ITSELF misplaced policy (a workflow-reviewer
+//      finding on the fix for #1): §4.7/AC3 require `all` to start at the
+//      real min(earliestDayMs, anchors) with NO exception, however deep the
+//      ledger goes — an 11-year-deep ledger must still render correctly, not
+//      error, not get silently truncated. The harness seeds a SECOND,
+//      ~11-year-old claude event (seedAncientClaudeUsage, 3M billable,
+//      alongside the "recent" 12M one) specifically to exercise this: `all`'s
+//      real domain window must reach all the way back to it.
+// Both are invisible to either layer's own unit tests (each mocks the other
+// side of the IPC boundary) — only visible crossing the real boundary.
+test("AC3: `all` range never errors with telemetry enabled — the real host boundary, including an 11-year-deep ledger", async () => {
 	await page.click(".insights-entry-button");
 	await expect(
 		page.locator('[data-testid="insights-dashboard"]'),
@@ -335,12 +378,14 @@ test("AC3: `all` range never errors with telemetry enabled — the real host bou
 	await expect(
 		page.locator('[data-testid="insights-dashboard"] .idb-state--error'),
 	).toHaveCount(0);
-	// all-time includes the seeded 12M-token event (fmtTokens -> "12M"):
+	// all-time includes BOTH seeded events — the recent 12M AND the ~11-year-
+	// old 3M one (fmtTokens -> "15M" — proof the domain window reached all
+	// the way back, not just the recent event):
 	await expect(
 		page.locator(
 			'[data-testid="insights-dashboard"] [data-testid="tile-tokens"] .v',
 		),
-	).toHaveText("12M");
+	).toHaveText("15M");
 	// mode === "week" for `all` always frames as "mixed coverage" (§6), the
 	// prototype's deliberate no-"●"-leak rule for the all-time domain.
 	await expect(

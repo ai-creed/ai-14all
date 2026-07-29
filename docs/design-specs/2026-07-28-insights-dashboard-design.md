@@ -796,12 +796,27 @@ class (AC5).
 6. **`haltReason` refinement of the `halted` class** (§4.9) —
    distinguishing error halts from operator stops/cancels in the
    outcome display.
-7. **Usage-ledger depth vs the host's 10-year range guard** — the
-   `all` domain query spans the ledger's real depth, and the daily
-   usage ledger has no retention; if it ever exceeds the
-   `usage.queryRange` span cap (~10 years), `all` trips the guard
-   again. Needs ledger rollups or a documented clamp before then
-   (same family as item 2's insights rollups).
+7. **Usage-ledger depth vs chart day-point trimming beyond ~27 years**
+   — `usage-host.ts`'s `queryRange` guard rejects only degenerate
+   inputs now (non-finite bounds, `toMs <= fromMs`); the span-size
+   rejection (~10 years) that used to sit alongside it was misplaced
+   policy and has been removed — it violated this spec's own §4.7/AC3
+   requirement that `all` start at the real
+   `min(earliestDayMs, anchors)` with no exception, however deep the
+   ledger goes. The structural defense against a genuinely absurd
+   input (e.g. a caller-bug `toMs` near `Number.MAX_SAFE_INTEGER`) now
+   lives worker-side, non-rejecting, in
+   `services/usage/range.ts`'s `MAX_RANGE_DAYS` (10,000 days, ~27
+   years) walk clamp: it bounds only the CHART's day-point walk,
+   trailing back from `toMs`; the bucket merge that feeds
+   `byWorkspace`/`byProvider`/`cost`/`earliestDayMs` is never clamped
+   (it iterates only the ledger's own real entries, however far back),
+   so totals stay full-depth-true regardless of window size. The
+   residual: a ledger that somehow runs past ~27 years deep (the daily
+   usage ledger has no retention) would have its LEADING chart
+   day-points trimmed, though `all`'s totals/tiles/table would still be
+   correct. Ledger rollups (same family as item 2's insights rollups)
+   remain the durable fix for that case, not this clamp.
 8. **App-focus collector binds the main window only** — time spent in
    the detached dashboard window currently counts as main-window blur.
    Revisit alongside the workspace-active collector (item 1).

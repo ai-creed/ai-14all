@@ -184,12 +184,15 @@ describe("useInsightsDashboardData — today range tile/table windowing (AC5)", 
 });
 
 // AC3 regression: `all` must never probe usage.queryRange with an unbounded
-// (epoch-to-now) window — the host (usage-host.ts) rejects any span over
-// 10*366 days as a caller-bug "timeout", and epoch-to-now always exceeds
-// that, so selecting `all` with telemetry enabled always rendered the error
-// state. The fix: `all`'s step-1 probe is the SAME small, recent window
-// today/7d already use (purely to fetch the window-independent
-// `earliestDayMs`); its real, potentially-months-back domain window is
+// (epoch-to-now, `fromMs: 0`) window — the hook has no business ever
+// constructing one, regardless of whether anything downstream would reject
+// it (the host USED to reject wide spans outright; that span cap has since
+// been removed entirely — see usage-host.ts and services/usage/range.ts's
+// MAX_RANGE_DAYS structural walk clamp — because §4.7/AC3 require `all` to
+// start at the real min(earliestDayMs, anchors) with NO exception, however
+// deep the ledger goes). The fix: `all`'s step-1 probe is the SAME small,
+// recent window today/7d already use (purely to fetch the window-independent
+// `earliestDayMs`); its real, potentially-years-back domain window is
 // queried SEPARATELY, once known. Distinguishes the two calls by requested
 // span (the recent probe is ~7 days; the real domain window here is set up
 // to span 40+ days back, so a >10-day threshold cleanly tells them apart)
@@ -210,7 +213,6 @@ describe("useInsightsDashboardData — `all` range: bounded domain probe (AC3)",
 	it("never probes from epoch or with an absurd span; chart/tiles/table all derive from the domain-window response", async () => {
 		const now = Date.now();
 		const EARLIEST_MS = now - 40 * ONE_DAY_MS; // >6 weeks back: a REAL all-range domain, well past the 7-day probe.
-		const TEN_YEARS_MS = 10 * 366 * ONE_DAY_MS;
 		const calls: UsageRangeQuery[] = [];
 
 		(window as unknown as { ai14all: unknown }).ai14all = {
@@ -328,12 +330,13 @@ describe("useInsightsDashboardData — `all` range: bounded domain probe (AC3)",
 		// (c) no error state — the whole point of the fix.
 		expect(result.current.status).toBe("live");
 
-		// (a) no call, ever (mount's `7d` fetch included), probed from epoch or
-		// with a span the host's degenerate-range guard would reject.
+		// (a) no call, ever (mount's `7d` fetch included), probed from epoch —
+		// the hook itself must never construct one, independent of whatever
+		// span the host would or wouldn't accept (there is no span cap
+		// anymore; see the module comment above).
 		expect(calls.length).toBeGreaterThan(0);
 		for (const c of calls) {
 			expect(c.fromMs).not.toBe(0);
-			expect(c.toMs - c.fromMs).toBeLessThanOrEqual(TEN_YEARS_MS);
 		}
 
 		// (b) tiles/table derive from the domain-window response, not the
@@ -364,5 +367,140 @@ describe("useInsightsDashboardData — `all` range: bounded domain probe (AC3)",
 		expect(
 			result.current.usage?.days.some((d) => d.tokens.claude === 111),
 		).toBe(false);
+	});
+
+	// §4.7/AC3, no exception: `all` must start at the real
+	// min(earliestDayMs, anchors), however deep the ledger goes — there is no
+	// span cap anywhere in this path anymore (services/usage/range.ts's
+	// MAX_RANGE_DAYS is a ~27-year structural walk clamp, not a rejection).
+	// An 11-year-deep ledger must still be queried in FULL, not truncated to
+	// some smaller "safe" window.
+	it("an 11-year-deep ledger: `all` queries the FULL ~11-year domain window (no cap); status live; chart/tiles/table from the domain response", async () => {
+		const now = Date.now();
+		const ELEVEN_YEARS_MS = 11 * 366 * ONE_DAY_MS;
+		const EARLIEST_MS = now - ELEVEN_YEARS_MS;
+		const calls: UsageRangeQuery[] = [];
+
+		(window as unknown as { ai14all: unknown }).ai14all = {
+			insights: {
+				coverageAnchors: vi.fn().mockResolvedValue({
+					ok: true,
+					data: {
+						firstCaptureAt: EARLIEST_MS,
+						appRetainedSinceMs: EARLIEST_MS,
+						runsRetainedSinceMs: EARLIEST_MS,
+					},
+				}),
+				queryAppTimeSeries: vi
+					.fn()
+					.mockImplementation(async (edges: number[]) => ({
+						ok: true,
+						data: {
+							buckets: edges.slice(0, -1).map((startMs: number) => ({
+								startMs,
+								focusedMs: 0,
+								engagedMs: 0,
+							})),
+							completeness: "complete",
+						},
+					})),
+				query: vi.fn().mockResolvedValue({
+					ok: true,
+					data: { runs: [], completeness: "complete" },
+				}),
+			},
+			usage: {
+				queryRange: vi
+					.fn()
+					.mockImplementation(async (query: UsageRangeQuery) => {
+						calls.push(query);
+						const span = query.toMs - query.fromMs;
+						if (span > 365 * ONE_DAY_MS) {
+							// The real, ~11-year `all` domain-window query.
+							return {
+								ok: true,
+								days: [
+									{ dayStartMs: query.fromMs, tokens: { claude: 3_000_000 } },
+								],
+								byWorkspace: [
+									{
+										workspaceId: "ws-longledger",
+										worktreeId: null,
+										worktreePath: null,
+										worktreeTitle: "11-year row",
+										provider: "claude",
+										active: false,
+										tokens: {
+											input: 0,
+											output: 0,
+											billable: 3_000_000,
+											raw: 3_000_000,
+										},
+										costUsd: 9.99,
+									},
+								],
+								byProvider: [],
+								cost: {
+									perProvider: { claude: 9.99 },
+									total: 9.99,
+									currency: "USD",
+									notional: true,
+									unpricedTokens: 0,
+								},
+								earliestDayMs: EARLIEST_MS,
+							};
+						}
+						// The cheap step-1 recent probe (~7 days) — a small, distinct
+						// response so a leak into tiles/table/chart would be obvious.
+						return {
+							ok: true,
+							days: [{ dayStartMs: query.fromMs, tokens: { claude: 1 } }],
+							byWorkspace: [],
+							byProvider: [],
+							cost: {
+								perProvider: {},
+								total: 0,
+								currency: "USD",
+								notional: true,
+								unpricedTokens: 0,
+							},
+							earliestDayMs: EARLIEST_MS,
+						};
+					}),
+			},
+		} satisfies StubApi;
+
+		const { result } = renderHook(() => useInsightsDashboardData([]));
+		await waitFor(() => expect(result.current.status).toBe("live"));
+
+		act(() => {
+			result.current.setRange("all");
+		});
+		await waitFor(() => expect(result.current.range).toBe("all"));
+		await waitFor(() =>
+			expect(result.current.workspaceRows.totals.tokens).toBe(3_000_000),
+		);
+
+		// Status live — the whole point: an 11-year-deep ledger must NOT error.
+		expect(result.current.status).toBe("live");
+
+		// The domain-window query genuinely spans ~11 years — nothing truncated
+		// or rejected it.
+		const wideCalls = calls.filter((c) => c.toMs - c.fromMs > 365 * ONE_DAY_MS);
+		expect(wideCalls.length).toBeGreaterThan(0);
+		for (const c of wideCalls) {
+			expect(c.toMs - c.fromMs).toBeGreaterThan(10 * 365 * ONE_DAY_MS);
+			expect(c.fromMs).not.toBe(0);
+		}
+
+		// chart/tiles/table all derive from the (wide) domain response.
+		expect(result.current.tiles.tokens).toBe(3_000_000);
+		expect(result.current.tiles.costUsd).toBe(9.99);
+		expect(result.current.workspaceRows.totals.tokens).toBe(3_000_000);
+		expect(
+			result.current.usage?.byWorkspace.some(
+				(r) => r.workspaceId === "ws-longledger",
+			),
+		).toBe(true);
 	});
 });

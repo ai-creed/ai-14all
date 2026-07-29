@@ -195,15 +195,22 @@ export class UsageHost {
 		// retryable `timeout` error just because the caller also happened to
 		// pass a degenerate/oversized range.
 		if (!this.proc) return Promise.resolve({ ok: false, reason: "disabled" });
-		// Caller bug (degenerate or absurdly wide range): resolve WITHOUT ever
-		// forwarding to the worker. `timeout` is the caller-visible signal here —
-		// no dedicated wire-contract reason exists for "bad request" and adding
-		// one is out of scope for this task.
+		// Degenerate-input defense ONLY (non-finite bounds, or toMs <= fromMs):
+		// resolve WITHOUT ever forwarding to the worker. `timeout` is the
+		// caller-visible signal here — no dedicated wire-contract reason exists
+		// for "bad request" and adding one is out of scope for this task. Span
+		// SIZE is deliberately NOT checked here (there used to be a `> 10 years`
+		// rejection; it was misplaced policy — §4.7/AC3 require `all` to start
+		// at the real min(earliestDayMs, anchors) with no exception, so a
+		// legitimately deep ledger must never be rejected as a caller bug). Span
+		// size is instead bounded worker-side, structurally, by
+		// services/usage/range.ts's MAX_RANGE_DAYS walk clamp — which trims only
+		// the day-point WALK for an absurdly wide window, never rejects the
+		// request or the (unclamped) rows/byProvider/cost/earliestDayMs totals.
 		if (
 			!Number.isFinite(query.fromMs) ||
 			!Number.isFinite(query.toMs) ||
-			query.toMs <= query.fromMs ||
-			query.toMs - query.fromMs > 10 * 366 * 86_400_000
+			query.toMs <= query.fromMs
 		) {
 			return Promise.resolve({ ok: false, reason: "timeout" });
 		}

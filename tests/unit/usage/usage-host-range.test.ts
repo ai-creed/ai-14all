@@ -207,23 +207,25 @@ describe("UsageHost.queryRange", () => {
 		).resolves.toEqual({ ok: false, reason: "disabled" });
 	});
 
-	// This guard exists for absurd/malformed CALLER-BUG inputs (a descending
-	// range, NaN, toMs near Number.POSITIVE_INFINITY/1e18, …) — it is NOT a
-	// signal that probing from epoch is an expected or supported access
-	// pattern. No real caller should ever legitimately hit the 10-year cap
-	// from `fromMs: 0`: the insights dashboard hook, in particular, never
-	// probes wider than its actual, real-data-bounded domain window (AC3 —
-	// see useInsightsDashboardData.ts's `all`-range handling, which replaced
-	// an earlier epoch-to-now probe that always tripped this guard whenever
-	// telemetry was enabled).
-	it("rejects a degenerate or absurdly wide range as a caller bug (timeout) WITHOUT ever forwarding it to the worker", async () => {
+	// Degenerate-input defense ONLY: a descending/non-ascending range, NaN, or
+	// a non-finite bound. Span SIZE is deliberately never checked here — an
+	// earlier revision of this guard also rejected any span over 10 years,
+	// which turned out to be misplaced policy: §4.7/AC3 require `all` to
+	// start at the real min(earliestDayMs, anchors) with NO exception, so a
+	// legitimately deep ledger must never be rejected as a caller bug (see
+	// useInsightsDashboardData.ts's `all`-range handling, whose real-history
+	// probe this guard used to break whenever telemetry was enabled and the
+	// ledger ran deep). The structural defense against a genuinely absurd
+	// span (e.g. a caller-bug `toMs` near 1e18) now lives worker-side,
+	// non-rejecting, in services/usage/range.ts's MAX_RANGE_DAYS walk clamp —
+	// see the acceptance test below for the span this guard now happily lets
+	// through.
+	it("rejects ONLY degenerate ranges (non-finite bounds, or toMs <= fromMs) as a caller bug (timeout) — WITHOUT ever forwarding them to the worker", async () => {
 		const { host, proc } = startedWithFakeProc();
 
-		const TEN_YEARS_MS = 10 * 366 * 86_400_000;
 		const badRanges: UsageRangeQuery[] = [
 			{ fromMs: 100, toMs: 100 }, // not strictly ascending
 			{ fromMs: 100, toMs: 50 }, // descending
-			{ fromMs: 0, toMs: TEN_YEARS_MS + 1 }, // just over the cap
 			{ fromMs: Number.NaN, toMs: 1 },
 			{ fromMs: 0, toMs: Number.POSITIVE_INFINITY },
 		];
@@ -238,34 +240,25 @@ describe("UsageHost.queryRange", () => {
 				(c) => (c[0] as MainToWorker).kind === "queryRange",
 			),
 		).toBe(false);
-
-		// The guard's boundary is inclusive (a span right AT the cap is still
-		// accepted and forwarded) — this exercises the guard's own edge, not a
-		// realistic caller shape (see the `now`-anchored acceptance case below
-		// for that).
-		const p = host.queryRange({ fromMs: 0, toMs: TEN_YEARS_MS });
-		const posted = sentQueryRange(proc);
-		expect(posted).toBeDefined();
-		proc.emit("message", rangeResultOf(posted?.requestId));
-		await expect(p).resolves.toMatchObject({ ok: true });
 	});
 
-	it("accepts a legitimate, now-anchored ~9.5-year window — forwarded, not rejected", async () => {
-		// Shaped like a REAL wide probe (e.g. a long-lived `all`-range domain
-		// window), not the guard's own from-epoch boundary case above: anchored
-		// to `now`, well under the 10-year cap, nowhere near `fromMs: 0`.
+	it("accepts a legitimate, now-anchored 11-year window — forwarded, not rejected (span size is no longer a rejection reason)", async () => {
+		// Would have been rejected outright by the (now-removed) 10-year span
+		// cap — this is exactly the shape of window a long-lived `all`-range
+		// ledger legitimately needs (see range.test.ts's matching 11-year-deep
+		// ledger fixture, and the e2e boundary test for this end-to-end).
 		const { host, proc } = startedWithFakeProc();
 		const now = Date.now();
-		const NINE_AND_HALF_YEARS_MS = 9.5 * 366 * 86_400_000;
+		const ELEVEN_YEARS_MS = 11 * 366 * 86_400_000;
 
 		const p = host.queryRange({
-			fromMs: now - NINE_AND_HALF_YEARS_MS,
+			fromMs: now - ELEVEN_YEARS_MS,
 			toMs: now,
 		});
 
 		const posted = sentQueryRange(proc);
 		expect(posted).toBeDefined();
-		expect(posted?.query.fromMs).toBe(now - NINE_AND_HALF_YEARS_MS);
+		expect(posted?.query.fromMs).toBe(now - ELEVEN_YEARS_MS);
 		expect(posted?.query.toMs).toBe(now);
 
 		proc.emit("message", rangeResultOf(posted?.requestId));
