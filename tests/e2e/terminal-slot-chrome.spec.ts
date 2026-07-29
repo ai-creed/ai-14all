@@ -226,8 +226,9 @@ test("don't-ask-again silences close; the Settings toggle re-arms it", async () 
 	await expect(page.getByTestId("confirm-dialog")).toHaveCount(0);
 	await expect(page.getByTestId("slot-cta-0")).toBeVisible();
 	// Re-arm through the REAL Settings dialog toggle (spec §8) — sidebar gear
-	// button carries aria-label="Settings" (SessionSidebar.tsx:844).
-	await page.getByRole("button", { name: "Settings" }).click();
+	// button carries aria-label="Settings" (SessionSidebar.tsx:844). exact: the
+	// insights first-capture banner's "Manage in Settings" also substring-matches.
+	await page.getByRole("button", { name: "Settings", exact: true }).click();
 	const settingsDialog = page.getByTestId("settings-dialog");
 	await settingsDialog.getByLabel("confirm before closing a shell").check();
 	await settingsDialog.getByRole("button", { name: "Close" }).click();
