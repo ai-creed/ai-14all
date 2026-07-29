@@ -520,4 +520,172 @@ describe("useInsightsDashboardData — `all` range: bounded domain probe (AC3)",
 			result.current.workspaceRows.totals.costUsd,
 		);
 	});
+
+	// Round-6 boundary regression: the TOKEN ledger can run far deeper than
+	// app-time ever could (app-time physically cannot predate
+	// OBSERVATION_RETENTION_DAYS = 365, bucketEdges.ts) — a `queryAppTimeSeries`
+	// call over the FULL `all` domain would eventually trip the host's
+	// 2..9001 bucket-edges cap (spec §4.3) for a deep-enough TOKEN history,
+	// converting genuine token history into the error state for a reason
+	// that has nothing to do with app-time. `seriesEdgesFor` (bucketEdges.ts)
+	// clamps the series request to the retention floor instead. This mock's
+	// `queryAppTimeSeries` enforces the SAME 2..9001 bound the real host does
+	// (electron/main/services/insights-host.ts's isValidBucketEdges), so this
+	// test genuinely exercises the failure mode: it fails with the fix
+	// reverted (a >9001-edge series request gets `bad-request` back, which
+	// the hook turns into the error state) and passes with it applied.
+	it("a ~174-year-deep token ledger: queryAppTimeSeries never exceeds the host's 9,001-edge cap; status live; token chart/tiles/table from the FULL-domain usage response", async () => {
+		const now = Date.now();
+		const ONE_HUNDRED_SEVENTY_FOUR_YEARS_MS = 174 * 365 * ONE_DAY_MS;
+		const DEEP_EARLIEST_MS = now - ONE_HUNDRED_SEVENTY_FOUR_YEARS_MS;
+		// App-time/runs anchors stay REALISTIC (recent, within the 365-day
+		// floor) — only the TOKEN ledger (earliestDayMs, from the usage probe)
+		// runs impossibly deep. domainForRange takes min(earliestDayMs,
+		// appRetainedSinceMs, runsRetainedSinceMs), so the domain still
+		// stretches back ~174 years regardless — exactly the scenario the bug
+		// describes: deep TOKEN history dragging the WHOLE domain (and so the
+		// app-time series request) down with it.
+		const RECENT_MS = now - 100 * ONE_DAY_MS;
+		const seriesCalls: number[][] = [];
+
+		(window as unknown as { ai14all: unknown }).ai14all = {
+			insights: {
+				coverageAnchors: vi.fn().mockResolvedValue({
+					ok: true,
+					data: {
+						firstCaptureAt: RECENT_MS,
+						appRetainedSinceMs: RECENT_MS,
+						runsRetainedSinceMs: RECENT_MS,
+					},
+				}),
+				queryAppTimeSeries: vi
+					.fn()
+					.mockImplementation(async (edges: number[]) => {
+						seriesCalls.push(edges);
+						// Mirrors insights-host.ts's isValidBucketEdges (spec §4.3):
+						// 2..9001 entries, WITHOUT ever "forwarding" past that check —
+						// the real regression signal this test depends on.
+						if (edges.length < 2 || edges.length > 9001) {
+							return { ok: false, reason: "bad-request" };
+						}
+						return {
+							ok: true,
+							data: {
+								buckets: edges.slice(0, -1).map((startMs: number) => ({
+									startMs,
+									focusedMs: 0,
+									engagedMs: 0,
+								})),
+								completeness: "complete",
+							},
+						};
+					}),
+				query: vi.fn().mockResolvedValue({
+					ok: true,
+					data: { runs: [], completeness: "complete" },
+				}),
+			},
+			usage: {
+				queryRange: vi
+					.fn()
+					.mockImplementation(async (query: UsageRangeQuery) => {
+						const span = query.toMs - query.fromMs;
+						if (span > 365 * ONE_DAY_MS) {
+							// The real, ~174-year `all` domain-window query — usage.
+							// queryRange has no edge-count cap (Addendum 5: sparse
+							// emission), so this must still succeed at full depth.
+							return {
+								ok: true,
+								days: [
+									{
+										dayStartMs: query.fromMs,
+										tokens: { claude: 20_000_000 },
+									},
+								],
+								byWorkspace: [
+									{
+										workspaceId: "ws-deep-tokens",
+										worktreeId: null,
+										worktreePath: null,
+										worktreeTitle: "174-year row",
+										provider: "claude",
+										active: false,
+										tokens: {
+											input: 0,
+											output: 0,
+											billable: 20_000_000,
+											raw: 20_000_000,
+										},
+										costUsd: 77.77,
+									},
+								],
+								byProvider: [],
+								cost: {
+									perProvider: { claude: 77.77 },
+									total: 77.77,
+									currency: "USD",
+									notional: true,
+									unpricedTokens: 0,
+								},
+								earliestDayMs: DEEP_EARLIEST_MS,
+							};
+						}
+						// The cheap step-1 recent probe (~7 days) — small, distinct
+						// numbers so a leak into tiles/table/chart would be obvious.
+						return {
+							ok: true,
+							days: [{ dayStartMs: query.fromMs, tokens: { claude: 1 } }],
+							byWorkspace: [],
+							byProvider: [],
+							cost: {
+								perProvider: {},
+								total: 0,
+								currency: "USD",
+								notional: true,
+								unpricedTokens: 0,
+							},
+							earliestDayMs: DEEP_EARLIEST_MS,
+						};
+					}),
+			},
+		} satisfies StubApi;
+
+		const { result } = renderHook(() => useInsightsDashboardData([]));
+		await waitFor(() => expect(result.current.status).toBe("live"));
+
+		act(() => {
+			result.current.setRange("all");
+		});
+		await waitFor(() => expect(result.current.range).toBe("all"));
+		await waitFor(() =>
+			expect(result.current.workspaceRows.totals.tokens).toBe(20_000_000),
+		);
+
+		// Status live — the whole point: a deep token ledger must never turn
+		// the app-time series request into a `bad-request` -> error state.
+		expect(result.current.status).toBe("live");
+
+		// Every queryAppTimeSeries call (both the domain series AND the
+		// rhythm read share this same mock) stayed within the host's cap —
+		// including at least one call genuinely narrowed by seriesEdgesFor
+		// (not just the always-small rhythm read).
+		expect(seriesCalls.length).toBeGreaterThan(0);
+		for (const edges of seriesCalls) {
+			expect(edges.length).toBeGreaterThanOrEqual(2);
+			expect(edges.length).toBeLessThanOrEqual(9001);
+		}
+		expect(seriesCalls.some((edges) => edges.length <= 60)).toBe(true);
+
+		// Token chart/tiles/table all derive from the FULL-domain usage
+		// response — the app-time clamp is a completely separate read and
+		// must not affect token data at all.
+		expect(result.current.tiles.tokens).toBe(20_000_000);
+		expect(result.current.tiles.costUsd).toBe(77.77);
+		expect(result.current.workspaceRows.totals.tokens).toBe(20_000_000);
+		expect(
+			result.current.usage?.byWorkspace.some(
+				(r) => r.workspaceId === "ws-deep-tokens",
+			),
+		).toBe(true);
+	});
 });

@@ -81,6 +81,48 @@ export function rhythmEdges(domainStartMs: number, nowMs: number): number[] {
 	return hourEdges(Math.max(domainStartMs, floor), nowMs);
 }
 
+// Same truth-preservation doctrine as `rhythmEdges`, applied to the bucketed
+// app-time SERIES read instead of the rhythm read: app-time data older than
+// OBSERVATION_RETENTION_DAYS = 365 cannot exist, so a `queryAppTimeSeries`
+// call never needs to reach further back than that, however deep the `all`
+// domain's OWN start goes (which tracks the token ledger's unbounded depth,
+// not app-time's). Returns the SUFFIX of `domainEdges` from the largest
+// domain edge at-or-before the 365-local-day floor onward — anchoring on a
+// real domain edge (not the bare floor value) guarantees the clamped window
+// still starts exactly on a domain boundary AND fully covers
+// [floor, nowMs], so no possible app-time data is ever excluded. If no
+// domain edge is that old (the domain doesn't reach back 365 days at all —
+// every 7d/30d domain), this is the identity: every edge qualifies. Bounded
+// to at most ~55 weekly edges (365/7 + 1) or ~367 daily edges (365 + 2) —
+// either way comfortably under the host's 2..9001 cap (spec §4.3), so that
+// cap becomes unreachable from any real dashboard fetch and remains purely
+// an absurd-input guard, never something a legitimate `all` domain can trip.
+export function seriesEdgesFor(domainEdges: number[], nowMs: number): number[] {
+	const floorCursor = new Date(nowMs);
+	floorCursor.setHours(0, 0, 0, 0);
+	floorCursor.setDate(floorCursor.getDate() - RHYTHM_FLOOR_DAYS);
+	const floor = startOfLocalDayMs(floorCursor.getTime());
+
+	// Walk from the end backward for the LARGEST index whose edge is <=
+	// floor (domainEdges is always ascending) — stays 0 or the array's own
+	// identity when no edge is that old.
+	let anchorIdx = 0;
+	for (let i = domainEdges.length - 1; i >= 0; i--) {
+		if (domainEdges[i] <= floor) {
+			anchorIdx = i;
+			break;
+		}
+	}
+	const clamped = domainEdges.slice(anchorIdx);
+	if (clamped.length >= 2) return clamped;
+	// Degenerate fallback (a domain with fewer than 2 edges past the
+	// anchor — shouldn't happen for any real domain, but never emit
+	// something isValidBucketEdges would reject): the last two domain
+	// edges, guaranteed to exist for any domain this function is ever
+	// called with (domainForRange never returns fewer than 2 edges).
+	return domainEdges.slice(-2);
+}
+
 // Local Monday-start week edges from `startWeekMs` (already week-aligned)
 // through the first week boundary past `toMs`, walking a week (7 days) at a
 // time and re-normalizing via weekStartOf each step.

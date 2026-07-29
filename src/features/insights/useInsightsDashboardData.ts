@@ -22,18 +22,24 @@
 //      The tile probe (when issued) is resolved the same way.
 //   3. domain = domainForRange(range, {earliestDayMs, appRetainedSinceMs,
 //      runsRetainedSinceMs}, now).
-//   4. queryAppTimeSeries(domain.edges) + query(domain window) +
-//      queryAppTimeSeries(rhythmEdges(...)) in parallel — PLUS a second
-//      usage.queryRange(domain window) in the SAME Promise.all when the
-//      range is `all` (its real domain is only knowable now, hence
-//      post-domain rather than bundled into step 1 like `today`'s tile
-//      probe). Always safe to query directly, however wide: the host guard
-//      is degenerate-input-only (non-finite bounds, toMs <= fromMs — no
-//      span-size check), and the worker emits `days` SPARSELY (one point per
-//      ledger day WITH DATA in the window, not one per calendar day —
-//      services/usage/range.ts) rather than walking every calendar day, so
-//      there is no clamp anywhere and no window is ever too wide to ask for
-//      in full. Skipped when usage is already known disabled from step 1/2 —
+//   4. queryAppTimeSeries(seriesEdgesFor(domain.edges, now)) +
+//      query(domain window) + queryAppTimeSeries(rhythmEdges(...)) in
+//      parallel — PLUS a second usage.queryRange(domain window) in the SAME
+//      Promise.all when the range is `all` (its real domain is only
+//      knowable now, hence post-domain rather than bundled into step 1 like
+//      `today`'s tile probe). The series read is retention-clamped
+//      (seriesEdgesFor, bucketEdges.ts — same doctrine as rhythmEdges):
+//      app-time data can't predate OBSERVATION_RETENTION_DAYS = 365, but
+//      `all`'s domain can start at the token ledger's unbounded depth, so
+//      requesting the FULL domain would eventually trip the host's
+//      2..9001 bucket-edges cap (spec §4.3) for a deep-enough ledger —
+//      identity for every other range. The usage query is always safe to
+//      query directly, however wide: the host guard is degenerate-input-
+//      only (non-finite bounds, toMs <= fromMs — no span-size check), and
+//      the worker emits `days` SPARSELY (one point per ledger day WITH DATA
+//      in the window, not one per calendar day — services/usage/range.ts)
+//      rather than walking every calendar day, so there is no clamp there
+//      either. Skipped when usage is already known disabled from step 1/2 —
 //      a second call would just re-confirm that.
 //   5. Empty decision (both retained anchors null AND usage disabled/no
 //      ledger days).
@@ -56,6 +62,7 @@ import {
 	dayEdges,
 	domainForRange,
 	rhythmEdges,
+	seriesEdgesFor,
 	type DomainAnchors,
 	type RangeKey,
 } from "./bucketEdges.js";
@@ -361,10 +368,20 @@ export function useInsightsDashboardData(
 				: null;
 
 		// Step 4: series/runs/rhythm — PLUS `all`'s domain-window usage query
-		// when there is one — parallel.
+		// when there is one — parallel. The series read uses
+		// seriesEdgesFor(dom.edges, now), NOT dom.edges directly: app-time
+		// data physically cannot predate OBSERVATION_RETENTION_DAYS = 365
+		// (bucketEdges.ts), but `all`'s domain can start at the TOKEN ledger's
+		// unbounded depth — requesting the full domain would eventually trip
+		// the host's 2..9001 bucket-edges cap (spec §4.3) for a deep-enough
+		// ledger, converting genuine token history into the error state for a
+		// reason that has nothing to do with app-time. seriesEdgesFor is the
+		// identity for every range but a sufficiently deep `all` (7d/30d/a
+		// shallow `all` never reach the 365-day floor), so this changes
+		// nothing for them.
 		const [seriesResult, runsResult, rhythmResult, domainUsageResult] =
 			await Promise.all([
-				api.insights.queryAppTimeSeries(dom.edges),
+				api.insights.queryAppTimeSeries(seriesEdgesFor(dom.edges, now)),
 				api.insights.query({
 					fromMs: dom.edges[0],
 					toMs: dom.edges[dom.edges.length - 1],

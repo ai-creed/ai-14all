@@ -5,6 +5,7 @@ import {
 	foldDaysToWeeks,
 	hourEdges,
 	rhythmEdges,
+	seriesEdgesFor,
 	startOfLocalDayMs,
 	weekStartOf,
 } from "../../../../src/features/insights/bucketEdges";
@@ -207,5 +208,69 @@ describe("rhythmEdges", () => {
 		const edges = rhythmEdges(twoDaysAgo, now);
 		expect(edges[0]).toBeLessThanOrEqual(twoDaysAgo);
 		expect(edges.length).toBeLessThan(24 * 4);
+	});
+});
+
+// Round-6 boundary fix: `all`'s domain can start at the token ledger's
+// unbounded depth, but a `queryAppTimeSeries` call over the FULL domain
+// would eventually trip the host's 2..9001 bucket-edges cap (spec §4.3) for
+// a deep-enough ledger — converting genuine token history into the error
+// state for a reason that has nothing to do with app-time (which physically
+// cannot predate OBSERVATION_RETENTION_DAYS = 365). `seriesEdgesFor` applies
+// the SAME doctrine `rhythmEdges` already does, to the series read instead.
+describe("seriesEdgesFor", () => {
+	it("identity for 7d/30d — every edge is already within the 365-day floor", () => {
+		const anchors = {
+			earliestDayMs: null,
+			appRetainedSinceMs: null,
+			runsRetainedSinceMs: null,
+		};
+		const d7 = domainForRange("7d", anchors, now);
+		expect(seriesEdgesFor(d7.edges, now)).toEqual(d7.edges);
+		const d30 = domainForRange("30d", anchors, now);
+		expect(seriesEdgesFor(d30.edges, now)).toEqual(d30.edges);
+	});
+
+	it("a ~174-year-deep `all` domain (past the host's 9,001-edge cap) clamps to <= 60 edges, all real domain edges, starting at-or-before the 365-day floor", () => {
+		const start = now - 174 * 365 * 86_400_000; // ~174 years back
+		const domain = domainForRange(
+			"all",
+			{
+				earliestDayMs: start,
+				appRetainedSinceMs: null,
+				runsRetainedSinceMs: null,
+			},
+			now,
+		);
+		// Sanity: this domain IS the regime that would trip the host's cap if
+		// requested directly (the bug this fix closes).
+		expect(domain.edges.length).toBeGreaterThan(9001);
+
+		const clamped = seriesEdgesFor(domain.edges, now);
+		expect(clamped.length).toBeGreaterThanOrEqual(2);
+		expect(clamped.length).toBeLessThanOrEqual(60);
+		for (const v of clamped) expect(domain.edges).toContain(v);
+
+		const floorCursor = new Date(now);
+		floorCursor.setHours(0, 0, 0, 0);
+		floorCursor.setDate(floorCursor.getDate() - 365);
+		const floor = startOfLocalDayMs(floorCursor.getTime());
+		expect(clamped[0]).toBeLessThanOrEqual(floor);
+	});
+
+	it("degenerate fallback: guarantees >= 2 edges even when every supplied edge is at-or-before the floor", () => {
+		// Every edge here predates the 365-day floor (relative to `now`), so
+		// the "largest edge <= floor" search lands on the FINAL index,
+		// producing a 1-element clamped suffix on its own — the fallback
+		// (the last two edges) must kick in instead, since a 1-edge result
+		// could never satisfy the host's own >= 2 minimum anyway.
+		const edges = [
+			now - 400 * 86_400_000,
+			now - 390 * 86_400_000,
+			now - 380 * 86_400_000, // still > 365 days back
+		];
+		const result = seriesEdgesFor(edges, now);
+		expect(result).toEqual(edges.slice(-2));
+		expect(result.length).toBe(2);
 	});
 });

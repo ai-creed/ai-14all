@@ -226,7 +226,14 @@ interface AppTimeSeriesResult {
 - **Explicit edges, not an enum** (decision 12). Validation in the host:
   finite, strictly ascending, between 2 and 9,001 entries (≤ 9,000
   buckets = a year of hourly rhythm buckets plus slack); otherwise
-  `bad-request`.
+  `bad-request`. Renderer series requests are always app-retention-clamped
+  before they reach this host (`seriesEdgesFor`, bucketEdges.ts — the same
+  doctrine `rhythmEdges` already applies to the rhythm read), since
+  app-time data cannot predate `OBSERVATION_RETENTION_DAYS`, however deep
+  the `all` domain's own start goes (which tracks the TOKEN ledger's
+  unbounded depth, not app-time's) — so this cap is an absurd-input guard
+  that a valid dashboard domain can never actually hit, not a real-history
+  limit.
 - Implementation (`services/insights/store/app-time-series.ts`): one pass
   per kind over the same overlap predicate as `getAppTime`
   (`kind = ? AND source = ? AND occurred_end > ? AND occurred_start < ?`
@@ -341,7 +348,9 @@ interface CoverageAnchorsResult {
 - Preload `insights.coverageAnchors()` (IPC `insights:coverageAnchors`),
   enveloped per §4.1. No host-side caching of status fields is involved.
 - Fetch order in the hook: `coverageAnchors` + `usage.queryRange` in
-  parallel → compute the bucket domain (§4.7) → series + runs queries.
+  parallel → compute the bucket domain (§4.7) → `queryAppTimeSeries`
+  (edges narrowed through `seriesEdgesFor`, §4.3 — the domain itself stays
+  full-depth) + runs queries.
 - **Every "since <date>" caption is per source, from that source's
   retained anchor, never `firstCaptureAt`** (§6 clause rules; the
   combined `app time & runs since` copy renders only when both anchors

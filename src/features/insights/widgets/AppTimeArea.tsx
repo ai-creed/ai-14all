@@ -41,12 +41,22 @@ export function AppTimeArea({
 	series: InsightsAppTimeSeries | null;
 	appRetainedSinceMs: number | null;
 }): React.ReactElement {
+	// The series read is retention-clamped (useInsightsDashboardData.ts's
+	// seriesEdgesFor) and so may cover only a SUFFIX of `domain.edges` for a
+	// deep `all` domain — `buckets` must therefore be looked up by its own
+	// `startMs` key, never zipped by index against `domain.edges`. Columns
+	// outside the clamped window fall back to `undefined` here, which is
+	// exactly right: `precaptureFlags` below already marks every one of them
+	// (and only them) precapture, since the app's own retention anchor can
+	// never predate the SAME 365-day floor the series clamp uses — so those
+	// columns render as stubs regardless of what `byStart.get` returns.
 	const buckets = series?.buckets ?? [];
+	const byStart = new Map(buckets.map((b) => [b.startMs, b] as const));
 	const flags = precaptureFlags(domain.edges, appRetainedSinceMs);
 	const startIdx = dataStartIndex(flags);
 
 	const data = domain.edges.slice(0, -1).map((startMs, i) => {
-		const b = buckets[i];
+		const b = byStart.get(startMs);
 		const captured = !flags[i];
 		return {
 			label: String(startMs),

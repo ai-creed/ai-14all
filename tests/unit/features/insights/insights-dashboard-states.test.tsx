@@ -426,4 +426,125 @@ describe("InsightsDashboard", () => {
 			"on",
 		);
 	});
+
+	// Round-6 boundary regression: a deep TOKEN ledger (spanning far more
+	// than app-time ever could — app-time physically cannot predate
+	// OBSERVATION_RETENTION_DAYS = 365) drags `all`'s WHOLE domain back with
+	// it (domainForRange takes min(earliestDayMs, anchors)). Requesting the
+	// app-time SERIES over that full domain would trip the host's
+	// 2..9001 bucket-edges cap (spec §4.3) — this mock enforces that same
+	// cap, so the test genuinely exercises the failure mode (fails with
+	// seriesEdgesFor's fix reverted, passes with it applied). The runs and
+	// tokens zones have no such cap (runs.query takes a plain fromMs/toMs
+	// range; usage.queryRange has no edge-count limit at all, Addendum 5) so
+	// their chrome renders the FULL domain's column count; the app-time
+	// zone's own chrome ALSO renders the full domain's column count (it is
+	// driven by `domain.edges`, not by the clamped series — PrecaptureChrome)
+	// with everything before the app's own (recent) retention anchor
+	// stubbed, same as any other precapture regime.
+	it("~174-year-deep token ledger: no error state; runs/tokens/apptime zones all render full-domain columns; apptime's series stays within the host's edge cap", async () => {
+		// Rendering ~9,080 PrecaptureChrome columns x3 zones (~27k DOM nodes)
+		// is inherently slower than this suite's usual fixtures — the default
+		// 5s per-test timeout isn't about correctness here, just jsdom's raw
+		// node-creation cost at this deliberately-extreme depth.
+		stubApi();
+		const api = (window as unknown as { ai14all: StubApi }).ai14all;
+		const now = Date.now();
+		const ONE_DAY_MS = 86_400_000;
+		const DEEP_EARLIEST_MS = now - 174 * 365 * ONE_DAY_MS;
+		const RECENT_MS = now - 100 * ONE_DAY_MS; // app/runs anchors stay realistic
+		const seriesCalls: number[][] = [];
+
+		api.insights.coverageAnchors.mockResolvedValue({
+			ok: true,
+			data: {
+				firstCaptureAt: RECENT_MS,
+				appRetainedSinceMs: RECENT_MS,
+				runsRetainedSinceMs: RECENT_MS,
+			},
+		});
+		api.insights.queryAppTimeSeries.mockImplementation(
+			async (edges: number[]) => {
+				seriesCalls.push(edges);
+				// Mirrors insights-host.ts's isValidBucketEdges (spec §4.3) — the
+				// real regression signal this test depends on.
+				if (edges.length < 2 || edges.length > 9001) {
+					return { ok: false, reason: "bad-request" };
+				}
+				return {
+					ok: true,
+					data: {
+						buckets: edges.slice(0, -1).map((startMs: number) => ({
+							startMs,
+							focusedMs: 0,
+							engagedMs: 0,
+						})),
+						completeness: "complete",
+					},
+				};
+			},
+		);
+		api.insights.query.mockResolvedValue({
+			ok: true,
+			data: { runs: [], completeness: "complete" },
+		});
+		// Every window (the small step-1 probe AND the wide `all` domain-window
+		// query) gets the same response here — this test isn't exercising
+		// token VALUES (that's the hook test's job), only that the app-time
+		// series clamp doesn't error the dashboard or leak into the other
+		// zones' column counts.
+		api.usage.queryRange.mockResolvedValue({
+			ok: true,
+			days: [],
+			byWorkspace: [],
+			byProvider: [],
+			cost: {
+				perProvider: {},
+				total: 0,
+				currency: "USD",
+				notional: true,
+				unpricedTokens: 0,
+			},
+			earliestDayMs: DEEP_EARLIEST_MS,
+		});
+
+		const { container } = render(
+			<InsightsDashboard host="overlay" workspaces={[]} {...handlers} />,
+		);
+		fireEvent.click(await screen.findByRole("button", { name: "all" }));
+
+		// No error state — the whole point.
+		await waitFor(() => {
+			expect(screen.queryByText("insights store unavailable")).toBeNull();
+		});
+
+		// The three zones' chrome all agree on the FULL domain's column count
+		// (PrecaptureChrome is driven by `domain.edges`, never by the
+		// series/usage data each zone separately reads) — proof the app-time
+		// clamp didn't leak into (or truncate) anything structural.
+		await waitFor(() => {
+			const runsCols = container.querySelectorAll(
+				"[data-zone='runs'] .idb-bcol",
+			).length;
+			const tokenCols = container.querySelectorAll(
+				"[data-zone='tokens'] .idb-bcol",
+			).length;
+			const apptimeCols = container.querySelectorAll(
+				"[data-zone='apptime'] .idb-bcol",
+			).length;
+			expect(runsCols).toBeGreaterThan(9001); // sanity: genuinely past the cap
+			expect(tokenCols).toBe(runsCols);
+			expect(apptimeCols).toBe(runsCols);
+		});
+
+		// Every queryAppTimeSeries call (the domain series AND the rhythm read
+		// share this mock) stayed within the host's cap, including at least
+		// one call genuinely narrowed by seriesEdgesFor.
+		expect(seriesCalls.length).toBeGreaterThan(0);
+		for (const edges of seriesCalls) {
+			expect(edges.length).toBeGreaterThanOrEqual(2);
+			expect(edges.length).toBeLessThanOrEqual(9001);
+		}
+		expect(seriesCalls.some((edges) => edges.length <= 60)).toBe(true);
+	}, 20_000);
 });
