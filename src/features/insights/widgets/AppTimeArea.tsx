@@ -21,9 +21,15 @@ import { formatShortDate } from "../coverageCopy.js";
 import type { InsightsAppTimeSeries } from "../../../../shared/contracts/commands.js";
 import type { Domain } from "../useInsightsDashboardData.js";
 
-const CONFIG: ChartConfig = {
-	engaged: { label: "engaged", color: "var(--primary)" },
-	focused: { label: "focused", color: "var(--muted-foreground)" },
+// Keyed by the Area components' own dataKeys (focusedMs/engagedMs), not the
+// prototype's short names — ChartTooltipContent looks up a series' label via
+// config[dataKey], so a mismatched key here silently falls through to the
+// raw dataKey in the tooltip. Exported (unusual for this file) so a unit
+// test can assert the keys stay in sync with the dataKeys below without
+// needing Recharts/ResponsiveContainer to render anything.
+export const APP_TIME_CONFIG: ChartConfig = {
+	engagedMs: { label: "engaged", color: "var(--primary)" },
+	focusedMs: { label: "focused", color: "var(--muted-foreground)" },
 };
 
 export function AppTimeArea({
@@ -79,7 +85,7 @@ export function AppTimeArea({
 					</span>
 				</div>
 			</div>
-			<ChartContainer config={CONFIG} className="idb-area">
+			<ChartContainer config={APP_TIME_CONFIG} className="idb-area">
 				<AreaChart accessibilityLayer data={data}>
 					<CartesianGrid stroke="var(--border)" vertical={false} />
 					<XAxis dataKey="label" hide />
@@ -99,8 +105,8 @@ export function AppTimeArea({
 					)}
 					<Area
 						dataKey="focusedMs"
-						stroke="var(--color-focused)"
-						fill="var(--color-focused)"
+						stroke="var(--color-focusedMs)"
+						fill="var(--color-focusedMs)"
 						fillOpacity={0.18}
 						strokeWidth={1.5}
 						isAnimationActive={false}
@@ -108,8 +114,8 @@ export function AppTimeArea({
 					/>
 					<Area
 						dataKey="engagedMs"
-						stroke="var(--color-engaged)"
-						fill="var(--color-engaged)"
+						stroke="var(--color-engagedMs)"
+						fill="var(--color-engagedMs)"
 						fillOpacity={0.28}
 						strokeWidth={2}
 						isAnimationActive={false}
@@ -118,7 +124,7 @@ export function AppTimeArea({
 					<ChartTooltip
 						content={
 							<ChartTooltipContent
-								config={CONFIG}
+								config={APP_TIME_CONFIG}
 								labelFormatter={(l) => formatShortDate(Number(l))}
 								valueFormatter={(v) => (typeof v === "number" ? fmt(v) : "—")}
 							/>

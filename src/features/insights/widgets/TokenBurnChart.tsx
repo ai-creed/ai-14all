@@ -16,7 +16,6 @@ import type { Domain } from "../useInsightsDashboardData.js";
 import { precaptureFlags } from "./precapture.js";
 import { PrecaptureChrome } from "./PrecaptureChrome.js";
 import { ChartLabels } from "./ChartLabels.js";
-import { fmtTokens } from "./format.js";
 import { formatShortDate } from "../coverageCopy.js";
 import { AGENT_PROVIDERS } from "../../../../shared/models/agent-provider.js";
 import type { DailyPoint } from "../../../../shared/models/usage.js";
@@ -98,8 +97,14 @@ export function TokenBurnChart({
 									<ChartTooltipContent
 										config={config}
 										labelFormatter={(l) => formatShortDate(Number(l))}
+										// Tooltip-only: fmtTokens (millions-scaled, "850M") is
+										// the tiles/table's real-billable-count formatter — a
+										// single bucket's raw count is routinely far below 1M
+										// and would round to "0M". Per-bucket resolution here
+										// instead, same as the tiles/table's own raw-number
+										// fallback.
 										valueFormatter={(v) =>
-											typeof v === "number" ? fmtTokens(v) : "—"
+											typeof v === "number" ? v.toLocaleString("en-US") : "—"
 										}
 									/>
 								}
