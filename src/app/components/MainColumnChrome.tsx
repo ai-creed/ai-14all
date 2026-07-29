@@ -182,7 +182,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 									>
 										◫
 									</span>
-									insights
+									Insights
 								</button>
 								<PhoneBridgeEntryButton onOpen={onOpenPhoneBridge} />
 							</>
