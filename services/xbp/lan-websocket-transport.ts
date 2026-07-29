@@ -63,6 +63,8 @@ export async function createLanWebSocketHost(
 	transport: Transport;
 	port: number;
 	attach(socket: AttachableSocket): void;
+	currentInboundGeneration(): number | null;
+	isSocketLive(generation: number): boolean;
 	close(): Promise<void>;
 }> {
 	const wss = new WebSocketServer({ host: "0.0.0.0", port: opts.port ?? 0 });
@@ -73,13 +75,16 @@ export async function createLanWebSocketHost(
 	const address = wss.address();
 	const port = typeof address === "object" && address ? address.port : 0;
 
-	const { transport, attach, close } = createAttachableTransport();
+	const { transport, attach, close, currentInboundGeneration, isSocketLive } =
+		createAttachableTransport();
 	wss.on("connection", (ws) => attach(wsToAttachable(ws)));
 
 	return {
 		transport,
 		port,
 		attach,
+		currentInboundGeneration,
+		isSocketLive,
 		close: async () => {
 			await close();
 			await new Promise<void>((resolve) => wss.close(() => resolve()));
