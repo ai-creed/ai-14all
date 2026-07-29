@@ -364,7 +364,9 @@ export interface UsageRangeQuery { fromMs: number; toMs: number }
 export type UsageRangeResult =
 	| {
 			ok: true;
-			days: DailyPoint[];        // one point per local day, dayStart ∈ [fromMs, toMs)
+			days: DailyPoint[];        // SPARSE: one point per local day WITH ledger
+			                           // data, dayStart ∈ [fromMs, toMs), ascending;
+			                           // absent days are exactly zero
 			// RAW grain, deliberately: one entry per (worktree | workspace-group |
 			// untracked) × provider — the same shape and matching as
 			// ScopeData.rows. The one-row-per-WORKSPACE table with its provider
@@ -394,9 +396,14 @@ export type UsageRangeResult =
   bucket map and reuse the exported `buildScopeData` for
   `byWorkspace`/`byProvider`/`cost` — every number derives from the same
   map, so rows, provider roll-up, and totals agree by construction (the
-  popover's existing headline-consistency guarantee). `days` via the
-  bounded `dailySeries`-style calendar walk; `earliestDayMs` = min ledger
-  day key with data.
+  popover's existing headline-consistency guarantee). `days` is emitted
+  SPARSELY in the same pass under the identical predicate — one point
+  per ledger day with data, sorted ascending — so `Σ days` equals the
+  merge totals by construction at any depth and the cost is O(ledger
+  size) for any window (no dense walk, no depth clamp);
+  `earliestDayMs` = min ledger day key with data. Chart column counts
+  come from the renderer's domain edges, so absent (zero) days still
+  render as empty columns.
 - Callers pass local-midnight-aligned bounds from the shared edge
   generator (decision 12); the ledger is local-day grained, so this is
   exact, not approximate.
