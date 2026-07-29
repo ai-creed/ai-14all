@@ -1,5 +1,7 @@
 import type {
 	KnownWorktree,
+	UsageRangeData,
+	UsageRangeQuery,
 	UsageSnapshot,
 } from "../../shared/models/usage.js";
 
@@ -19,6 +21,9 @@ export type MainToWorker =
 	| { kind: "setKnown"; known: KnownWorktree[] }
 	| { kind: "setActive"; activeWorktreeIds: string[] }
 	| { kind: "setChipRange"; chipRange: "week" | "month" }
-	| { kind: "setIncludeUntracked"; includeUntracked: boolean };
+	| { kind: "setIncludeUntracked"; includeUntracked: boolean }
+	| { kind: "queryRange"; requestId: string; query: UsageRangeQuery };
 
-export type WorkerToMain = { kind: "snapshot"; snapshot: UsageSnapshot };
+export type WorkerToMain =
+	| { kind: "snapshot"; snapshot: UsageSnapshot }
+	| { kind: "rangeResult"; requestId: string; result: UsageRangeData };

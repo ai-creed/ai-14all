@@ -126,6 +126,30 @@ export interface HourlyPoint {
 	tokens: Partial<Record<AgentProviderId, number>>;
 }
 
+export interface UsageRangeQuery {
+	fromMs: number;
+	toMs: number;
+}
+
+export interface UsageRangeData {
+	// SPARSE: one point per local day WITH ledger data in [fromMs, toMs) —
+	// NOT one point per calendar day in the window. A day absent from this
+	// array had zero usage (render it as an empty/zero column, don't skip
+	// it — see services/usage/range.ts's buildRangeResult). Consumers that
+	// fold `days` onto a fixed set of domain buckets (e.g. chart columns)
+	// must look each day up by its OWN dayStartMs key, never assume
+	// index-alignment with a dense day sequence.
+	days: DailyPoint[];
+	byWorkspace: UsageRow[];
+	byProvider: ScopeRollupRow[];
+	cost: CostSnapshot;
+	earliestDayMs: number | null;
+}
+
+export type UsageRangeResult =
+	| ({ ok: true } & UsageRangeData)
+	| { ok: false; reason: "disabled" | "timeout" };
+
 export interface UsageSnapshot {
 	generatedAtMs: number;
 	providers: ProviderTelemetryInfo[]; // identity + capabilities + hasData

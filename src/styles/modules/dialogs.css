@@ -311,6 +311,24 @@
 		color: var(--text-primary);
 	}
 
+	/* Destructive "Delete insights data" action (InsightsSettingsControls, Task
+	   13). Danger-tokened outline that fills on hover — same button anatomy as
+	   .settings-dialog__close above, with the app's standard danger treatment
+	   (cf. .phone-bridge__btn--danger) so the action reads as destructive. */
+	.settings-dialog__danger {
+		background: none;
+		border: var(--shell-border-width) solid var(--danger);
+		color: var(--danger);
+		padding: 4px var(--space-3);
+		font-size: 0.75rem;
+		font-family: inherit;
+		cursor: pointer;
+	}
+	.settings-dialog__danger:hover {
+		background: var(--danger);
+		color: var(--app-bg);
+	}
+
 	/* --- Command presets dialog (slice 2 redesign) --- */
 	.preset-list {
 		list-style: none;

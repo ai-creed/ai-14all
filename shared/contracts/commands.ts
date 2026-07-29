@@ -410,6 +410,57 @@ export const PushGitBranchSchema = z.object({
 
 // --- Shared types ---
 
+// Insights read-model, mirrored for the renderer. The canonical shapes live in
+// services/insights/store/views.ts (WhisperRunRow) and services/insights/store/
+// coverage.ts (Completeness); `shared/` must not import from `services/` (same
+// rationale as AgentPtyUpsert / DiagnosticsAttentionLogEvent above), so the
+// renderer-facing types are mirrored here — keep fields in exact sync with those
+// sources. The main host maps its canonical result onto this shape structurally.
+export type InsightsCompleteness = "complete" | "partial" | "unknown";
+
+export interface InsightsWhisperRun {
+	runId: string;
+	collabId: string;
+	repoId: string | null;
+	workspaceRel: string | null;
+	workflowType: string;
+	status: string;
+	haltReason: string | null;
+	startedAt: number | null;
+	endedAt: number | null;
+	durationMs: number | null;
+	phaseCount: number;
+}
+
+export interface InsightsAppTime {
+	focusedMs: number;
+	engagedMs: number;
+	completeness: InsightsCompleteness;
+}
+
+export interface InsightsAppTimeSeries {
+	buckets: Array<{ startMs: number; focusedMs: number; engagedMs: number }>;
+	completeness: InsightsCompleteness;
+}
+
+export interface InsightsCoverageAnchors {
+	firstCaptureAt: number | null;
+	appRetainedSinceMs: number | null;
+	runsRetainedSinceMs: number | null;
+}
+
+// Read-result envelope (spec §4/§10.4): every insights read resolves ok/false
+// rather than throwing, so a wedged worker, a mid-wipe read, or a malformed
+// request all surface as a typed reason instead of an unhandled rejection.
+export type InsightsReadReason =
+	| "busy"
+	| "timeout"
+	| "query-failed"
+	| "bad-request";
+export type InsightsReadResult<T> =
+	| { ok: true; data: T }
+	| { ok: false; reason: InsightsReadReason };
+
 export interface UpdateInfo {
 	version: string;
 	url: string;
@@ -596,6 +647,70 @@ export type Ai14AllDesktopApi = {
 		setEnabled(enabled: boolean): Promise<void>;
 		setIncludeUntracked(includeUntracked: boolean): Promise<void>;
 		setChipRange(range: "week" | "month"): Promise<void>;
+		// Correlated cross-scope range read (decision 14): independent of
+		// chipRange/includeUntracked — those popover config knobs never affect it.
+		queryRange(
+			query: import("../models/usage.js").UsageRangeQuery,
+		): Promise<import("../models/usage.js").UsageRangeResult>;
+	};
+	insights: {
+		// Programmatic sub-toggle write (spec §7.3). The handler persists the
+		// sub-setting then DERIVES effective consent server-side — it never forwards
+		// this raw boolean straight to capture (§7.2 master kill).
+		setEnabled(enabled: boolean): Promise<void>;
+		deleteAll(): Promise<void>;
+		ackNotice(): Promise<void>;
+		// Typed read contract (spec §10.4 getWhisperRuns): fetch the whisper runs
+		// started within [range.fromMs, range.toMs) plus a coverage completeness
+		// flag. Resolves an InsightsReadResult envelope; capture-off (no worker)
+		// resolves ok with empty data. A wedged worker (timeout), a mid-wipe read
+		// (busy), or a worker-side failure (query-failed) resolve ok: false with a
+		// typed reason. Never rejects.
+		query(range: { fromMs: number; toMs: number }): Promise<
+			InsightsReadResult<{
+				runs: InsightsWhisperRun[];
+				completeness: InsightsCompleteness;
+			}>
+		>;
+		// Aggregated app-time read contract (spec §7): focused/engaged ms clipped
+		// to the range plus uptime-derived completeness. Resolves an
+		// InsightsReadResult envelope; capture-off (no worker) resolves ok with
+		// empty data. A wedged worker (timeout), a mid-wipe read (busy), or a
+		// worker-side failure (query-failed) resolve ok: false with a typed
+		// reason. Never rejects.
+		queryAppTime(range: {
+			fromMs: number;
+			toMs: number;
+		}): Promise<InsightsReadResult<InsightsAppTime>>;
+		// Bucketed app-time series read contract (spec §4.3): the same aggregation
+		// as queryAppTime, split across the caller-supplied bucket edges. Mirrors
+		// queryAppTime's envelope/timeout semantics.
+		queryAppTimeSeries(
+			bucketEdgesMs: number[],
+		): Promise<InsightsReadResult<InsightsAppTimeSeries>>;
+		// Retention/coverage-anchors read contract (spec §4.5): the earliest
+		// capture and per-source retention floors, used to bound how far back the
+		// dashboard can honestly render. Mirrors query's envelope/timeout
+		// semantics.
+		coverageAnchors(): Promise<InsightsReadResult<InsightsCoverageAnchors>>;
+		onNotice(listener: () => void): () => void;
+		// Pull-on-mount recovery for the one-time first-capture notice: the
+		// boot-time `insights:notice` push fires before InsightsNotice mounts (the
+		// renderer is still on the setup/restore screen), so it reaches no
+		// listener. A shell mounting later calls this to recover a still-pending
+		// notice. Resolves true only while the notice is un-acknowledged (in
+		// process AND durably) after a first capture. See InsightsHost.isNoticePending.
+		checkNoticePending(): Promise<boolean>;
+		// Detached window (design spec §2 decision 4): detach() asks main to
+		// create/focus the singleton BrowserWindow (never window.open() from the
+		// renderer); reattach() closes it and signals the main window to reopen
+		// the overlay. onWindowClosed fires for EVERY window close (detach-close,
+		// reattach, and OS chrome close alike) — payload.reattach distinguishes an
+		// explicit reattach (main should reopen the overlay) from an OS close
+		// (main must NOT reopen it, decision 3).
+		detach(): Promise<void>;
+		reattach(): Promise<void>;
+		onWindowClosed(listener: (e: { reattach: boolean }) => void): () => void;
 	};
 	reviewComments: {
 		list(worktreeId: string): Promise<{ comments: ReviewComment[] }>;
@@ -796,6 +911,17 @@ export type Ai14AllDesktopApi = {
 		cancelPairing(): Promise<PhoneBridgeStatus | undefined>;
 		forget(): Promise<PhoneBridgeStatus | undefined>;
 		onStatusChanged(handler: (status: PhoneBridgeStatus) => void): () => void;
+	};
+	/**
+	 * E2E-only collector seam. Present ONLY when AI14ALL_E2E is set; `undefined`
+	 * in a production build (see shared/models/insights-test-seam.ts).
+	 */
+	__insightsTest?: {
+		signal(
+			type: "focus" | "blur" | "idle" | "suspend" | "resume" | "flush",
+			arg?: { atMs?: number; idleSeconds?: number },
+		): Promise<{ ok: boolean; error?: string }>;
+		crashWorker(): Promise<{ ok: boolean; error?: string }>;
 	};
 };
 

@@ -575,6 +575,47 @@
 		cursor: pointer;
 	}
 
+	/* ── First-capture transparency notice ────────────────────────────────────── */
+	/* One-time banner shown once when local usage-insights capture starts (§14.5,
+	 * D4); rendered by src/app/components/InsightsNotice.tsx (role="status").
+	 * Placement history: every FIXED corner anchor occludes interactive chrome
+	 * somewhere in this shell — bottom-left the sidebar's global footer (Task 15
+	 * finding), bottom-right the review chip bar's Refresh/Review actions,
+	 * top-right the terminal chip bar's layout button (merge-gate e2e finding:
+	 * a persistent overlay intercepted its clicks). A chrome-dense shell leaves
+	 * no safe corner for a persistent floater, so the notice now renders
+	 * IN-FLOW as a full-width banner above .shell-layout — the RestoreBanner
+	 * pattern: it pushes content down and occludes nothing by construction
+	 * (InsightsOverlay re-measures its portal rect on layout shifts, so the
+	 * dashboard overlay tracks the push). Informational voice: card surface +
+	 * solid border, not RestoreBanner's warning coloring. */
+	.insights-notice {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-3);
+		padding: var(--space-2) var(--space-4);
+		background: var(--popover);
+		color: var(--foreground);
+		border-bottom: var(--shell-border-width) solid var(--border);
+		font-size: 13px;
+	}
+
+	.insights-notice button {
+		flex: none;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 2px 8px;
+		background: transparent;
+		color: inherit;
+		cursor: pointer;
+		font: inherit;
+	}
+
+	.insights-notice button:hover {
+		background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+	}
+
 	/* ---- Box-drawing utility (spec §7, WebTUI box technique) --------------- */
 
 	/* Pads the element by one character cell and draws the border on a
@@ -625,7 +666,8 @@
 	/* Split from tui.css's box-shadow elevation :is() sweep (a 10-selector
 	 * cross-feature group; the other 8 selectors are owned by files, terminals,
 	 * viewer, review ×2, dialogs, usage ×2). These two are this module's. */
-	[data-theme="tui"] :is(.shell-shortcuts-help, .shell-toast) {
+	[data-theme="tui"]
+		:is(.shell-shortcuts-help, .shell-toast, .insights-notice) {
 		box-shadow: none;
 	}
 

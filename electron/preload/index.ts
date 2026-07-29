@@ -31,6 +31,7 @@ import type {
 	AgentResumeBridgeReply,
 	AgentResumeBridgeRequest,
 } from "../../shared/contracts/agent-resume-bridge.js";
+import { buildInsightsTestBridge } from "../../shared/models/insights-test-seam.js";
 import {
 	AGENT_RESUME_BRIDGE_READY,
 	AGENT_RESUME_BRIDGE_GOODBYE,
@@ -429,6 +430,52 @@ const api: Ai14AllDesktopApi = {
 		setChipRange(range) {
 			return ipcRenderer.invoke("usage:setChipRange", range);
 		},
+		queryRange(query) {
+			return ipcRenderer.invoke("usage:queryRange", query);
+		},
+	},
+	insights: {
+		setEnabled(enabled) {
+			return ipcRenderer.invoke("insights:setEnabled", enabled);
+		},
+		deleteAll() {
+			return ipcRenderer.invoke("insights:deleteAll");
+		},
+		ackNotice() {
+			return ipcRenderer.invoke("insights:noticeAck");
+		},
+		query(range) {
+			return ipcRenderer.invoke("insights:query", range);
+		},
+		queryAppTime(range) {
+			return ipcRenderer.invoke("insights:queryAppTime", range);
+		},
+		queryAppTimeSeries(bucketEdgesMs: number[]) {
+			return ipcRenderer.invoke("insights:queryAppTimeSeries", bucketEdgesMs);
+		},
+		coverageAnchors() {
+			return ipcRenderer.invoke("insights:coverageAnchors");
+		},
+		checkNoticePending() {
+			return ipcRenderer.invoke("insights:noticePending");
+		},
+		onNotice(cb: () => void) {
+			const listener = () => cb();
+			ipcRenderer.on("insights:notice", listener);
+			return () => ipcRenderer.removeListener("insights:notice", listener);
+		},
+		detach() {
+			return ipcRenderer.invoke("insights:openWindow");
+		},
+		reattach() {
+			return ipcRenderer.invoke("insights:reattach");
+		},
+		onWindowClosed(listener: (e: { reattach: boolean }) => void) {
+			const fn = (_e: unknown, payload: { reattach: boolean }) =>
+				listener(payload);
+			ipcRenderer.on("insights:windowClosed", fn);
+			return () => ipcRenderer.removeListener("insights:windowClosed", fn);
+		},
 	},
 	reviewComments: {
 		list(worktreeId) {
@@ -627,6 +674,12 @@ const api: Ai14AllDesktopApi = {
 			return onChannel("code-nav:availabilityChanged", handler);
 		},
 	},
+	// The ENTIRE renderer-side seam: one call, no inline logic, so the unit test
+	// of `buildInsightsTestBridge` covers the real construction. Without the flag
+	// this is `undefined`, so `window.ai14all.__insightsTest` is absent.
+	__insightsTest: buildInsightsTestBridge(process.env, (channel, payload) =>
+		ipcRenderer.invoke(channel, payload),
+	),
 };
 
 contextBridge.exposeInMainWorld("ai14all", api);

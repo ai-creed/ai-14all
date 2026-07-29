@@ -33,6 +33,14 @@ import electronUpdater from "electron-updater";
 import { startUpdateService } from "./services/update-service.js";
 import { UsageHost, USAGE_SNAPSHOT_CHANNEL } from "./services/usage-host.js";
 import { createUsageSettingsBridge } from "./services/usage-settings-bridge.js";
+import { InsightsHost } from "./services/insights-host.js";
+import { createInsightsWindowService } from "./services/insights-window.js";
+import {
+	AppFocusCollector,
+	spanEmitter,
+} from "./services/app-focus-collector.js";
+import { isInsightsTestSeamEnabled } from "../../shared/models/insights-test-seam.js";
+import { applyInsightsConsent } from "./insights-ipc.js";
 import type { KnownWorktree } from "../../shared/models/usage.js";
 import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
 import { ReviewCommentService } from "../../services/review/review-comment-service.js";
@@ -301,6 +309,57 @@ app.whenReady().then(async () => {
 
 	const whisperStateRoot =
 		process.env.AI14ALL_WHISPER_STATE_ROOT ?? join(homedir(), ".ai-whisper");
+
+	// Insights capture (spec §7): a gated utilityProcess that mines whisper run
+	// history into a local insights DB and forwards a one-time first-capture
+	// notice to the renderer. Constructed here where both userData and the
+	// resolved whisperStateRoot are in scope. Effective consent is derived from
+	// persisted settings (global telemetry AND the insights sub-toggle) — the host
+	// is only ever start/stopped via applyInsightsConsent / the persist-then-derive
+	// setEnabled seam, never a raw renderer boolean (§7.2 master kill).
+	const insightsHost = new InsightsHost({
+		userDataDir: app.getPath("userData"),
+		whisperDbPath: join(whisperStateRoot, "state.db"),
+		pollIntervalMs: 3000,
+		send: (channel, payload) => {
+			if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+				mainWindow.webContents.send(channel, payload);
+			}
+		},
+		// Read fresh each poll (public, synchronous) so a noticeAck persisted via
+		// writeState is reflected on the next status — never a stale snapshot.
+		loadNoticeShown: () =>
+			settingsService.readStateSync().settings.usageTelemetry.insights
+				.noticeShown,
+		persistNoticeShown: (v) =>
+			void settingsService.writeState({
+				usageTelemetry: { insights: { noticeShown: v } },
+			}),
+	});
+	// App-focus collector (spec §4): armed/disarmed with effective consent by the
+	// host, which also applies capture-time consent before buffering each span.
+	const appFocusCollector = new AppFocusCollector({
+		window: mainWindow,
+		emit: spanEmitter((event) => insightsHost.produce(event)),
+		// E2e seam: the collector's e2e drives the focus core on a SYNTHETIC
+		// timeline (explicit `atMs` far ahead of the wall clock). A real idle poll
+		// firing mid-test would push a clamped (empty) span and then rewind the
+		// core's focused boundary back to real `Date.now()`, silently shaving the
+		// synthetic totals — and if the runner's OS idle happens to exceed the
+		// engagement threshold it would also close the engaged boundary. Pushing
+		// the interval out to 24 h under the seam means it never fires during a
+		// test, so the synthetic timeline is the only driver. Production keeps the
+		// default IDLE_POLL_MS.
+		pollIntervalMs: isInsightsTestSeamEnabled(process.env)
+			? 86_400_000
+			: undefined,
+	});
+	insightsHost.setAppRunId(appFocusCollector.appRunId);
+	insightsHost.setCollector(appFocusCollector);
+	app.on("before-quit", () => appFocusCollector.flush());
+	// Gate the worker from persisted settings at startup (master kill): starts only
+	// when global telemetry AND the insights sub-toggle are enabled.
+	applyInsightsConsent(insightsHost, settingsService.readStateSync().settings);
 
 	// Spec §3.4: the single probe owner — agent CLIs + cached plugin probes.
 	const capabilityProbes = createCapabilityProbeService();
@@ -833,6 +892,46 @@ app.whenReady().then(async () => {
 		onCancelled: quitState.resetAbortedUpdateQuit,
 	});
 	closeGate.attach(mainWindow, { isQuitting: quitState.isQuitting });
+
+	// Detached insights window (Task 14, design spec §2 decision 4): the
+	// singleton is created/focused/closed only from main (never
+	// `window.open()` from a renderer). Every window close — detach-close,
+	// reattach, or the user's own OS chrome close — notifies the main window;
+	// `payload.reattach` tells it whether to reopen the overlay (decision 3:
+	// an OS-driven close must NOT reopen it).
+	const insightsWindows = createInsightsWindowService(
+		(payload) => {
+			if (mainWindow.isDestroyed()) return;
+			// Reattach: `show()` + `focus()` BEFORE sending the push. The main
+			// window can be merely HIDDEN (not closed) here — macOS's
+			// hide-on-close (lifecycle.ts) intercepts red-X and hides rather than
+			// destroys it — so without this, reattaching would reopen the overlay
+			// inside a window the user can't see.
+			if (payload.reattach) {
+				mainWindow.show();
+				mainWindow.focus();
+			}
+			mainWindow.webContents.send("insights:windowClosed", payload);
+		},
+		// Sizing (spec §2 decision 4, v5): the dashboard opens at the app
+		// window's current size — a fullscreen cockpit yields an equally wide
+		// dashboard for the second monitor.
+		() => {
+			if (mainWindow.isDestroyed()) return null;
+			const bounds = mainWindow.getBounds();
+			return { width: bounds.width, height: bounds.height };
+		},
+	);
+	// Force-close the singleton on the main window's real close and on a
+	// real app quit — insights-window.ts's own doc comment explains why this
+	// coupling has to live here: otherwise (a) the dashboard can outlive a
+	// hidden-not-closed main window on macOS, and (b) on Windows/Linux the
+	// live dashboard BrowserWindow keeps "window-all-closed" from ever
+	// firing, leaving the app un-quittable once the main window is gone.
+	// `close(false)` is a no-op when no dashboard window is open.
+	mainWindow.on("closed", () => insightsWindows.close(false));
+	app.on("before-quit", () => insightsWindows.close(false));
+
 	const { dispose, terminalService } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
 		settingsService,
@@ -848,6 +947,18 @@ app.whenReady().then(async () => {
 		usageHost,
 		usageSettingsBridge: usageSettings,
 		getPhoneBridgeApplier: () => xbpService,
+		insightsHost,
+		openInsightsWindow: () => insightsWindows.open(),
+		closeInsightsWindow: (reattach: boolean) => insightsWindows.close(reattach),
+		// Redundant with the gate inside registerInsightsIpc, and deliberately so:
+		// it closes the wiring hop between here and there, so the seam cannot be
+		// made live by a mistake at either end.
+		insightsTestSeam: isInsightsTestSeamEnabled(process.env)
+			? {
+					signal: (type, arg) => appFocusCollector.signal(type, arg),
+					crashWorker: () => insightsHost.crashWorkerForTest(),
+				}
+			: undefined,
 		installUpdate: () => updateService.installUpdate(),
 		closeGate,
 		getCortexEnabled: () => pluginConfig.get("cortex").enabled,

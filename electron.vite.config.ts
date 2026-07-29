@@ -41,6 +41,9 @@ export default defineConfig({
 					// Emitted as out/main/usage-worker.js; the UsageHost (bundled into
 					// index.js) forks it via `new URL("./usage-worker.js", import.meta.url)`.
 					"usage-worker": "./electron/main/services/usage-worker.ts",
+					// Emitted as out/main/insights-worker.js; the InsightsHost forks it
+					// via `new URL("./insights-worker.js", import.meta.url)`.
+					"insights-worker": "./electron/main/services/insights-worker.ts",
 				},
 				// bufferutil/utf-8-validate are `ws`'s optional native addons. `ws`
 				// is bundled transitively via @xavier/xbp; bundling these addons too
@@ -70,7 +73,10 @@ export default defineConfig({
 		},
 		build: {
 			rollupOptions: {
-				input: "./index.html",
+				// dashboard.html is the second renderer entry (Task 14): the detached
+				// insights window's root, loaded via ELECTRON_RENDERER_URL in dev or
+				// out/renderer/dashboard.html in a packaged build.
+				input: { index: "./index.html", dashboard: "./dashboard.html" },
 			},
 		},
 		plugins: [react(), tailwindcss()],

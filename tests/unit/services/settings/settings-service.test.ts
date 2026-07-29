@@ -50,6 +50,7 @@ describe("SettingsService.readState", () => {
 			enabled: false,
 			includeUntracked: true,
 			chipRange: "month",
+			insights: { enabled: true, noticeShown: false },
 		});
 	});
 
@@ -129,6 +130,7 @@ describe("SettingsService.writeState", () => {
 			enabled: false,
 			includeUntracked: true,
 			chipRange: "month",
+			insights: { enabled: true, noticeShown: false },
 		});
 	});
 
@@ -201,6 +203,7 @@ describe("SettingsService.readStateSync", () => {
 			enabled: false,
 			includeUntracked: true,
 			chipRange: "month",
+			insights: { enabled: true, noticeShown: false },
 		});
 	});
 

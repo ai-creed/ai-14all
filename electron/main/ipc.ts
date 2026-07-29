@@ -15,6 +15,13 @@ import {
 import { openExternalUrl } from "./services/open-external.js";
 import type { UsageHost } from "./services/usage-host.js";
 import type { UsageSettingsBridge } from "./services/usage-settings-bridge.js";
+import type { InsightsHost } from "./services/insights-host.js";
+import {
+	applyInsightsConsent,
+	makeSetInsightsEnabled,
+	registerInsightsIpc,
+	type InsightsTestSeam,
+} from "./insights-ipc.js";
 import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import { consumeE2eTerminalCreateDelay } from "./e2e-terminal-create-delay.js";
 import {
@@ -151,6 +158,10 @@ export function registerIpcHandlers(
 		usageHost,
 		usageSettingsBridge,
 		getPhoneBridgeApplier,
+		insightsHost,
+		insightsTestSeam,
+		openInsightsWindow,
+		closeInsightsWindow,
 		installUpdate,
 		closeGate,
 		getCortexEnabled,
@@ -176,6 +187,15 @@ export function registerIpcHandlers(
 		getPhoneBridgeApplier?: () => {
 			applyRelayBaseUrl(url: string): void;
 		} | null;
+		insightsHost?: InsightsHost;
+		// E2E-only collector seam, wired in main/index.ts where the collector is
+		// constructed. registerInsightsIpc still gates it on AI14ALL_E2E, so this
+		// being supplied never makes the channel reachable in a production build.
+		insightsTestSeam?: InsightsTestSeam;
+		// Detached insights window lifecycle (Task 14), threaded through to
+		// registerInsightsIpc — see createInsightsWindowService.
+		openInsightsWindow?: () => void;
+		closeInsightsWindow?: (reattach: boolean) => void;
 		installUpdate?: () => void;
 		closeGate?: import("./close-gate.js").CloseGate;
 		getCortexEnabled: () => boolean;
@@ -635,6 +655,13 @@ export function registerIpcHandlers(
 			usageHost?.applyIncludeUntracked(merged.usageTelemetry.includeUntracked);
 			usageHost?.setEnabled(merged.usageTelemetry.enabled);
 			usageSettingsBridge?.refresh(merged);
+			// Live-apply effective insights consent from the just-persisted merged
+			// settings (derives global AND sub-toggle — master kill), mirroring the
+			// usage host above. writeState() already persisted; applyInsightsConsent
+			// only start/stops the host, so this cannot loop back into a settings
+			// write. Covers the Settings dialog toggle (Task 13), which persists via
+			// this settings:write funnel rather than the insights:setEnabled IPC.
+			if (insightsHost) applyInsightsConsent(insightsHost, merged);
 		}
 		// Same live-apply funnel as usageTelemetry above: writeState() already
 		// persisted; applyRelayBaseUrl() is a NON-persisting applier, so this
@@ -702,6 +729,34 @@ export function registerIpcHandlers(
 		const range = raw === "month" ? "month" : "week";
 		usageHost?.setChipRange(range);
 	});
+	ipcMain.handle("usage:queryRange", (_event, raw: unknown) => {
+		const q = (raw ?? {}) as { fromMs?: unknown; toMs?: unknown };
+		const num = (v: unknown): number =>
+			typeof v === "number" && Number.isFinite(v) ? v : 0;
+		// No host (usage telemetry not wired for this window) → same no-worker
+		// state UsageHost itself resolves for every other no-proc case.
+		if (!usageHost)
+			return Promise.resolve({ ok: false, reason: "disabled" as const });
+		return usageHost.queryRange({ fromMs: num(q.fromMs), toMs: num(q.toMs) });
+	});
+
+	// --- Insights capture ---
+
+	if (insightsHost) {
+		// The handler persists the requested sub-setting then derives effective
+		// consent from the WRITTEN settings — it never forwards the raw renderer
+		// boolean to the host (§7.2 master kill).
+		registerInsightsIpc(
+			ipcMain,
+			insightsHost,
+			makeSetInsightsEnabled(settingsService, insightsHost),
+			insightsTestSeam
+				? { seam: insightsTestSeam, env: process.env }
+				: undefined,
+			openInsightsWindow,
+			closeInsightsWindow,
+		);
+	}
 
 	// --- Review Comments ---
 

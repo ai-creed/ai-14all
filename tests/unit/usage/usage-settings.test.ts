@@ -7,6 +7,7 @@ describe("UsageTelemetrySettingsSchema", () => {
 			enabled: true,
 			includeUntracked: false,
 			chipRange: "week",
+			insights: { enabled: true, noticeShown: false },
 		});
 	});
 
@@ -19,6 +20,7 @@ describe("UsageTelemetrySettingsSchema", () => {
 			enabled: true,
 			includeUntracked: false,
 			chipRange: "month",
+			insights: { enabled: true, noticeShown: false },
 		});
 		expect("popoverScope" in parsed).toBe(false);
 	});

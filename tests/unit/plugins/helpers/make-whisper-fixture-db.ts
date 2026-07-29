@@ -31,6 +31,7 @@ export interface WhisperFixture {
 		status?: string;
 		current_phase_index?: number;
 		halt_reason?: string | null;
+		created_at?: string;
 		updated_at?: string;
 	}>;
 	phases?: Array<{

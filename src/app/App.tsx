@@ -125,6 +125,9 @@ import { TerminalChromeHeader } from "../features/terminals/components/TerminalC
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
 import { PhoneBridgeDialogGate } from "./components/PhoneBridgeDialogGate";
+import { InsightsNotice } from "./components/InsightsNotice.js";
+import { InsightsOverlay } from "../features/insights/InsightsOverlay.js";
+import type { WorkspaceIndex } from "../features/insights/workspaceRows.js";
 import { SettingsDialog } from "../features/settings/components/SettingsDialog";
 import {
 	useWhisperState,
@@ -177,6 +180,7 @@ function AppContent() {
 		handleSidebarResizeStart,
 	} = usePaneResizers({});
 	const [reviewOpen, setReviewOpen] = useState(false);
+	const [insightsOpen, setInsightsOpen] = useState(false);
 	const chipBarRef = useRef<HTMLDivElement>(null);
 	const mainColRef = useRef<HTMLElement>(null);
 	const expandedPortalRef = useRef<ReviewExpandedPortalHandle>(null);
@@ -239,6 +243,48 @@ function AppContent() {
 		worktreesRef,
 		workspaceStateRef,
 	} = useActiveWorkspace();
+
+	// Insights dashboard's workspace registry (§4.8 row seeding, shared with the
+	// Task 14 detached window): one entry per open repository/workspace, built
+	// from the same registry App already holds — no separate fetch.
+	const workspaceIndex: WorkspaceIndex = useMemo(
+		() =>
+			appWorkspaces.workspaceOrder.flatMap((id) => {
+				const ws = appWorkspaces.workspacesById[id];
+				if (!ws) return [];
+				return [
+					{
+						workspaceId: ws.workspaceId,
+						title: ws.repository.name,
+						repoId: ws.repository.repoId,
+						rootPath: ws.repository.rootPath,
+						worktreeCount: ws.worktrees.length,
+					},
+				];
+			}),
+		[appWorkspaces],
+	);
+	// ⧉ detach: main creates/focuses the singleton window (never
+	// window.open() from the renderer — design spec §2 decision 4), and the
+	// overlay unmounts immediately so it isn't showing behind the new window.
+	// Optional-chained: same defensive pattern as InsightsNotice's
+	// `window.ai14all?.insights?.…` — some test harnesses stub a partial
+	// `window.ai14all` and this must not throw there.
+	const handleInsightsDetach = useCallback(() => {
+		void window.ai14all?.insights?.detach();
+		setInsightsOpen(false);
+	}, []);
+
+	// The detached window's close is reported here for EVERY close path
+	// (detach-close, explicit reattach, and the user's own OS chrome close
+	// alike). Only an explicit reattach (payload.reattach) reopens the
+	// overlay — an OS-driven close must not (decision 3: chip state only).
+	useEffect(() => {
+		return window.ai14all?.insights?.onWindowClosed((payload) => {
+			if (payload.reattach) setInsightsOpen(true);
+		});
+	}, []);
+
 	const samanthaSliceBuilder = useRef(createSamanthaSliceBuilder());
 	const outputPreviewBuffersRef = useRef<Map<string, string>>(new Map());
 	// Memory-only per-shell dragged positions for floating popovers, keyed by
@@ -1727,6 +1773,18 @@ function AppContent() {
 	);
 	useRegisterCommands(cycleCommands, [cycleCommands]);
 
+	useRegisterCommands(
+		[
+			{
+				id: "insights.openDashboard",
+				title: "Insights: open dashboard",
+				group: "Insights",
+				run: () => setInsightsOpen(true),
+			},
+		],
+		[setInsightsOpen],
+	);
+
 	// Cmd+; / Ctrl+; — toggle note sheet
 	useKeyboardShortcut(
 		"note-sheet",
@@ -2227,6 +2285,13 @@ function AppContent() {
 						message={restoreWarning}
 						onDismiss={() => setRestoreWarning(null)}
 					/>
+					{/* In-flow banner slot (RestoreBanner pattern): a persistent
+					    fixed-position notice occludes interactive chrome somewhere in
+					    every corner of this shell (Task 15 + merge-gate findings) —
+					    in-flow, it pushes the layout down and blocks nothing. */}
+					<InsightsNotice
+						onOpenSettings={() => setSettingsDialogOpen(true)}
+					/>
 					<div
 						className="shell-layout"
 						data-testid="shell-layout"
@@ -2306,6 +2371,7 @@ function AppContent() {
 									.map((w) => w.path)}
 								onOpenPlugins={() => setPluginsDialogOpen(true)}
 								onOpenPhoneBridge={openPhoneBridge}
+								onOpenInsights={() => setInsightsOpen(true)}
 							/>
 
 							<div className="shell-terminal-frame">
@@ -2632,6 +2698,15 @@ function AppContent() {
 										onCloseReview={() => setReviewOpen(false)}
 									/>
 								</ReviewExpandedPortal>
+							)}
+							{insightsOpen && (
+								<InsightsOverlay
+									mainColRef={mainColRef}
+									workspaces={workspaceIndex}
+									onClose={() => setInsightsOpen(false)}
+									onDetach={handleInsightsDetach}
+									onOpenSettings={() => setSettingsDialogOpen(true)}
+								/>
 							)}
 						</section>
 					</div>

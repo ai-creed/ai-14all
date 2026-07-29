@@ -141,7 +141,7 @@ export type ScopeName = "session" | "week" | "month" | "all-time";
 
 const SERIES_WINDOW_DAYS = 35;
 
-function mergeInto(
+export function mergeInto(
 	out: Map<BucketKey, TokenTotals>,
 	buckets: Map<BucketKey, TokenTotals>,
 ): void {
