@@ -32,9 +32,19 @@ import { installNavigationGuard } from "./navigation-guard.js";
 
 export function createInsightsWindowService(
 	notifyMain: (payload: { reattach: boolean }) => void,
+	// Sizing (spec §2 decision 4, v5 full-size hosts): the caller (index.ts)
+	// supplies the main window's current size so the dashboard opens
+	// app-sized — the two-monitor cockpit gets an app-width dashboard, not a
+	// 1120×720 default. Optional + nullable so a destroyed main window (or a
+	// caller without one) degrades to the fixed fallback.
+	getDefaultSize?: () => { width: number; height: number } | null,
 ): { open(): void; close(reattach: boolean): void } {
 	let win: BrowserWindow | null = null;
 	let closingForReattach = false;
+	// Last user-set size, captured when a window closes; wins over
+	// getDefaultSize on reopen. In-memory only — detached state is not
+	// persisted across restarts (decision 3), so its size isn't either.
+	let lastSize: { width: number; height: number } | null = null;
 
 	function open(): void {
 		if (win && !win.isDestroyed()) {
@@ -45,9 +55,10 @@ export function createInsightsWindowService(
 		// `true` from an earlier reattach could mislabel THIS new window's own
 		// eventual close (e.g. a plain OS-chrome close) as a reattach.
 		closingForReattach = false;
+		const size = lastSize ?? getDefaultSize?.() ?? null;
 		win = new BrowserWindow({
-			width: 1120,
-			height: 720,
+			width: size?.width ?? 1120,
+			height: size?.height ?? 720,
 			title: "ai-14all — insights",
 			show: !process.env.AI14ALL_E2E,
 			webPreferences: {
@@ -67,6 +78,14 @@ export function createInsightsWindowService(
 				fileURLToPath(new URL("../renderer/dashboard.html", import.meta.url)),
 			);
 		}
+		// 'close' fires while the window is still live (Electron ordering:
+		// close → closed), so this is the last point its bounds are readable —
+		// 'closed' is too late (the native window is gone).
+		win.on("close", () => {
+			if (!win || win.isDestroyed()) return;
+			const bounds = win.getBounds();
+			lastSize = { width: bounds.width, height: bounds.height };
+		});
 		win.on("closed", () => {
 			// Snapshot + clear state BEFORE notifying: notifyMain sends a
 			// synchronous IPC message that main can react to by re-entering

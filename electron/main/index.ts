@@ -894,19 +894,29 @@ app.whenReady().then(async () => {
 	// reattach, or the user's own OS chrome close — notifies the main window;
 	// `payload.reattach` tells it whether to reopen the overlay (decision 3:
 	// an OS-driven close must NOT reopen it).
-	const insightsWindows = createInsightsWindowService((payload) => {
-		if (mainWindow.isDestroyed()) return;
-		// Reattach: `show()` + `focus()` BEFORE sending the push. The main
-		// window can be merely HIDDEN (not closed) here — macOS's
-		// hide-on-close (lifecycle.ts) intercepts red-X and hides rather than
-		// destroys it — so without this, reattaching would reopen the overlay
-		// inside a window the user can't see.
-		if (payload.reattach) {
-			mainWindow.show();
-			mainWindow.focus();
-		}
-		mainWindow.webContents.send("insights:windowClosed", payload);
-	});
+	const insightsWindows = createInsightsWindowService(
+		(payload) => {
+			if (mainWindow.isDestroyed()) return;
+			// Reattach: `show()` + `focus()` BEFORE sending the push. The main
+			// window can be merely HIDDEN (not closed) here — macOS's
+			// hide-on-close (lifecycle.ts) intercepts red-X and hides rather than
+			// destroys it — so without this, reattaching would reopen the overlay
+			// inside a window the user can't see.
+			if (payload.reattach) {
+				mainWindow.show();
+				mainWindow.focus();
+			}
+			mainWindow.webContents.send("insights:windowClosed", payload);
+		},
+		// Sizing (spec §2 decision 4, v5): the dashboard opens at the app
+		// window's current size — a fullscreen cockpit yields an equally wide
+		// dashboard for the second monitor.
+		() => {
+			if (mainWindow.isDestroyed()) return null;
+			const bounds = mainWindow.getBounds();
+			return { width: bounds.width, height: bounds.height };
+		},
+	);
 	// Force-close the singleton on the main window's real close and on a
 	// real app quit — insights-window.ts's own doc comment explains why this
 	// coupling has to live here: otherwise (a) the dashboard can outlive a
