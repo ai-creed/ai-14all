@@ -209,6 +209,13 @@ describe("rhythmEdges", () => {
 		expect(edges[0]).toBeLessThanOrEqual(twoDaysAgo);
 		expect(edges.length).toBeLessThan(24 * 4);
 	});
+
+	// (Round 7 considered extending the same appAnchorMs-honoring fix here,
+	// same doctrine as seriesEdgesFor below — deferred: rhythm buckets are
+	// HOURLY, so the identical widening that's negligible for seriesEdgesFor's
+	// weekly buckets can push this function's edge count past the host's
+	// 9,001 cap for a genuinely stale (prune-lagging) anchor. See
+	// rhythmEdges' own doc comment for the full reasoning.)
 });
 
 // Round-6 boundary fix: `all`'s domain can start at the token ledger's
@@ -226,9 +233,9 @@ describe("seriesEdgesFor", () => {
 			runsRetainedSinceMs: null,
 		};
 		const d7 = domainForRange("7d", anchors, now);
-		expect(seriesEdgesFor(d7.edges, now)).toEqual(d7.edges);
+		expect(seriesEdgesFor(d7.edges, now, null)).toEqual(d7.edges);
 		const d30 = domainForRange("30d", anchors, now);
-		expect(seriesEdgesFor(d30.edges, now)).toEqual(d30.edges);
+		expect(seriesEdgesFor(d30.edges, now, null)).toEqual(d30.edges);
 	});
 
 	it("a ~174-year-deep `all` domain (past the host's 9,001-edge cap) clamps to <= 60 edges, all real domain edges, starting at-or-before the 365-day floor", () => {
@@ -246,7 +253,7 @@ describe("seriesEdgesFor", () => {
 		// requested directly (the bug this fix closes).
 		expect(domain.edges.length).toBeGreaterThan(9001);
 
-		const clamped = seriesEdgesFor(domain.edges, now);
+		const clamped = seriesEdgesFor(domain.edges, now, null);
 		expect(clamped.length).toBeGreaterThanOrEqual(2);
 		expect(clamped.length).toBeLessThanOrEqual(60);
 		for (const v of clamped) expect(domain.edges).toContain(v);
@@ -269,8 +276,58 @@ describe("seriesEdgesFor", () => {
 			now - 390 * 86_400_000,
 			now - 380 * 86_400_000, // still > 365 days back
 		];
-		const result = seriesEdgesFor(edges, now);
+		const result = seriesEdgesFor(edges, now, null);
 		expect(result).toEqual(edges.slice(-2));
 		expect(result.length).toBe(2);
+	});
+
+	// Round-7 hardening: the bare 365-day local floor is only an UPPER bound
+	// on how far back app-time could exist — the REAL retained anchor can
+	// legitimately sit a little earlier (a span straddling the prune cutoff
+	// survives with an occurred_start older than the cutoff; the prune
+	// cutoff is UTC-day-aligned while this floor is local-day-aligned, up to
+	// ~14-15h of skew in positive-UTC-offset zones; a fetch racing the
+	// session's first prune can see an anchor a few hours older than 365d).
+	// Clamping to the bare floor alone in that sliver would exclude real,
+	// non-precapture data. `appAnchorMs` closes it: the effective floor is
+	// min(the 365-day floor, appAnchorMs).
+	it("an appAnchorMs OLDER than the 365-day floor (the straddling-prune/UTC-skew/first-prune-race sliver): the clamp starts at-or-before the anchor itself, not just the bare floor", () => {
+		const start = now - 174 * 365 * 86_400_000; // ~174 years back
+		const domain = domainForRange(
+			"all",
+			{
+				earliestDayMs: start,
+				appRetainedSinceMs: null,
+				runsRetainedSinceMs: null,
+			},
+			now,
+		);
+		const appAnchorMs = now - 400 * 86_400_000; // 400 days back — older than the 365-day floor
+
+		const clamped = seriesEdgesFor(domain.edges, now, appAnchorMs);
+		expect(clamped[0]).toBeLessThanOrEqual(appAnchorMs);
+		expect(clamped.length).toBeGreaterThanOrEqual(2);
+		expect(clamped.length).toBeLessThanOrEqual(100);
+		for (const v of clamped) expect(domain.edges).toContain(v);
+	});
+
+	it("an appAnchorMs null, or inside the 365-day floor (more recent than it): identical clamp to the bare-floor-only behavior", () => {
+		const start = now - 174 * 365 * 86_400_000; // ~174 years back
+		const domain = domainForRange(
+			"all",
+			{
+				earliestDayMs: start,
+				appRetainedSinceMs: null,
+				runsRetainedSinceMs: null,
+			},
+			now,
+		);
+		const baseline = seriesEdgesFor(domain.edges, now, null);
+
+		const recentAnchorMs = now - 100 * 86_400_000; // well inside the floor
+		expect(seriesEdgesFor(domain.edges, now, recentAnchorMs)).toEqual(baseline);
+
+		const rightAtFloorMs = now - 365 * 86_400_000;
+		expect(seriesEdgesFor(domain.edges, now, rightAtFloorMs)).toEqual(baseline);
 	});
 });

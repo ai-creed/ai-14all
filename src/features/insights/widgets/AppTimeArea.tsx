@@ -46,9 +46,14 @@ export function AppTimeArea({
 	// deep `all` domain — `buckets` must therefore be looked up by its own
 	// `startMs` key, never zipped by index against `domain.edges`. Columns
 	// outside the clamped window fall back to `undefined` here, which is
-	// exactly right: `precaptureFlags` below already marks every one of them
-	// (and only them) precapture, since the app's own retention anchor can
-	// never predate the SAME 365-day floor the series clamp uses — so those
+	// exactly right: `precaptureFlags` below is a SUPERSET of "outside the
+	// clamped window" (it also covers real, IN-window columns before the
+	// app's own anchor) — but it always covers at least every OUT-of-window
+	// column, which is what matters here, because `seriesEdgesFor` takes the
+	// real `appRetainedSinceMs` anchor as an input: the clamp start honors
+	// min(the 365-day floor, appAnchor), so it can never start LATER than
+	// the retained anchor itself, and every non-precapture column is
+	// therefore always inside the clamped window — those out-of-window
 	// columns render as stubs regardless of what `byStart.get` returns.
 	const buckets = series?.buckets ?? [];
 	const byStart = new Map(buckets.map((b) => [b.startMs, b] as const));

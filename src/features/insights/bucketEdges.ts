@@ -73,6 +73,24 @@ export function hourEdges(fromMs: number, toMs: number): number[] {
 // older than OBSERVATION_RETENTION_DAYS = 365 cannot exist, so clamping the
 // rhythm window to the trailing 365 local days loses nothing and keeps the
 // edge count <= ~366*24+1 < 9,001 even across DST.
+//
+// DEFERRED (round 7): `seriesEdgesFor` takes an `appAnchorMs` floor input to
+// close a sliver where the real retained anchor sits slightly earlier than
+// this bare 365-day floor (prune-straddling spans, UTC-vs-local-day skew,
+// first-prune-race — see that function's doc). The SAME doctrine was tried
+// here too, but rhythm buckets are HOURLY (24x denser than the weekly `all`
+// buckets seriesEdgesFor widens) — for the realistic sliver (hours, per the
+// scenarios above) that widening is harmless (~8,761 -> ~8,809 edges), but
+// for a genuinely stale anchor (e.g. the app went unopened long enough that
+// the retention prune hasn't caught up yet — `appRetainedSinceMs` can then
+// legitimately sit weeks, not hours, before this floor) the same `Math.min`
+// pushes the hourly edge count PAST the host's 9,001 cap (empirically
+// confirmed: a 35-day-stale anchor alone produces ~9,601 edges), which would
+// turn the RHYTHM read's own `bad-request` into a hard error for the WHOLE
+// dashboard — worse than this function's current (much narrower, hours-
+// scale-only) undercount. Safely closing this needs an additional bound on
+// how far the floor may widen, which is more than "a few lines" — left as a
+// documented residual rather than risking that regression.
 export function rhythmEdges(domainStartMs: number, nowMs: number): number[] {
 	const floorCursor = new Date(nowMs);
 	floorCursor.setHours(0, 0, 0, 0);
@@ -86,22 +104,53 @@ export function rhythmEdges(domainStartMs: number, nowMs: number): number[] {
 // OBSERVATION_RETENTION_DAYS = 365 cannot exist, so a `queryAppTimeSeries`
 // call never needs to reach further back than that, however deep the `all`
 // domain's OWN start goes (which tracks the token ledger's unbounded depth,
-// not app-time's). Returns the SUFFIX of `domainEdges` from the largest
-// domain edge at-or-before the 365-local-day floor onward — anchoring on a
-// real domain edge (not the bare floor value) guarantees the clamped window
-// still starts exactly on a domain boundary AND fully covers
-// [floor, nowMs], so no possible app-time data is ever excluded. If no
-// domain edge is that old (the domain doesn't reach back 365 days at all —
-// every 7d/30d domain), this is the identity: every edge qualifies. Bounded
-// to at most ~55 weekly edges (365/7 + 1) or ~367 daily edges (365 + 2) —
-// either way comfortably under the host's 2..9001 cap (spec §4.3), so that
-// cap becomes unreachable from any real dashboard fetch and remains purely
-// an absurd-input guard, never something a legitimate `all` domain can trip.
-export function seriesEdgesFor(domainEdges: number[], nowMs: number): number[] {
+// not app-time's).
+//
+// `appAnchorMs` (the caller's OWN `appRetainedSinceMs` coverage anchor) is a
+// SECOND, independent floor input, not a redundant one: the bare 365-local-
+// day floor below is an upper bound on how far back app-time COULD exist,
+// but the real retained anchor can legitimately sit slightly earlier than
+// that local floor — a span straddling the prune cutoff survives with an
+// `occurred_start` older than the cutoff (coverage-anchors' own test case
+// (c) pins this), the prune cutoff itself is UTC-day-aligned while this
+// floor is LOCAL-day-aligned (up to ~14-15h of skew in positive-UTC-offset
+// zones), and a fetch racing the session's very first prune can observe an
+// anchor that predates 365 days by a few hours. In that sliver, clamping to
+// the bare 365-day floor alone would start the series request AFTER the
+// real anchor — `precaptureFlags` (computed from the SAME unclamped
+// `appAnchorMs`, independently) would still correctly mark those columns
+// non-precapture (real data expected), but the series response would have
+// no bucket for them, so `AppTimeArea`'s `byStart` lookup misses and they
+// render as a false zero — an undercount, not just a missing chart column
+// (spec AC4: non-precapture columns must reflect real data).
+//
+// Fix: the effective floor is `min(the 365-day floor, appAnchorMs)` (a null
+// anchor — nothing retained — leaves the bare floor as-is). This makes
+// "every non-precapture column lies inside the clamped window" true BY
+// CONSTRUCTION: the clamp can never start later than the retained anchor
+// itself, regardless of any UTC/local skew or prune-race timing. Cost is
+// negligible — the anchor is retention-bounded to begin with, so this only
+// ever widens the clamp by hours, not days — and returns the SUFFIX of
+// `domainEdges` from the largest domain edge at-or-before that effective
+// floor onward: anchoring on a real domain edge (not the bare floor value)
+// guarantees the clamped window still starts exactly on a domain boundary
+// AND fully covers [floor, nowMs]. If no domain edge is that old (the
+// domain doesn't reach back that far at all — every 7d/30d domain, and a
+// shallow `all`), this is the identity: every edge qualifies. Still bounded
+// well under the host's 2..9001 cap (spec §4.3) in every real case — the
+// widening is hours, not the years it would take to approach that cap —
+// so that cap remains purely an absurd-input guard, never something a
+// legitimate `all` domain can trip.
+export function seriesEdgesFor(
+	domainEdges: number[],
+	nowMs: number,
+	appAnchorMs: number | null,
+): number[] {
 	const floorCursor = new Date(nowMs);
 	floorCursor.setHours(0, 0, 0, 0);
 	floorCursor.setDate(floorCursor.getDate() - RHYTHM_FLOOR_DAYS);
-	const floor = startOfLocalDayMs(floorCursor.getTime());
+	const floor365 = startOfLocalDayMs(floorCursor.getTime());
+	const floor = Math.min(floor365, appAnchorMs ?? floor365);
 
 	// Walk from the end backward for the LARGEST index whose edge is <=
 	// floor (domainEdges is always ascending) — stays 0 or the array's own

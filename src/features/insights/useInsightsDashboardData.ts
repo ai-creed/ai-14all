@@ -22,18 +22,23 @@
 //      The tile probe (when issued) is resolved the same way.
 //   3. domain = domainForRange(range, {earliestDayMs, appRetainedSinceMs,
 //      runsRetainedSinceMs}, now).
-//   4. queryAppTimeSeries(seriesEdgesFor(domain.edges, now)) +
-//      query(domain window) + queryAppTimeSeries(rhythmEdges(...)) in
-//      parallel — PLUS a second usage.queryRange(domain window) in the SAME
-//      Promise.all when the range is `all` (its real domain is only
-//      knowable now, hence post-domain rather than bundled into step 1 like
-//      `today`'s tile probe). The series read is retention-clamped
-//      (seriesEdgesFor, bucketEdges.ts — same doctrine as rhythmEdges):
-//      app-time data can't predate OBSERVATION_RETENTION_DAYS = 365, but
-//      `all`'s domain can start at the token ledger's unbounded depth, so
-//      requesting the FULL domain would eventually trip the host's
-//      2..9001 bucket-edges cap (spec §4.3) for a deep-enough ledger —
-//      identity for every other range. The usage query is always safe to
+//   4. queryAppTimeSeries(seriesEdgesFor(domain.edges, now,
+//      appRetainedSinceMs)) + query(domain window) +
+//      queryAppTimeSeries(rhythmEdges(...)) in parallel — PLUS a second
+//      usage.queryRange(domain window) in the SAME Promise.all when the
+//      range is `all` (its real domain is only knowable now, hence
+//      post-domain rather than bundled into step 1 like `today`'s tile
+//      probe). The series read is retention-clamped (seriesEdgesFor,
+//      bucketEdges.ts — same doctrine as rhythmEdges): app-time data can't
+//      predate OBSERVATION_RETENTION_DAYS = 365, but `all`'s domain can
+//      start at the token ledger's unbounded depth, so requesting the FULL
+//      domain would eventually trip the host's 2..9001 bucket-edges cap
+//      (spec §4.3) for a deep-enough ledger — identity for every other
+//      range. The real `appRetainedSinceMs` anchor is threaded through too
+//      (not just the bare 365-day floor), so the clamp can never start
+//      after it — see seriesEdgesFor's own doc for why the bare floor alone
+//      can clip a genuinely-retained sliver (AC4). The usage query is
+//      always safe to
 //      query directly, however wide: the host guard is degenerate-input-
 //      only (non-finite bounds, toMs <= fromMs — no span-size check), and
 //      the worker emits `days` SPARSELY (one point per ledger day WITH DATA
@@ -369,19 +374,26 @@ export function useInsightsDashboardData(
 
 		// Step 4: series/runs/rhythm — PLUS `all`'s domain-window usage query
 		// when there is one — parallel. The series read uses
-		// seriesEdgesFor(dom.edges, now), NOT dom.edges directly: app-time
-		// data physically cannot predate OBSERVATION_RETENTION_DAYS = 365
-		// (bucketEdges.ts), but `all`'s domain can start at the TOKEN ledger's
-		// unbounded depth — requesting the full domain would eventually trip
-		// the host's 2..9001 bucket-edges cap (spec §4.3) for a deep-enough
-		// ledger, converting genuine token history into the error state for a
-		// reason that has nothing to do with app-time. seriesEdgesFor is the
-		// identity for every range but a sufficiently deep `all` (7d/30d/a
-		// shallow `all` never reach the 365-day floor), so this changes
-		// nothing for them.
+		// seriesEdgesFor(dom.edges, now, anchorsData.appRetainedSinceMs), NOT
+		// dom.edges directly: app-time data physically cannot predate
+		// OBSERVATION_RETENTION_DAYS = 365 (bucketEdges.ts), but `all`'s domain
+		// can start at the TOKEN ledger's unbounded depth — requesting the
+		// full domain would eventually trip the host's 2..9001 bucket-edges
+		// cap (spec §4.3) for a deep-enough ledger, converting genuine token
+		// history into the error state for a reason that has nothing to do
+		// with app-time. The real `appRetainedSinceMs` anchor is passed
+		// through (not just the bare 365-day floor) so the clamp can never
+		// start AFTER it — see seriesEdgesFor's doc for the straddling-prune/
+		// UTC-vs-local-day/first-prune-race sliver this closes (AC4: a
+		// non-precapture column must never come back as a false zero).
+		// seriesEdgesFor is the identity for every range but a sufficiently
+		// deep `all` (7d/30d/a shallow `all` never reach the floor), so this
+		// changes nothing for them.
 		const [seriesResult, runsResult, rhythmResult, domainUsageResult] =
 			await Promise.all([
-				api.insights.queryAppTimeSeries(seriesEdgesFor(dom.edges, now)),
+				api.insights.queryAppTimeSeries(
+					seriesEdgesFor(dom.edges, now, anchorsData.appRetainedSinceMs),
+				),
 				api.insights.query({
 					fromMs: dom.edges[0],
 					toMs: dom.edges[dom.edges.length - 1],

@@ -666,15 +666,31 @@ describe("useInsightsDashboardData — `all` range: bounded domain probe (AC3)",
 		expect(result.current.status).toBe("live");
 
 		// Every queryAppTimeSeries call (both the domain series AND the
-		// rhythm read share this same mock) stayed within the host's cap —
-		// including at least one call genuinely narrowed by seriesEdgesFor
-		// (not just the always-small rhythm read).
+		// rhythm read share this same mock, across BOTH the mount's initial
+		// `7d` fetch and the `all`-range fetch that follows it) stayed within
+		// the host's cap.
 		expect(seriesCalls.length).toBeGreaterThan(0);
 		for (const edges of seriesCalls) {
 			expect(edges.length).toBeGreaterThanOrEqual(2);
 			expect(edges.length).toBeLessThanOrEqual(9001);
 		}
-		expect(seriesCalls.some((edges) => edges.length <= 60)).toBe(true);
+		// At least one call was genuinely narrowed by seriesEdgesFor to the
+		// `all`-domain's clamped weekly series — distinguished from the
+		// mount's small `7d` series (8 edges, dayEdges(now,7), unclamped
+		// identity) and either range's always-large hourly rhythm read (169
+		// edges for `7d`; ~8,761 for the clamped `all` rhythm) by falling
+		// strictly BETWEEN those: roughly 365/7 + 1 ≈ 53 weekly edges. THAT
+		// call never starts AFTER the real appRetainedSinceMs anchor
+		// (round-7 hardening: the clamp honors min(the 365-day floor,
+		// appAnchorMs), so it can never exclude a retained, non-precapture
+		// column — see bucketEdges.ts's doc).
+		const wideSeriesCalls = seriesCalls.filter(
+			(edges) => edges.length > 10 && edges.length <= 60,
+		);
+		expect(wideSeriesCalls.length).toBeGreaterThan(0);
+		for (const edges of wideSeriesCalls) {
+			expect(edges[0]).toBeLessThanOrEqual(RECENT_MS);
+		}
 
 		// Token chart/tiles/table all derive from the FULL-domain usage
 		// response — the app-time clamp is a completely separate read and
