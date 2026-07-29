@@ -132,6 +132,13 @@ export interface UsageRangeQuery {
 }
 
 export interface UsageRangeData {
+	// SPARSE: one point per local day WITH ledger data in [fromMs, toMs) —
+	// NOT one point per calendar day in the window. A day absent from this
+	// array had zero usage (render it as an empty/zero column, don't skip
+	// it — see services/usage/range.ts's buildRangeResult). Consumers that
+	// fold `days` onto a fixed set of domain buckets (e.g. chart columns)
+	// must look each day up by its OWN dayStartMs key, never assume
+	// index-alignment with a dense day sequence.
 	days: DailyPoint[];
 	byWorkspace: UsageRow[];
 	byProvider: ScopeRollupRow[];

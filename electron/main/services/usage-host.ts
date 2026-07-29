@@ -200,13 +200,16 @@ export class UsageHost {
 		// caller-visible signal here — no dedicated wire-contract reason exists
 		// for "bad request" and adding one is out of scope for this task. Span
 		// SIZE is deliberately NOT checked here (there used to be a `> 10 years`
-		// rejection; it was misplaced policy — §4.7/AC3 require `all` to start
-		// at the real min(earliestDayMs, anchors) with no exception, so a
-		// legitimately deep ledger must never be rejected as a caller bug). Span
-		// size is instead bounded worker-side, structurally, by
-		// services/usage/range.ts's MAX_RANGE_DAYS walk clamp — which trims only
-		// the day-point WALK for an absurdly wide window, never rejects the
-		// request or the (unclamped) rows/byProvider/cost/earliestDayMs totals.
+		// rejection, and after that a worker-side walk clamp meant to replace
+		// it — both were misplaced policy — §4.7/AC3 require `all` to start at
+		// the real min(earliestDayMs, anchors) with no exception, so a
+		// legitimately deep ledger must never be rejected OR silently
+		// truncated). There is no span-size defense anywhere in this path
+		// anymore: services/usage/range.ts emits `days` SPARSELY (one point
+		// per ledger day with data, not one per calendar day), so its cost is
+		// bounded by the ledger's own real size, not by how wide a window the
+		// caller asks for — an absurd `toMs` costs nothing extra and needs no
+		// clamp.
 		if (
 			!Number.isFinite(query.fromMs) ||
 			!Number.isFinite(query.toMs) ||

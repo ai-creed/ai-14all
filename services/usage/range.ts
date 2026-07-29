@@ -17,22 +17,6 @@ import {
 } from "./ledger.js";
 import { buildScopeData } from "./snapshot.js";
 
-// Structural defense against absurd inputs (e.g. a caller-bug `toMs` near
-// Number.MAX_SAFE_INTEGER, which would otherwise drive the day-walk loop
-// below through a trillion-plus iterations) — NOT a real-history cap. §4.7/
-// AC3 require `all` to start at the real min(earliestDayMs, anchors) with no
-// exception, so this must never reject or truncate a legitimate ledger: it
-// only bounds how many CALENDAR DAYS the walk below ever produces day-points
-// for, trailing back from `query.toMs`. ~27 years — comfortably past any
-// plausible real retention depth. The bucket MERGE just below (which feeds
-// rows/byProvider/cost/earliestDayMs) is NEVER clamped — it iterates only
-// the ledger's own real entries, however far back they go, not a synthetic
-// day count — so totals stay full-depth-true regardless of window size. Only
-// the CHART's leading day-points beyond this floor would ever be trimmed for
-// a ledger that deep; tracked as a residual in spec §9 item 7 (rollups are
-// the durable fix for that case, not this clamp).
-export const MAX_RANGE_DAYS = 10_000;
-
 /**
  * Exact-range rollup over the local-day ledger (spec §4.6). One merged bucket
  * map feeds rows, provider roll-up, and cost — so every number agrees by
@@ -42,12 +26,29 @@ export const MAX_RANGE_DAYS = 10_000;
  * Bounds are snapped to local-day starts: `query.fromMs` is normalized ONCE
  * via `startOfLocalDay` and that snapped value drives the bucket-merge
  * predicate (a mid-day `fromMs` pulls in that whole local day — this is what
- * keeps Σ byWorkspace = Σ byProvider = the merge's own total). The day WALK
- * (chart day-points) uses the same `fromDay`, floored at `MAX_RANGE_DAYS`
- * trailing days from `toMs` (see that constant's doc) — for any real window
- * this floor never binds, so `days` and the merge cover the identical window
- * and Σ days also agrees; only an absurdly wide window trims `days` alone.
- * Callers should pass day-aligned edges (Task 8's edge generator does).
+ * keeps Σ byWorkspace = Σ byProvider = the merge's own total). Callers should
+ * pass day-aligned edges (Task 8's edge generator does).
+ *
+ * `days` is SPARSE (§4.7/AC3/AC4/AC5, replacing an earlier dense
+ * calendar-day walk that had to be clamped to bound its iteration count for
+ * an absurd `toMs` — that clamp created a regime where `days` could silently
+ * truncate while `byWorkspace`/`byProvider`/`cost` did not, breaking AC5's
+ * tile-equals-table exactness for any consumer summing `days`). Instead:
+ * ONE pass over `ledger.days` (the SAME map, SAME `[fromDay, toMs)`
+ * predicate the merge above uses) collects a day-point for every ledger day
+ * WITH DATA in the window, sorted ascending. Consequences:
+ *   - `days.length` is bounded by the ledger's own real entry count, not by
+ *     the requested window's calendar span — an absurdly wide (or narrow)
+ *     `toMs`/`fromMs` costs nothing extra; there is no truncation regime and
+ *     nothing to clamp.
+ *   - A day absent from `days` had ZERO usage — it is not "trimmed", it
+ *     never existed as ledger data. Consumers must render it as an
+ *     empty/zero column via their own domain-edge walk (bucket-keyed lookup
+ *     by `dayStartMs`), never assume `days` is index-aligned with a dense
+ *     calendar sequence.
+ *   - Σ `days` ≡ Σ `byWorkspace` ≡ Σ `byProvider` BY CONSTRUCTION: every
+ *     `days` entry and the merge draw from the exact same ledger entries
+ *     under the exact same predicate.
  */
 export function buildRangeResult(
 	ledger: DailyLedger,
@@ -59,11 +60,25 @@ export function buildRangeResult(
 	const fromDay = startOfLocalDay(query.fromMs);
 	const merged = new Map<BucketKey, TokenTotals>();
 	let earliestDayMs: number | null = null;
+	const days: DailyPoint[] = [];
 	for (const [day, buckets] of ledger.days) {
 		if (buckets.size === 0) continue;
 		if (earliestDayMs === null || day < earliestDayMs) earliestDayMs = day;
-		if (day >= fromDay && day < query.toMs) mergeInto(merged, buckets);
+		if (day >= fromDay && day < query.toMs) {
+			mergeInto(merged, buckets);
+			const tokens: Partial<Record<AgentProviderId, number>> = {};
+			for (const [key, t] of buckets) {
+				const { provider } = parseBucketKey(key);
+				tokens[provider] = (tokens[provider] ?? 0) + t.billable;
+			}
+			days.push({ dayStartMs: day, tokens });
+		}
 	}
+	// `ledger.days` is a Map, iterated in INSERTION order (whenever each day
+	// was first written to), not chronological order — sort explicitly so
+	// `days` stays a predictable, ascending time series for callers.
+	days.sort((a, b) => a.dayStartMs - b.dayStartMs);
+
 	// The scope label is not part of the range contract — rows/byProvider/cost
 	// are lifted; includeUntracked=true (buildScopeData ignores it for totals).
 	const scope = buildScopeData(
@@ -75,41 +90,6 @@ export function buildRangeResult(
 		rate,
 	);
 
-	// Walk-clamp floor: the local-day start MAX_RANGE_DAYS trailing days before
-	// `query.toMs` (see that constant's doc) — computed via the SAME
-	// calendar-walk idiom as the walk itself (setDate, never fixed-ms
-	// subtraction, which would drift across DST). An invalid `query.toMs`
-	// (e.g. outside JS's representable Date range) collapses this to NaN,
-	// which safely yields a zero-iteration walk below rather than a crash or
-	// runaway loop — see MAX_RANGE_DAYS's doc for why that's an acceptable
-	// (structural-defense-only) outcome for such an input.
-	const walkFloorCursor = new Date(query.toMs);
-	walkFloorCursor.setHours(0, 0, 0, 0);
-	walkFloorCursor.setDate(walkFloorCursor.getDate() - MAX_RANGE_DAYS);
-	const walkFloor = startOfLocalDay(walkFloorCursor.getTime());
-	const walkStart = Math.max(fromDay, walkFloor);
-
-	// DST-safe local-day walk (same calendar iteration as dailySeries): the
-	// cursor is only a calendar-date carrier, so EVERY tick is re-normalized
-	// through startOfLocalDay before use as the ledger key — a raw
-	// cursor.getTime() would drift off local midnight in timezones whose DST
-	// transition lands at 00:00 (e.g. America/Santiago), where setDate()
-	// cannot land back on the hour it started at.
-	const days: DailyPoint[] = [];
-	const cursor = new Date(walkStart);
-	while (cursor.getTime() < query.toMs) {
-		const dayStartMs = startOfLocalDay(cursor.getTime());
-		const tokens: Partial<Record<AgentProviderId, number>> = {};
-		const buckets = ledger.days.get(dayStartMs);
-		if (buckets) {
-			for (const [key, t] of buckets) {
-				const { provider } = parseBucketKey(key);
-				tokens[provider] = (tokens[provider] ?? 0) + t.billable;
-			}
-		}
-		days.push({ dayStartMs, tokens });
-		cursor.setDate(cursor.getDate() + 1);
-	}
 	return {
 		days,
 		byWorkspace: scope.rows,

@@ -796,35 +796,33 @@ class (AC5).
 6. **`haltReason` refinement of the `halted` class** (§4.9) —
    distinguishing error halts from operator stops/cancels in the
    outcome display.
-7. **Usage-ledger depth vs chart day-point trimming beyond ~27 years**
-   — `usage-host.ts`'s `queryRange` guard rejects only degenerate
-   inputs now (non-finite bounds, `toMs <= fromMs`); the span-size
-   rejection (~10 years) that used to sit alongside it was misplaced
-   policy and has been removed — it violated this spec's own §4.7/AC3
-   requirement that `all` start at the real
-   `min(earliestDayMs, anchors)` with no exception, however deep the
-   ledger goes. The structural defense against a genuinely absurd
-   input (e.g. a caller-bug `toMs` near `Number.MAX_SAFE_INTEGER`) now
-   lives worker-side, non-rejecting, in
-   `services/usage/range.ts`'s `MAX_RANGE_DAYS` (10,000 days, ~27
-   years) walk clamp: it bounds only the CHART's day-point walk,
-   trailing back from `toMs`; the bucket merge that feeds
-   `byWorkspace`/`byProvider`/`cost`/`earliestDayMs` is never clamped
-   (it iterates only the ledger's own real entries, however far back),
-   so totals stay full-depth-true regardless of window size. The
-   residual: a ledger that somehow runs past ~27 years deep (the daily
-   usage ledger has no retention) would have its LEADING chart
-   day-points trimmed. The cost tile and the workspace table stay
-   correct either way (both come from the unclamped merge), but the
-   TOKENS tile does NOT — it sums the same clamped `days` array the
-   chart draws from (`useInsightsDashboardData.ts`), so in that regime
-   it trims along with the chart and can disagree with the table. A
-   bogus ancient timestamp in a provider's own log (nothing sanitizes a
-   pre-app-era timestamp on ingest) can widen `all`'s window into the
-   clamp regime far earlier than 27 real years of usage would. Ledger
-   rollups (same family as item 2's insights rollups) or an ingest-time
-   floor on event timestamps remain the durable fix for both cases, not
-   this clamp.
+7. **Usage-ledger depth — resolved by sparse day emission, no residual
+   truncation.** `usage-host.ts`'s `queryRange` guard rejects only
+   degenerate inputs (non-finite bounds, `toMs <= fromMs`) — the
+   span-size rejection (~10 years) that used to sit alongside it, and
+   the worker-side day-walk clamp (`MAX_RANGE_DAYS`, ~27 years) that
+   briefly replaced it, were BOTH misplaced policy and have been
+   removed: either one violated this spec's own §4.7/AC3 requirement
+   that `all` start at the real `min(earliestDayMs, anchors)` with no
+   exception, however deep the ledger goes, and the clamp specifically
+   created a regime where the tokens tile (which sums `days`) could
+   silently disagree with the table (AC5) once a ledger ran deep
+   enough. `services/usage/range.ts`'s `buildRangeResult` now emits
+   `days` SPARSELY instead of walking every calendar day: one point per
+   ledger day WITH DATA in `[fromMs, toMs)` — the SAME entries, SAME
+   predicate the `byWorkspace`/`byProvider`/`cost`/`earliestDayMs`
+   bucket merge already used — so `Σ days` ≡ those totals by
+   construction, for any window, and the whole thing costs O(ledger
+   size), never O(requested calendar span). No clamp, no truncation
+   regime, nothing left to defer. Two purely cosmetic/hygiene residuals
+   remain, neither a correctness gap: (a) a genuinely multi-decade `all`
+   domain renders very many weekly chart columns (no data loss, just a
+   dense chart); (b) a bogus ancient timestamp in a provider's own log
+   (nothing sanitizes a pre-app-era timestamp on ingest) would widen
+   `all`'s domain to match it just as validly as real history would —
+   an ingest-time floor on event timestamps (or ledger rollups, same
+   family as item 2's insights rollups) is the durable fix for that,
+   not a range-query-side clamp.
 8. **App-focus collector binds the main window only** — time spent in
    the detached dashboard window currently counts as main-window blur.
    Revisit alongside the workspace-active collector (item 1).

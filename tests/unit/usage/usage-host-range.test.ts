@@ -208,18 +208,18 @@ describe("UsageHost.queryRange", () => {
 	});
 
 	// Degenerate-input defense ONLY: a descending/non-ascending range, NaN, or
-	// a non-finite bound. Span SIZE is deliberately never checked here — an
-	// earlier revision of this guard also rejected any span over 10 years,
-	// which turned out to be misplaced policy: §4.7/AC3 require `all` to
-	// start at the real min(earliestDayMs, anchors) with NO exception, so a
-	// legitimately deep ledger must never be rejected as a caller bug (see
-	// useInsightsDashboardData.ts's `all`-range handling, whose real-history
-	// probe this guard used to break whenever telemetry was enabled and the
-	// ledger ran deep). The structural defense against a genuinely absurd
-	// span (e.g. a caller-bug `toMs` near 1e18) now lives worker-side,
-	// non-rejecting, in services/usage/range.ts's MAX_RANGE_DAYS walk clamp —
-	// see the acceptance test below for the span this guard now happily lets
-	// through.
+	// a non-finite bound. Span SIZE is deliberately never checked here — two
+	// earlier revisions of this guard tried to bound span size (first a
+	// direct >10-year rejection, then a worker-side walk clamp meant to
+	// replace it), and BOTH turned out to be misplaced policy: §4.7/AC3
+	// require `all` to start at the real min(earliestDayMs, anchors) with NO
+	// exception, so a legitimately deep ledger must never be rejected OR
+	// silently truncated (see useInsightsDashboardData.ts's `all`-range
+	// handling). There is no span-size defense anywhere in this path anymore:
+	// services/usage/range.ts emits `days` SPARSELY (one point per ledger day
+	// WITH DATA, not one per calendar day), so its cost is bounded by the
+	// ledger's own real size — see the acceptance test below for the span
+	// this guard now happily lets through.
 	it("rejects ONLY degenerate ranges (non-finite bounds, or toMs <= fromMs) as a caller bug (timeout) — WITHOUT ever forwarding them to the worker", async () => {
 		const { host, proc } = startedWithFakeProc();
 

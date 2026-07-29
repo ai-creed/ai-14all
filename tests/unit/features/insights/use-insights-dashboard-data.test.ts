@@ -186,11 +186,13 @@ describe("useInsightsDashboardData — today range tile/table windowing (AC5)", 
 // AC3 regression: `all` must never probe usage.queryRange with an unbounded
 // (epoch-to-now, `fromMs: 0`) window — the hook has no business ever
 // constructing one, regardless of whether anything downstream would reject
-// it (the host USED to reject wide spans outright; that span cap has since
-// been removed entirely — see usage-host.ts and services/usage/range.ts's
-// MAX_RANGE_DAYS structural walk clamp — because §4.7/AC3 require `all` to
-// start at the real min(earliestDayMs, anchors) with NO exception, however
-// deep the ledger goes). The fix: `all`'s step-1 probe is the SAME small,
+// it (the host USED to reject wide spans outright; a worker-side day-walk
+// clamp briefly replaced that rejection; both were removed entirely — see
+// usage-host.ts and services/usage/range.ts, which now emits `days`
+// SPARSELY, one point per ledger day with data, with no span-size limit
+// anywhere — because §4.7/AC3 require `all` to start at the real
+// min(earliestDayMs, anchors) with NO exception, however deep the ledger
+// goes). The fix: `all`'s step-1 probe is the SAME small,
 // recent window today/7d already use (purely to fetch the window-independent
 // `earliestDayMs`); its real, potentially-years-back domain window is
 // queried SEPARATELY, once known. Distinguishes the two calls by requested
@@ -369,16 +371,19 @@ describe("useInsightsDashboardData — `all` range: bounded domain probe (AC3)",
 		).toBe(false);
 	});
 
-	// §4.7/AC3, no exception: `all` must start at the real
+	// §4.7/AC3/AC5, no exception: `all` must start at the real
 	// min(earliestDayMs, anchors), however deep the ledger goes — there is no
-	// span cap anywhere in this path anymore (services/usage/range.ts's
-	// MAX_RANGE_DAYS is a ~27-year structural walk clamp, not a rejection).
-	// An 11-year-deep ledger must still be queried in FULL, not truncated to
-	// some smaller "safe" window.
-	it("an 11-year-deep ledger: `all` queries the FULL ~11-year domain window (no cap); status live; chart/tiles/table from the domain response", async () => {
+	// span cap and no day-count clamp anywhere in this path anymore (both were
+	// tried and removed as misplaced policy; services/usage/range.ts now
+	// emits `days` sparsely instead, with no depth limit). 30 years is
+	// deliberately past the old, now-removed ~27-year walk clamp, so this
+	// also stands as the hook-layer half of the reviewer's round-4 demand:
+	// the tokens TILE and the workspace TABLE must still agree exactly (AC5)
+	// at this depth, not just each individually be "live".
+	it("a 30-year-deep ledger (past the old, now-removed clamp): `all` queries the FULL domain window; status live; tokens tile === workspace table exactly", async () => {
 		const now = Date.now();
-		const ELEVEN_YEARS_MS = 11 * 366 * ONE_DAY_MS;
-		const EARLIEST_MS = now - ELEVEN_YEARS_MS;
+		const THIRTY_YEARS_MS = 30 * 366 * ONE_DAY_MS;
+		const EARLIEST_MS = now - THIRTY_YEARS_MS;
 		const calls: UsageRangeQuery[] = [];
 
 		(window as unknown as { ai14all: unknown }).ai14all = {
@@ -416,7 +421,7 @@ describe("useInsightsDashboardData — `all` range: bounded domain probe (AC3)",
 						calls.push(query);
 						const span = query.toMs - query.fromMs;
 						if (span > 365 * ONE_DAY_MS) {
-							// The real, ~11-year `all` domain-window query.
+							// The real, ~30-year `all` domain-window query.
 							return {
 								ok: true,
 								days: [
@@ -427,7 +432,7 @@ describe("useInsightsDashboardData — `all` range: bounded domain probe (AC3)",
 										workspaceId: "ws-longledger",
 										worktreeId: null,
 										worktreePath: null,
-										worktreeTitle: "11-year row",
+										worktreeTitle: "30-year row",
 										provider: "claude",
 										active: false,
 										tokens: {
@@ -481,15 +486,16 @@ describe("useInsightsDashboardData — `all` range: bounded domain probe (AC3)",
 			expect(result.current.workspaceRows.totals.tokens).toBe(3_000_000),
 		);
 
-		// Status live — the whole point: an 11-year-deep ledger must NOT error.
+		// Status live — the whole point: a 30-year-deep ledger must NOT error.
 		expect(result.current.status).toBe("live");
 
-		// The domain-window query genuinely spans ~11 years — nothing truncated
-		// or rejected it.
+		// The domain-window query genuinely spans ~30 years — well past the
+		// old, now-removed ~27-year clamp — and nothing truncated or rejected
+		// it.
 		const wideCalls = calls.filter((c) => c.toMs - c.fromMs > 365 * ONE_DAY_MS);
 		expect(wideCalls.length).toBeGreaterThan(0);
 		for (const c of wideCalls) {
-			expect(c.toMs - c.fromMs).toBeGreaterThan(10 * 365 * ONE_DAY_MS);
+			expect(c.toMs - c.fromMs).toBeGreaterThan(25 * 365 * ONE_DAY_MS);
 			expect(c.fromMs).not.toBe(0);
 		}
 
@@ -502,5 +508,16 @@ describe("useInsightsDashboardData — `all` range: bounded domain probe (AC3)",
 				(r) => r.workspaceId === "ws-longledger",
 			),
 		).toBe(true);
+
+		// AC5, explicitly: the tokens TILE and the workspace TABLE must agree
+		// EXACTLY at this depth — not merely each independently match the
+		// mocked response, but be structurally equal to each other, which is
+		// what AC5 actually requires.
+		expect(result.current.tiles.tokens).toBe(
+			result.current.workspaceRows.totals.tokens,
+		);
+		expect(result.current.tiles.costUsd).toBe(
+			result.current.workspaceRows.totals.costUsd,
+		);
 	});
 });

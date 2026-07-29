@@ -1,8 +1,12 @@
 // Token-burn-by-bucket stacked bar chart (design spec §5, prototype
-// `#tok-bars`). Day-mode buckets match `usage.days` 1:1 by day start;
-// week-mode ("all") folds day points via the shared `foldDaysToWeeks`
-// (bucketEdges.ts) so weekly sums stay exact. Swaps to the §6 quiet caption
-// when usage telemetry is disabled, never a fake zero.
+// `#tok-bars`). `usage.days` is SPARSE — one entry per local day WITH
+// ledger data, not one per calendar day (services/usage/range.ts) — so
+// `bucketTokens` below looks each domain edge up by its OWN dayStartMs key
+// (a `Map`/`foldDaysToWeeks`, never index-zipping); a day/week with no
+// matching entry falls back to `{}` and renders as an honest empty/zero
+// bucket, not a gap. Week-mode ("all") folds day points via the shared
+// `foldDaysToWeeks` (bucketEdges.ts) so weekly sums stay exact. Swaps to the
+// §6 quiet caption when usage telemetry is disabled, never a fake zero.
 import type React from "react";
 import { Bar, BarChart, XAxis } from "recharts";
 import {

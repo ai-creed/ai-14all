@@ -27,12 +27,13 @@
 //      usage.queryRange(domain window) in the SAME Promise.all when the
 //      range is `all` (its real domain is only knowable now, hence
 //      post-domain rather than bundled into step 1 like `today`'s tile
-//      probe). Always safe to query directly: the host guard is degenerate-
-//      input-only (non-finite bounds, toMs <= fromMs — no span-size check);
-//      the worker separately bounds only the CHART's day-point walk, at
-//      MAX_RANGE_DAYS (~27 years, services/usage/range.ts) — totals
-//      (byWorkspace/byProvider/cost/earliestDayMs) are never clamped there
-//      either. Skipped when usage is already known disabled from step 1/2 —
+//      probe). Always safe to query directly, however wide: the host guard
+//      is degenerate-input-only (non-finite bounds, toMs <= fromMs — no
+//      span-size check), and the worker emits `days` SPARSELY (one point per
+//      ledger day WITH DATA in the window, not one per calendar day —
+//      services/usage/range.ts) rather than walking every calendar day, so
+//      there is no clamp anywhere and no window is ever too wide to ask for
+//      in full. Skipped when usage is already known disabled from step 1/2 —
 //      a second call would just re-confirm that.
 //   5. Empty decision (both retained anchors null AND usage disabled/no
 //      ledger days).
@@ -174,6 +175,15 @@ function sumBucketField(
 	return sum;
 }
 
+// `days` is SPARSE (services/usage/range.ts: one point per ledger day WITH
+// DATA in the window, not one per calendar day) — this already tolerates
+// that with no special-casing: it just filters-and-sums whatever entries
+// are present, so an absent (zero-usage) day silently contributes zero,
+// exactly as it should. Since `days` and `byWorkspace`/`cost` (which
+// `costUsd` below reads) are drawn from the SAME unclamped, unwindowed-
+// beyond-the-request bucket merge, the tokens tile this feeds and the
+// workspace table (buildWorkspaceRows, using the same `tileUsageData`) stay
+// exactly equal by construction (AC5) for any window, however wide.
 function sumDayTokens(
 	days: DailyPoint[],
 	window: { fromMs: number; toMs: number },
