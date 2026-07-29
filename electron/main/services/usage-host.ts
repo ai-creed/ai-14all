@@ -193,7 +193,7 @@ export class UsageHost {
 		// state as every other gated host method. Checked FIRST, ahead of the
 		// caller-bug guard below: telemetry-off must never present as a
 		// retryable `timeout` error just because the caller also happened to
-		// pass a degenerate/oversized range.
+		// pass a degenerate range.
 		if (!this.proc) return Promise.resolve({ ok: false, reason: "disabled" });
 		// Degenerate-input defense ONLY (non-finite bounds, or toMs <= fromMs):
 		// resolve WITHOUT ever forwarding to the worker. `timeout` is the

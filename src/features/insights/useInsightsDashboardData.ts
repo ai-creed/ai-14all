@@ -12,9 +12,9 @@
 //      fetch `earliestDayMs` (window-independent — services/usage/range.ts
 //      computes it over the WHOLE ledger regardless of the requested span)
 //      and the disabled/timeout signal. `all`'s real domain can span back to
-//      the earliest retained day, which the usage-host's degenerate-range
-//      guard (usage-host.ts) would reject if probed directly at this point —
-//      and isn't knowable yet anyway, since it needs real anchors. Its own
+//      the earliest retained day — not knowable at this point anyway, since
+//      it needs real anchors (the usage-host guard itself no longer rejects
+//      wide spans; it's degenerate-input-only — see usage-host.ts). Its own
 //      domain-window query is issued later, once the real domain is known
 //      (step 3/4 below).
 //   2. Any insights read ok:false -> "error" (remembered for retry); usage
@@ -27,11 +27,13 @@
 //      usage.queryRange(domain window) in the SAME Promise.all when the
 //      range is `all` (its real domain is only knowable now, hence
 //      post-domain rather than bundled into step 1 like `today`'s tile
-//      probe). Bounded by how far back real retained data goes (app-time/
-//      runs retention floors at 365 days; the usage ledger may retain
-//      longer, but nowhere near the host's 10-year guard), so this is always
-//      safe to query directly. Skipped when usage is already known disabled
-//      from step 1/2 — a second call would just re-confirm that.
+//      probe). Always safe to query directly: the host guard is degenerate-
+//      input-only (non-finite bounds, toMs <= fromMs — no span-size check);
+//      the worker separately bounds only the CHART's day-point walk, at
+//      MAX_RANGE_DAYS (~27 years, services/usage/range.ts) — totals
+//      (byWorkspace/byProvider/cost/earliestDayMs) are never clamped there
+//      either. Skipped when usage is already known disabled from step 1/2 —
+//      a second call would just re-confirm that.
 //   5. Empty decision (both retained anchors null AND usage disabled/no
 //      ledger days).
 //   6. Tiles: filtered to the selected range's tile window; tokens/cost pull

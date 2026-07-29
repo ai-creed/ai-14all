@@ -814,9 +814,17 @@ class (AC5).
    so totals stay full-depth-true regardless of window size. The
    residual: a ledger that somehow runs past ~27 years deep (the daily
    usage ledger has no retention) would have its LEADING chart
-   day-points trimmed, though `all`'s totals/tiles/table would still be
-   correct. Ledger rollups (same family as item 2's insights rollups)
-   remain the durable fix for that case, not this clamp.
+   day-points trimmed. The cost tile and the workspace table stay
+   correct either way (both come from the unclamped merge), but the
+   TOKENS tile does NOT — it sums the same clamped `days` array the
+   chart draws from (`useInsightsDashboardData.ts`), so in that regime
+   it trims along with the chart and can disagree with the table. A
+   bogus ancient timestamp in a provider's own log (nothing sanitizes a
+   pre-app-era timestamp on ingest) can widen `all`'s window into the
+   clamp regime far earlier than 27 real years of usage would. Ledger
+   rollups (same family as item 2's insights rollups) or an ingest-time
+   floor on event timestamps remain the durable fix for both cases, not
+   this clamp.
 8. **App-focus collector binds the main window only** — time spent in
    the detached dashboard window currently counts as main-window blur.
    Revisit alongside the workspace-active collector (item 1).
