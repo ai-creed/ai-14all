@@ -578,30 +578,26 @@
 	/* ── First-capture transparency notice ────────────────────────────────────── */
 	/* One-time banner shown once when local usage-insights capture starts (§14.5,
 	 * D4); rendered by src/app/components/InsightsNotice.tsx (role="status").
-	 * Mirrors .shell-toast's elevated-surface anatomy for visual kinship, but
-	 * anchored top-right below the chip bar (36px + 16px inset, see .shell-toast
-	 * -stack's own bottom-right anchor below) rather than either bottom corner:
-	 * bottom-left sits on top of the sidebar's global footer (theme/keyboard-
-	 * shortcuts/settings triggers — fixed positioning escapes the sidebar's own
-	 * stacking context and fully occludes them, Task 15 finding), and
-	 * bottom-right sits on top of the review chip bar's Refresh/Review actions.
-	 * The chip bar's fixed 36px height (+16px top inset) is stable across window
-	 * sizes, unlike the sidebar's collapsed/expanded footer height. */
+	 * Placement history: every FIXED corner anchor occludes interactive chrome
+	 * somewhere in this shell — bottom-left the sidebar's global footer (Task 15
+	 * finding), bottom-right the review chip bar's Refresh/Review actions,
+	 * top-right the terminal chip bar's layout button (merge-gate e2e finding:
+	 * a persistent overlay intercepted its clicks). A chrome-dense shell leaves
+	 * no safe corner for a persistent floater, so the notice now renders
+	 * IN-FLOW as a full-width banner above .shell-layout — the RestoreBanner
+	 * pattern: it pushes content down and occludes nothing by construction
+	 * (InsightsOverlay re-measures its portal rect on layout shifts, so the
+	 * dashboard overlay tracks the push). Informational voice: card surface +
+	 * solid border, not RestoreBanner's warning coloring. */
 	.insights-notice {
-		position: fixed;
-		top: 60px;
-		right: 12px;
-		z-index: 1000;
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		max-width: 360px;
-		background: var(--surface-elevated, #1f2228);
-		color: var(--text, #d9d9d9);
-		border: var(--shell-border-width) solid var(--border-subtle, #2c3038);
-		border-radius: 0;
-		padding: 8px 10px;
-		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+		justify-content: center;
+		gap: var(--space-3);
+		padding: var(--space-2) var(--space-4);
+		background: var(--popover);
+		color: var(--foreground);
+		border-bottom: var(--shell-border-width) solid var(--border);
 		font-size: 13px;
 	}
 
