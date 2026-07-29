@@ -17,7 +17,13 @@ charts; round 5: explicit workspace-level view-model aggregation
 round 6: §4.8 seeds every registry workspace and the untracked row
 before folding, and null-`repoId` run groups fold into untracked;
 round 7: total run-status projection (§4.9) — every raw status maps to
-exactly one rendered outcome class, none dropped. Not yet implemented.
+exactly one rendered outcome class, none dropped. Implemented via SDD on
+`dashboard-design`. Revised 2026-07-29 after the user's
+post-implementation UX review (prototype v5, approved 2026-07-29):
+**full-size hosts** — the dashboard fills the overlay and the detached
+window instead of floating as a 1080px card, the v4 chart heights become
+grow-from minimums (body scrolls under the floors), and the detached
+window opens at the app window's size, remembering in-session resizes.
 
 ## 1. What this is
 
@@ -38,6 +44,17 @@ zones) and a **by-workspace** view (runs + tokens per workspace).
 1. **Surface.** Expanded overlay replacing the main column (the
    review-expanded portal pattern), plus a detachable window — both in
    slice 1 (user decision; detach is not deferred).
+   **Full-size hosts (v5, 2026-07-29):** the dashboard shell fills its
+   host — the overlay's main-column rect and the detached window's
+   viewport — never floating as a fixed-width card. Header, stat tiles,
+   and footer stay content-height; the two overview chart rows split all
+   leftover vertical space equally on top of their content minimums. The
+   v4 fixed chart heights become floors (`min-height`: 150px area/rhythm,
+   110px bars); when a host is shorter than the floors, the dashboard
+   body scrolls instead of shrinking the charts. Rationale: the
+   two-monitor cockpit — app fullscreen on one 27" display, dashboard
+   fullscreen on the other — is the primary detach use case, and a
+   terminal-language dashboard fills its terminal (btop/k9s precedent).
 2. **Architecture A — shared component, two hosts, independent data.**
    One `InsightsDashboard` React component rendered (a) inside the main
    window's overlay and (b) as the root of a second renderer entry
@@ -60,6 +77,12 @@ zones) and a **by-workspace** view (runs + tokens per workspace).
 4. **The detached window is created by the main process over IPC** —
    never via `window.open`. The navigation guard
    (`electron/main/windows.ts:37`) stays byte-identical.
+   **Sizing (v5):** the window opens at the main window's current
+   width × height (so a fullscreen-app cockpit yields an equally wide
+   dashboard on the second monitor), falling back to 1120×720 when the
+   main window's bounds are unavailable. A user resize is remembered and
+   reused for reopens within the app session; nothing is persisted
+   across restarts (consistent with decision 3).
 5. **Entry points:** a chip-bar action and a command-palette entry. No
    keyboard shortcut, no usage-strip takeover in slice 1.
 6. **Ranges:** `today / 7d / 30d / all`. `today`, `7d` render 7 daily
@@ -588,7 +611,9 @@ function projectRunStatus(status: string): RunOutcome
 - `src/components/ui/chart.tsx` — vendored shadcn chart primitives.
 - `src/dashboard.tsx` + `dashboard.html` — the detached-window entry:
   mounts `InsightsDashboard host="window"` with the theme applied the
-  same way `index.html` does.
+  same way `index.html` does. `dashboard.html` carries the
+  `html/body/#root` height chain (100% + flex column) so the shell can
+  fill the viewport (decision 1, full-size hosts).
 - `src/styles/modules/insights.css` — all `idb-*`-class styles from the
   prototype, registered in `src/styles/index.css` under
   `@layer app.components` (per-theme structural overrides in
@@ -602,7 +627,8 @@ function projectRunStatus(status: string): RunOutcome
   singleton dashboard `BrowserWindow` (same preload, same webPreferences,
   navigation guard installed), load `dashboard.html` (dev URL vs packaged
   file), notify the main window on open/close so the overlay can restore
-  on reattach.
+  on reattach. Default bounds inherit the main window's size; the last
+  in-session size wins on reopen; 1120×720 fallback (decision 4 sizing).
 - `electron/main/services/insights-host.ts` — envelope mapping (§4.1),
   `queryError` handling, `queryAppTimeSeries` + `coverageAnchors`
   correlated requests (§4.3/§4.5).

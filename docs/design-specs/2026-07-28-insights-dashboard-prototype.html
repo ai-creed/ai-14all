@@ -362,7 +362,9 @@ body {
   display: flex;
   gap: 28px;
   padding: 24px;
-  align-items: flex-start;
+  box-sizing: border-box;
+  align-items: stretch; /* v5: stage fills the viewport — judge full-size at 27" fullscreen */
+  overflow: hidden;
 }
 /* per-theme page washes, mirroring src/styles/base.css body rules */
 [data-theme="dark"] body { background: radial-gradient(circle at top, #10181f 0%, var(--background) 55%); }
@@ -384,7 +386,7 @@ button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 }
 
 /* ---------------- Controls column ---------------- */
-.controls { width: 264px; flex-shrink: 0; font-size: 12px; line-height: 1.5; }
+.controls { width: 264px; flex-shrink: 0; font-size: 12px; line-height: 1.5; overflow-y: auto; }
 .controls h1 { font-size: 15px; margin: 0 0 4px; letter-spacing: .02em; }
 .controls .sub { color: var(--muted-foreground); margin: 0 0 18px; }
 .controls .group { margin-bottom: 18px; }
@@ -406,10 +408,15 @@ button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .controls .note p { margin: 0 0 8px; }
 
 /* ---------------- Stage ---------------- */
-.stage { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.stage { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
 .stage-cap { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-foreground); }
 
-.idb-shell { width: min(1080px, 100%); }
+/* v5 full-size contract: the shell fills its host — the overlay's main-column
+   rect or the detached window's viewport — instead of floating as a 1080px
+   card. Charts grow to split the leftover height (min-heights below are the
+   old fixed heights, so small windows never get SMALLER charts than v4; when
+   the host is shorter than the minimums the body scrolls instead). */
+.idb-shell { width: 100%; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .idb-titlebar {
   display: none;
   align-items: center; gap: var(--space-2);
@@ -435,7 +442,14 @@ button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
   border: var(--shell-border-width) solid var(--border);
   border-radius: 0;
   display: flex; flex-direction: column;
+  flex: 1; min-height: 0;
 }
+/* body region grows between the fixed head/stats and the fixed footer; it is
+   the scroll container when the host is too short for the chart minimums. */
+.idb-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+/* min-height stays auto here (and on the grids): content height is the shrink
+   floor, so a too-short host makes .idb-body scroll instead of clipping rows */
+#ov-body { flex: 1; display: flex; flex-direction: column; }
 .idb-head {
   display: flex; align-items: center; gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
@@ -493,13 +507,16 @@ button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .idb-stat .s .warn { color: var(--warning); }
 .idb-stat .s .bad { color: var(--danger); }
 
-/* widget grid (overview) */
-.idb-grid { display: grid; grid-template-columns: 2fr 1fr; }
+/* widget grid (overview) — each row takes an equal share of the leftover
+   height on top of its content minimum (charts keep their v4 heights as
+   floors and grow from there) */
+.idb-grid { display: grid; grid-template-columns: 2fr 1fr; flex: 1; }
 .idb-cell {
   padding: var(--space-3);
   border-bottom: var(--shell-border-width) solid var(--border);
   border-right: var(--shell-border-width) solid var(--border);
   min-width: 0;
+  display: flex; flex-direction: column;
 }
 .idb-cell:nth-child(2n) { border-right: none; }
 .idb-grid--half { grid-template-columns: 1fr 1fr; }
@@ -516,7 +533,7 @@ button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .idb-legend .sw { display: inline-block; width: 8px; height: 8px; margin-right: 3px; vertical-align: -1px; border-radius: 0; }
 
 /* area chart (implementation: shadcn ChartContainer + Recharts AreaChart) */
-.idb-area { width: 100%; height: 150px; display: block; }
+.idb-area { width: 100%; flex: 1 1 0; min-height: 150px; display: block; }
 .idb-area .grid-line { stroke: var(--border); stroke-width: 1; }
 .idb-area .axis-t { font-size: 8px; fill: var(--muted-foreground); font-family: var(--font-ui); }
 .idb-area .area-foc { fill: var(--muted-foreground); fill-opacity: .18; stroke: var(--muted-foreground); stroke-width: 1.5; }
@@ -532,7 +549,7 @@ button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .idb-labels.is-sparse .idb-label { overflow: visible; white-space: nowrap; text-align: left; }
 
 /* rhythm: 24 hour columns */
-.idb-rhythm { display: flex; align-items: flex-end; gap: 1px; height: 150px; }
+.idb-rhythm { display: flex; align-items: flex-end; gap: 1px; flex: 1 1 0; min-height: 150px; }
 .idb-rcol { flex: 1; min-width: 2px; background: none; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
 .idb-rcol .fill { width: 100%; background: var(--primary); }
 .idb-rcol.is-off .fill { background: var(--muted); }
@@ -540,7 +557,7 @@ button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .idb-rlabel { flex: 1; min-width: 2px; font-size: 8px; text-align: center; color: var(--muted-foreground); overflow: visible; white-space: nowrap; }
 
 /* stacked bar charts (implementation: shadcn BarChart, stacked) */
-.idb-bars { display: flex; align-items: flex-end; gap: 2px; height: 110px; }
+.idb-bars { display: flex; align-items: flex-end; gap: 2px; flex: 1 1 0; min-height: 110px; }
 .idb-bars.is-dense { gap: 1px; }
 .idb-bcol {
   flex: 1; min-width: 2px; display: flex; flex-direction: column-reverse;
@@ -637,14 +654,14 @@ button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 /* view switching */
 #ws-body { display: none; }
 .idb-shell.view-ws #ov-body { display: none; }
-.idb-shell.view-ws #ws-body { display: block; }
+.idb-shell.view-ws #ws-body { display: block; flex: 1; }
 </style>
 </head>
 <body>
 
 <div class="controls">
   <h1>insights ▸ dashboard</h1>
-  <p class="sub">slice 1 v4 — overlay + detachable window; overview & by-workspace views</p>
+  <p class="sub">slice 1 v5 — full-size hosts: the dashboard fills the overlay / detached window; overview & by-workspace views</p>
 
   <div class="group">
     <div class="lbl">theme</div>
@@ -672,6 +689,13 @@ button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
       <button class="ctl-btn" data-state-btn="empty">empty</button>
       <button class="ctl-btn" data-state-btn="error">error</button>
     </div>
+  </div>
+
+  <div class="group note">
+    <div class="lbl">what changed in v5 (full-size review round)</div>
+    <p><b>full-size hosts</b> — the shell fills its host instead of floating as a 1080px card: overlay = the whole main column, detached window = the whole viewport (fullscreen this browser tab to judge the 27" case). Tiles &amp; footer stay content-height; the two chart rows split the leftover height.</p>
+    <p><b>chart floors</b> — the old fixed chart heights (150px area/rhythm, 110px bars) are now minimums; a too-short host scrolls the body instead of shrinking below them.</p>
+    <p><b>detached window default</b> — opens at the app window's size (was fixed 1120×720) and remembers your resize for reopens; implementation change, invisible here.</p>
   </div>
 
   <div class="group note">
