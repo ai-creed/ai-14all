@@ -1,0 +1,47 @@
+{"delayMs":250,"text":"Reading src/checkout.ts"}
+{"delayMs":600,"text":"Reading docs/api.md"}
+{"delayMs":300,"chunk":"⠋"}
+{"delayMs":150,"chunk":"⠙"}
+{"delayMs":150,"chunk":"⠹"}
+{"delayMs":550,"text":"Editing src/checkout.ts"}
+{"delayMs":700,"text":"Adding a retry wrapper around submitOrder()"}
+{"delayMs":300,"chunk":"⠸"}
+{"delayMs":0,"gate":"fleet-burst","idleChunk":"⠙","idleEveryMs":150}
+{"delayMs":25,"chunk":"Implementing "}
+{"delayMs":25,"chunk":"exponential "}
+{"delayMs":25,"chunk":"backoff "}
+{"delayMs":25,"chunk":"around "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"checkout "}
+{"delayMs":25,"chunk":"submit "}
+{"delayMs":25,"chunk":"call "}
+{"delayMs":25,"chunk":"so "}
+{"delayMs":25,"chunk":"transient "}
+{"delayMs":25,"chunk":"network "}
+{"delayMs":25,"chunk":"errors "}
+{"delayMs":25,"chunk":"do "}
+{"delayMs":25,"chunk":"not "}
+{"delayMs":25,"chunk":"fail "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"order "}
+{"delayMs":25,"chunk":"flow. "}
+{"delayMs":25,"chunk":"Retrying "}
+{"delayMs":25,"chunk":"up "}
+{"delayMs":25,"chunk":"to "}
+{"delayMs":25,"chunk":"three "}
+{"delayMs":25,"chunk":"times "}
+{"delayMs":25,"chunk":"with "}
+{"delayMs":25,"chunk":"jitter "}
+{"delayMs":25,"chunk":"before "}
+{"delayMs":25,"chunk":"surfacing "}
+{"delayMs":25,"chunk":"an "}
+{"delayMs":25,"chunk":"error "}
+{"delayMs":25,"chunk":"to "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"customer."}
+{"delayMs":0,"text":"✓ 14 tests passed (vitest)"}
+{"delayMs":0,"text":"git commit -m \"feat: retry checkout with backoff\" — 2 files changed","marker":"commit-line"}
+{"delayMs":500,"text":"Updating docs/api.md"}
+{"delayMs":600,"chunk":"⠋"}
+{"delayMs":600,"text":"Reading src/cart-badge.ts"}
+{"delayMs":400,"text":"Watching for the next task..."}

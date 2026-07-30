@@ -1,0 +1,115 @@
+{"delayMs":300,"text":"Reading src/cart-badge.ts"}
+{"delayMs":600,"text":"Reproducing the cart badge count race on rapid add-to-cart clicks"}
+{"delayMs":300,"chunk":"⠋"}
+{"delayMs":150,"chunk":"⠙"}
+{"delayMs":150,"chunk":"⠹"}
+{"delayMs":550,"text":"Editing src/cart-badge.ts"}
+{"delayMs":600,"text":"Debouncing the badge count state update"}
+{"delayMs":350,"chunk":"⠸"}
+{"delayMs":0,"gate":"pullback-burst","idleChunk":"⠙","idleEveryMs":150}
+{"delayMs":25,"chunk":"Fixed "}
+{"delayMs":25,"chunk":"a "}
+{"delayMs":25,"chunk":"race "}
+{"delayMs":25,"chunk":"condition "}
+{"delayMs":25,"chunk":"in "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"cart "}
+{"delayMs":25,"chunk":"badge "}
+{"delayMs":25,"chunk":"counter "}
+{"delayMs":25,"chunk":"where "}
+{"delayMs":25,"chunk":"rapid "}
+{"delayMs":25,"chunk":"add "}
+{"delayMs":25,"chunk":"to "}
+{"delayMs":25,"chunk":"cart "}
+{"delayMs":25,"chunk":"clicks "}
+{"delayMs":25,"chunk":"could "}
+{"delayMs":25,"chunk":"increment "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"display "}
+{"delayMs":25,"chunk":"out "}
+{"delayMs":25,"chunk":"of "}
+{"delayMs":25,"chunk":"order. "}
+{"delayMs":25,"chunk":"The "}
+{"delayMs":25,"chunk":"counter "}
+{"delayMs":25,"chunk":"now "}
+{"delayMs":25,"chunk":"reads "}
+{"delayMs":25,"chunk":"from "}
+{"delayMs":25,"chunk":"a "}
+{"delayMs":25,"chunk":"single "}
+{"delayMs":25,"chunk":"debounced "}
+{"delayMs":25,"chunk":"state "}
+{"delayMs":25,"chunk":"update "}
+{"delayMs":25,"chunk":"instead "}
+{"delayMs":25,"chunk":"of "}
+{"delayMs":25,"chunk":"mutating "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"DOM "}
+{"delayMs":25,"chunk":"on "}
+{"delayMs":25,"chunk":"every "}
+{"delayMs":25,"chunk":"click "}
+{"delayMs":25,"chunk":"which "}
+{"delayMs":25,"chunk":"removes "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"flicker "}
+{"delayMs":25,"chunk":"and "}
+{"delayMs":25,"chunk":"keeps "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"badge "}
+{"delayMs":25,"chunk":"count "}
+{"delayMs":25,"chunk":"consistent "}
+{"delayMs":25,"chunk":"with "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"underlying "}
+{"delayMs":25,"chunk":"cart "}
+{"delayMs":25,"chunk":"items "}
+{"delayMs":25,"chunk":"list "}
+{"delayMs":25,"chunk":"across "}
+{"delayMs":25,"chunk":"repeated "}
+{"delayMs":25,"chunk":"fast "}
+{"delayMs":25,"chunk":"clicks."}
+{"delayMs":0,"text":"✓ done — ready for review"}
+{"delayMs":25,"chunk":"Updating "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"pull "}
+{"delayMs":25,"chunk":"request "}
+{"delayMs":25,"chunk":"description "}
+{"delayMs":25,"chunk":"to "}
+{"delayMs":25,"chunk":"summarize "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"fix "}
+{"delayMs":25,"chunk":"note "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"one "}
+{"delayMs":25,"chunk":"affected "}
+{"delayMs":25,"chunk":"file "}
+{"delayMs":25,"chunk":"and "}
+{"delayMs":25,"chunk":"list "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"manual "}
+{"delayMs":25,"chunk":"verification "}
+{"delayMs":25,"chunk":"steps "}
+{"delayMs":25,"chunk":"performed "}
+{"delayMs":25,"chunk":"before "}
+{"delayMs":25,"chunk":"requesting "}
+{"delayMs":25,"chunk":"review "}
+{"delayMs":25,"chunk":"from "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"team "}
+{"delayMs":25,"chunk":"on "}
+{"delayMs":25,"chunk":"this "}
+{"delayMs":25,"chunk":"small "}
+{"delayMs":25,"chunk":"change "}
+{"delayMs":25,"chunk":"today "}
+{"delayMs":25,"chunk":"ahead "}
+{"delayMs":25,"chunk":"of "}
+{"delayMs":25,"chunk":"the "}
+{"delayMs":25,"chunk":"next "}
+{"delayMs":25,"chunk":"release "}
+{"delayMs":25,"chunk":"cycle "}
+{"delayMs":25,"chunk":"so "}
+{"delayMs":25,"chunk":"reviewers "}
+{"delayMs":25,"chunk":"know "}
+{"delayMs":25,"chunk":"exactly "}
+{"delayMs":25,"chunk":"what "}
+{"delayMs":25,"chunk":"to "}
+{"delayMs":25,"chunk":"check."}

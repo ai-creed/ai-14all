@@ -1,0 +1,14 @@
+{"delayMs":200,"text":"[vitest] watching for file changes..."}
+{"delayMs":1500,"text":"RERUN  src/checkout.test.ts"}
+{"delayMs":80,"chunk":"."}
+{"delayMs":80,"chunk":"."}
+{"delayMs":80,"chunk":"."}
+{"delayMs":80,"chunk":"."}
+{"delayMs":80,"chunk":"."}
+{"delayMs":80,"chunk":"."}
+{"delayMs":80,"chunk":"."}
+{"delayMs":80,"chunk":"."}
+{"delayMs":80,"chunk":"."}
+{"delayMs":80,"chunk":"."}
+{"delayMs":200,"text":"✓ 14 tests passed (14 passed | 0 failed)"}
+{"delayMs":3300,"text":"Waiting for file changes..."}

@@ -1,0 +1,101 @@
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/api/cart "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(11ms)\n"}
+{"delayMs":25,"chunk":"POST "}
+{"delayMs":25,"chunk":"/api/checkout "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"201 "}
+{"delayMs":25,"chunk":"(86ms)\n"}
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/api/cart-badge "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(4ms)\n"}
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/docs/api.md "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(2ms)\n"}
+{"delayMs":25,"chunk":"POST "}
+{"delayMs":25,"chunk":"/api/checkout "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(93ms)\n"}
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/api/cart "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(9ms)\n"}
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/api/cart-badge "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(5ms)\n"}
+{"delayMs":25,"chunk":"POST "}
+{"delayMs":25,"chunk":"/api/checkout "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"500 "}
+{"delayMs":25,"chunk":"(12ms) "}
+{"delayMs":25,"chunk":"retrying\n"}
+{"delayMs":25,"chunk":"POST "}
+{"delayMs":25,"chunk":"/api/checkout "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"201 "}
+{"delayMs":25,"chunk":"(77ms)\n"}
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/api/cart "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(10ms)\n"}
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/api/cart-badge "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(6ms)\n"}
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/docs/api.md "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(3ms)\n"}
+{"delayMs":25,"chunk":"POST "}
+{"delayMs":25,"chunk":"/api/checkout "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"201 "}
+{"delayMs":25,"chunk":"(81ms)\n"}
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/api/cart "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(8ms)\n"}
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/api/cart-badge "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(4ms)\n"}
+{"delayMs":25,"chunk":"POST "}
+{"delayMs":25,"chunk":"/api/checkout "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(95ms)\n"}
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/api/cart "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(12ms)\n"}
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/docs/api.md "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(2ms)\n"}
+{"delayMs":25,"chunk":"GET "}
+{"delayMs":25,"chunk":"/api/cart-badge "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"200 "}
+{"delayMs":25,"chunk":"(5ms)\n"}
+{"delayMs":25,"chunk":"POST "}
+{"delayMs":25,"chunk":"/api/checkout "}
+{"delayMs":25,"chunk":"-> "}
+{"delayMs":25,"chunk":"201 "}
+{"delayMs":25,"chunk":"(79ms)\n"}
