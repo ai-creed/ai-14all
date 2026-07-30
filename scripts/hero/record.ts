@@ -88,8 +88,12 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function waitUntilWallMs(targetWallMs: number): Promise<void> {
-	const delay = targetWallMs - Date.now();
-	if (delay > 0) await sleep(delay);
+	// A single setTimeout(delay) can fire up to ~1ms early (timer truncation +
+	// the fractional part of M0wall) — loop until the wall clock has actually
+	// crossed the target instead of trusting one sleep to land on-or-after it.
+	while (Date.now() < targetWallMs) {
+		await sleep(Math.max(1, Math.ceil(targetWallMs - Date.now())));
+	}
 }
 
 /** Generic polling gate: every arrange/cue-time UI wait goes through this or
@@ -168,6 +172,27 @@ function setUpShellPathOverride(
 		`export PATH="${stubBinDir}:$PATH"\n`,
 	);
 	return { zdotDir };
+}
+
+const STALE_HERO_DIST_ENTRIES = [
+	"master.mp4",
+	"poster.png",
+	"storyboard.json",
+	"frame-times.json",
+	"concat-list.txt",
+	"calibration-failure.json",
+];
+
+/** A failed run's leftovers must never mix with a later run's — clear
+ * hero-dist/ at the start of every run (not just on success), then recreate
+ * it fresh. Without this, a failed run's frames/frame-times/poster can splice
+ * against a stale master/storyboard from an earlier, unrelated run. */
+function clearHeroDist(): void {
+	rmSync(join(HERO_DIST_DIR, "frames"), { recursive: true, force: true });
+	for (const name of STALE_HERO_DIST_ENTRIES) {
+		rmSync(join(HERO_DIST_DIR, name), { force: true });
+	}
+	mkdirSync(HERO_DIST_DIR, { recursive: true });
 }
 
 function spawnCaffeinate(): void {
@@ -561,8 +586,9 @@ async function recordCapture(
 				wallClockAtReceipt - warmupStartWall >= 1000
 			) {
 				calibrationSettled = true;
+				let computed: Calibration | null = null;
 				try {
-					const computed = calibrateClock(warmupSamples);
+					computed = calibrateClock(warmupSamples);
 					if (computed.residualSpreadMs > 50) {
 						throw new Error(
 							`clock calibration residual ${computed.residualSpreadMs.toFixed(1)}ms exceeds the 50ms budget`,
@@ -571,6 +597,22 @@ async function recordCapture(
 					cal = computed;
 					resolveCalibration();
 				} catch (err) {
+					// A failed run must keep artifacts too (keep-artifacts-on-fail
+					// contract) — write what warmup evidence exists before rejecting,
+					// since no CaptureResult (and so no stage-A run) ever follows.
+					writeFileSync(
+						join(HERO_DIST_DIR, "calibration-failure.json"),
+						JSON.stringify(
+							{
+								error: (err as Error).message,
+								offsetMs: computed?.offsetMs ?? null,
+								residualSpreadMs: computed?.residualSpreadMs ?? null,
+								samples: warmupSamples,
+							},
+							null,
+							"\t",
+						) + "\n",
+					);
 					rejectCalibration(err as Error);
 				}
 			}
@@ -674,11 +716,9 @@ function runStageAChecks(
 ): StageAResult {
 	const errors: string[] = [];
 
-	if (capture.cal.residualSpreadMs > 50) {
-		errors.push(
-			`clock calibration residual ${capture.cal.residualSpreadMs.toFixed(1)}ms exceeds 50ms`,
-		);
-	}
+	// No residual check here: a >50ms residual hard-fails inside recordCapture
+	// (writes calibration-failure.json, rejects) before a CaptureResult ever
+	// exists, so this function never sees one — checking it again is dead code.
 
 	const masterTimes = capture.frames.map(
 		(f) => (cdpToWallMs(f.cdpTimestamp, capture.cal) - capture.M0wall) / 1000,
@@ -819,7 +859,15 @@ function encodeMaster(frames: RetainedFrame[]): void {
 			"-i",
 			listPath,
 			"-vf",
-			"fps=60,format=yuv420p",
+			"fps=60,scale=out_range=tv,format=yuv420p",
+			"-color_range",
+			"tv",
+			"-colorspace",
+			"bt709",
+			"-color_primaries",
+			"bt709",
+			"-color_trc",
+			"bt709",
 			"-c:v",
 			"libx264",
 			"-crf",
@@ -1010,10 +1058,13 @@ async function arrange(
 		page.locator('[data-testid="review-expanded-portal"]'),
 	);
 	await page.keyboard.press("Escape");
-	await page
-		.locator('[data-testid="review-expanded-portal"]')
-		.waitFor({ state: "detached", timeout: 5_000 })
-		.catch(() => {});
+	// The portal's own "detached" wait can't distinguish a real close from a
+	// still-mounted-but-occluded element — assert the count itself hits 0.
+	await pollUntil(
+		"review-portal-detached",
+		() => page.locator('[data-testid="review-expanded-portal"]').count(),
+		(n) => n === 0,
+	);
 	await switchToWorktree(page, WORKTREE_NAME_RE.claude);
 	await waitVisible(
 		page.locator('[data-testid="slot-0"]'),
@@ -1081,7 +1132,7 @@ async function arrange(
 
 async function main(): Promise<void> {
 	spawnCaffeinate();
-	mkdirSync(HERO_DIST_DIR, { recursive: true });
+	clearHeroDist();
 
 	const world = stageHeroWorld(tmpdir());
 	const { zdotDir } = setUpShellPathOverride(tmpdir(), world.stubBinDir);
