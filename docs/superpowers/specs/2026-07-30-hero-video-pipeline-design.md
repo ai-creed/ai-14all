@@ -247,7 +247,21 @@ agents started in their shells via `terminals.sendInput` → provider badges con
     window — its sync is proven by the ±0.2 s cue assertion in stage B plus the
     pre/post acceptance frames) — no inter-frame gap > 150 ms and mean cadence
     ≥ 30 Hz there; static intervals outside motion windows are sparse by design
-    (§6) and exempt. Marker completeness
+    (§6) and exempt.
+    **Errata (2026-07-30, measured):** Chromium's CDP screencast capturer
+    deterministically drops ~250 ms of frames on any in-flow box-geometry
+    relayout, even while the renderer's rAF cadence holds an unbroken 60 Hz
+    (controlled probe with per-process event-loop and rAF samplers; task-7
+    report, fix round 2 — paint-only, composited, and geometry-preserving
+    changes all capture cleanly). An `mcp-status` cue mounts new in-flow boxes
+    into its sidebar row, so it always produces exactly one such gap at its own
+    dispatch instant. Narrow exemption: within a motion window, at most ONE
+    inter-frame gap is exempt from the 150 ms rule, iff it starts within
+    [t − 0.05 s, t + 0.35 s] of the executed dispatch time t of an `mcp-status`
+    cue inside that window AND the gap is ≤ 400 ms. The ≥ 30 Hz mean-cadence
+    floor binds unchanged. The rendered deliverable is unaffected: during the
+    sidebar beat the camera crop excludes the streaming terminals, and what the
+    gap elides on-crop is only the flip's own settling animation. Marker completeness
     and camera-rect measurement are also asserted here, as is the clock-calibration
     residual gate (§5: spread ≤ 50 ms) — all before any encoding.
   - **Stage B — produced-artifact guard, `hero:validate`, the final step of
