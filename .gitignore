@@ -1,6 +1,7 @@
 node_modules/
 out/
 dist/
+hero-dist/
 *.tsbuildinfo
 .DS_Store
 .env*

@@ -34,7 +34,8 @@
 		"release:beta": "node scripts/release-beta.mjs",
 		"release:stable": "node scripts/release-stable.mjs",
 		"diag:attention": "node scripts/dump-attention-log.mjs",
-		"fixture:pty": "tsx --tsconfig scripts/tsconfig.tsx.json scripts/generate-pty-fixture.ts"
+		"fixture:pty": "tsx --tsconfig scripts/tsconfig.tsx.json scripts/generate-pty-fixture.ts",
+		"hero:record": "electron-vite build && tsx --tsconfig scripts/tsconfig.tsx.json scripts/hero/record.ts"
 	},
 	"dependencies": {
 		"@ai-creed/command-contract": "file:vendor/ai-creed-command-contract-0.1.0-alpha.7.tgz",
