@@ -60,6 +60,7 @@ export function buildZoompanFilter(
 			const [b, v1] = points[i + 1];
 			let seg: string;
 			if (v0 === v1) seg = String(v0);
+			else if (b - a === 0) seg = String(v1);
 			else {
 				const e = `clip((${T}-${a})/(${b - a}),0,1)`;
 				seg = `(${v0}+${v1 - v0}*${e}*${e}*(3-2*${e}))`;

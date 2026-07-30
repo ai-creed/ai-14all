@@ -61,8 +61,10 @@ describe("keyframesFromBeats", () => {
 
 describe("buildZoompanFilter", () => {
 	it("golden: the COMPLETE filter string for a known two-beat storyboard", () => {
-		// One full-frame beat + one real rect beat so the smoothstep glide,
-		// x/y interpolation, and width interpolation all appear in the string.
+		// One full-frame beat + one non-saturating rect beat (small enough that
+		// normalizeRectToAspect does NOT grow it to the full frame) so the
+		// smoothstep glide, x/y interpolation, and width interpolation all
+		// genuinely appear (not collapse to constants) in the string.
 		const kf = keyframesFromBeats(
 			[
 				{ beat: "establish", settle: 0, hold: 2, rect: null },
@@ -70,7 +72,7 @@ describe("buildZoompanFilter", () => {
 					beat: "sidebar",
 					settle: 4,
 					hold: 2,
-					rect: { x: 0, y: 40, w: 480, h: 1480 },
+					rect: { x: 1200, y: 300, w: 600, h: 400 },
 				},
 			],
 			FRAME,
@@ -87,7 +89,7 @@ describe("buildZoompanFilter", () => {
 		// Any change to interpolation branches, x/y expressions, or keyframe
 		// boundaries then fails until the snapshot is deliberately updated.
 		expect(filter).toMatchInlineSnapshot(
-			"\"zoompan=z='2880/(if(lt((in/60),2),2880,if(lt((in/60),4),2880,if(lt((in/60),6),2880,2880))))':x='if(lt((in/60),2),0,if(lt((in/60),4),0,if(lt((in/60),6),0,0)))':y='if(lt((in/60),2),0,if(lt((in/60),4),(0+0.7999999999999545*clip(((in/60)-2)/(2),0,1)*clip(((in/60)-2)/(2),0,1)*(3-2*clip(((in/60)-2)/(2),0,1))),if(lt((in/60),6),0.7999999999999545,0.7999999999999545)))':d=1:s=1600x844:fps=60,format=yuv420p\"",
+			"\"zoompan=z='2880/(if(lt((in/60),2),2880,if(lt((in/60),4),(2880+-2076.208530805687*clip(((in/60)-2)/(2),0,1)*clip(((in/60)-2)/(2),0,1)*(3-2*clip(((in/60)-2)/(2),0,1))),if(lt((in/60),6),803.7914691943129,803.7914691943129))))':x='if(lt((in/60),2),0,if(lt((in/60),4),(0+1098.1042654028436*clip(((in/60)-2)/(2),0,1)*clip(((in/60)-2)/(2),0,1)*(3-2*clip(((in/60)-2)/(2),0,1))),if(lt((in/60),6),1098.1042654028436,1098.1042654028436)))':y='if(lt((in/60),2),0,if(lt((in/60),4),(0+288*clip(((in/60)-2)/(2),0,1)*clip(((in/60)-2)/(2),0,1)*(3-2*clip(((in/60)-2)/(2),0,1))),if(lt((in/60),6),288,288)))':d=1:s=1600x844:fps=60,format=yuv420p\"",
 		);
 		// Structural invariants on top (guard the snapshot-update path too):
 		expect(filter.startsWith("zoompan=z='2880/(")).toBe(true);
@@ -96,5 +98,31 @@ describe("buildZoompanFilter", () => {
 		expect(
 			(filter.match(/if\(lt\(\(in\/60\)/g) ?? []).length,
 		).toBeGreaterThanOrEqual(6); // piecewise segments in z, x, and y
+	});
+
+	it("guards zero-length segments (adjacent keyframes sharing a timestamp) against division by zero", () => {
+		// beat2.settle === beat1.settle + beat1.hold: the hold-end of beat1 and
+		// the settle-start of beat2 land on the same timestamp, producing a
+		// zero-length segment between two keyframes with different rects.
+		const kf = keyframesFromBeats(
+			[
+				{ beat: "establish", settle: 0, hold: 2, rect: null },
+				{
+					beat: "sidebar",
+					settle: 2,
+					hold: 2,
+					rect: { x: 1200, y: 300, w: 600, h: 400 },
+				},
+			],
+			FRAME,
+		);
+		const filter = buildZoompanFilter(kf, {
+			iw: 2880,
+			ih: 1520,
+			ow: 1600,
+			oh: 844,
+			fps: 60,
+		});
+		expect(filter).not.toContain("/(0)");
 	});
 });
