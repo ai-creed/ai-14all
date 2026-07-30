@@ -36,7 +36,9 @@
 		"diag:attention": "node scripts/dump-attention-log.mjs",
 		"fixture:pty": "tsx --tsconfig scripts/tsconfig.tsx.json scripts/generate-pty-fixture.ts",
 		"hero:record": "electron-vite build && tsx --tsconfig scripts/tsconfig.tsx.json scripts/hero/record.ts",
-		"hero:validate": "tsx --tsconfig scripts/tsconfig.tsx.json scripts/hero/validate.ts"
+		"hero:render": "tsx --tsconfig scripts/tsconfig.tsx.json scripts/hero/render.ts",
+		"hero:validate": "tsx --tsconfig scripts/tsconfig.tsx.json scripts/hero/validate.ts",
+		"hero": "pnpm hero:record && pnpm hero:render && pnpm hero:validate"
 	},
 	"dependencies": {
 		"@ai-creed/command-contract": "file:vendor/ai-creed-command-contract-0.1.0-alpha.7.tgz",
