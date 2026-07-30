@@ -12,7 +12,7 @@ Build a deterministic, fixture-driven recording pipeline that produces the ai-cr
 homepage hero video by running ai-14all in e2e mode — replacing manual screen
 recording. One storyboard drives both the staged in-app events and the camera, so
 event↔camera sync is exact by construction, content is staged by construction, and
-regeneration after a UI change is two commands.
+regeneration after a UI change is **one command** (`pnpm hero`).
 
 **In scope:** the hero tour per storyboard "Fleet-tight" (§5), the recorder, the
 master/poster/storyboard artifacts, and the tour render (which moves into this repo).
@@ -56,8 +56,11 @@ The handoff contract holds, with deltas marked:
 - **Storyboard:** `storyboard.json` with **as-executed** timestamps (plus measured
   camera-target rects and provenance, §7) — a superset of the agreed `[{t, beat, note}]`.
 - **Poster:** 2880×1520 PNG of the staged hero state; ai-creed bakes the play ring.
-- **Durations:** exact-length take — ~27 s master for the 21 s tour (open question 6
-  resolved: no ambient take; sync is the point).
+- **Durations:** exact-length take — 27 s master = 3 s lead-in + 21 s tour + 3 s tail
+  (clock model, §5; open question 6 resolved: no ambient take; sync is the point).
+- **Tour (delta):** encode ceiling raised from the handoff's ≤3–4 MB to **≤5 MB** at
+  60 fps; click-to-play `preload="none"` keeps the tour outside ai-creed's
+  pre-interaction byte budget (only the poster counts against it).
 - **Delta:** the zoompan tour render moves into this repo; ai-creed's `gen-tour.mjs`
   retires. ai-creed receives finished `tour.mp4` + `poster.png` + `storyboard.json`.
 
@@ -65,11 +68,13 @@ The handoff contract holds, with deltas marked:
 
 ```
 scripts/hero/                      (committed)
-  storyboard.ts        beat list: {beat, holdSec, target, events[]} — the contract
+  storyboard.ts        beat list: {beat, holdSec, target, events[], motionWindows[]}
+                       — the contract; motionWindows declare where continuous
+                       paint is expected (used by validation, §7)
   transcripts/*.jsonl  per-agent scripted output: {delayMs, text, marker?}
   agent-player.mjs     generic transcript player; claude/codex/ezio are PATH shims
   record.mts           `pnpm hero:record`
-  render.mts           `pnpm hero:render`
+  render.mts           `pnpm hero:render`      (aggregate: `pnpm hero` = record + render)
   gen-camera.ts        pure fn: as-executed storyboard → ffmpeg zoompan filter
 
 hero-dist/                         (gitignored)
@@ -81,7 +86,10 @@ hero-dist/                         (gitignored)
 ```
 
 `hero:record` = stage → arrange → record → validate → encode master + poster +
-storyboard. `hero:render` = storyboard + master → tour. Both local-only pnpm scripts;
+storyboard. `hero:render` = storyboard + master → tour. **`pnpm hero`** runs both in
+sequence and is the canonical regeneration path — one command yields every final
+deliverable, satisfying the handoff's one-command repeatability requirement; the
+sub-commands exist for iterating on a single stage. All local-only pnpm scripts;
 the recorder is a standalone node script using `@playwright/test`'s `_electron` —
 deliberately **not** a Playwright spec and not under `tests/e2e/` (a new e2e spec
 first meets CI inside a release run — recorded gotcha
@@ -97,8 +105,26 @@ Two structural moves kill the prototype's flaws:
 
 ## 5. Storyboard "Fleet-tight" & staging
 
-Tour ≈ 21 s (4 stops); master adds ~2–3 s lead-in and tail. Holds ~3 s, eased glides
-~2 s. Cue events fire ~0.5 s after the camera settles:
+Tour ≈ 21 s (4 stops). Holds ~3 s, eased glides ~2 s. Cue events fire ~0.5 s after
+the camera settles.
+
+**Clock model (explicit):** four named instants govern all timing —
+
+- **Warmup** (discarded): screencast starts ≥1 s before master-zero purely to absorb
+  the start-up frame hiccup (§2); warmup frames are dropped and are *not* the lead-in.
+- **Master-zero (M0)** = first retained frame. All storyboard timestamps are recorded
+  as raw CDP times and normalized to master-relative seconds by subtracting M0.
+- **Tour-zero (T0)** = M0 + 3.0 s retained lead-in. Beats (table below) are scheduled
+  and expressed in tour time.
+- **Tail** = 3.0 s retained after the last beat → master duration = 3.0 + 21 + 3.0 ≈
+  **27 s**, all retained content.
+
+`storyboard.json` stores master-relative event times plus `tourOffset: 3.0` and the
+tour duration; `hero:render` trims the master to [T0, T0 + 21 s] and `gen-camera.ts`
+emits keyframes in tour time — so master↔tour mapping is a single recorded offset,
+never an inference.
+
+Beat table (tour time):
 
 | Tour t | Beat | Camera target (measured rect) | On-cue event |
 | --- | --- | --- | --- |
@@ -135,10 +161,16 @@ during arrange, so cue-time calls land instantly.
 
 **Review seam — the only app-code change.** Under `AI14ALL_E2E=1`, main registers
 `globalThis.__AI14ALL_E2E_HOOKS__.injectReviewComment(payload)` (same global-hook
-pattern as `__AI14ALL_E2E_OPEN_EXTERNAL_CALLS__`), which calls the real
-`ReviewCommentStore` service — the same path the UI uses, so the renderer updates
-live. The recorder invokes it at cue time via `electronApp.evaluate()`. ~15–20 lines,
-test-first at the service level (§8).
+pattern as `__AI14ALL_E2E_OPEN_EXTERNAL_CALLS__`). The hook is a small factory,
+`makeInjectReviewComment(reviewCommentService)`, and it calls the real
+**`ReviewCommentService.create()`** (`services/review/review-comment-service.ts`) —
+the exact method the UI's `REVIEW_CREATE` IPC handler invokes — so the service
+persists through its store and fires its `"created"` change event, which the existing
+main→renderer forwarding turns into a live UI update. (`ReviewCommentStore` alone is
+load/save only and cannot create or notify — the store is explicitly *not* the seam's
+target.) Registration onto the global is a one-liner in main composition; the
+recorder invokes the hook at cue time via `electronApp.evaluate()`. Test-first at the
+service layer (§8).
 
 **Arrange phase (off camera, every step polled-till-ready with a timeout):** window
 ready → workspace restored with 3 worktrees → multi-slot layout preset applied →
@@ -149,7 +181,8 @@ agents started in their shells via `terminals.sendInput` → provider badges con
 
 - **Capture:** CDP `Page.startScreencast`, JPEG **quality 95**, ack every frame.
   Window stays hidden; run wrapped in `caffeinate -dims`. Screencast starts ≥1 s
-  before t0; pre-t0 frames are discarded (hiccup mitigation, §2). Rationale for q95:
+  before M0; only warmup frames (pre-M0) are discarded — the 3 s lead-in after M0 is
+  retained master content, per the clock model in §5. Rationale for q95:
   the deepest stop upscales a ~985 px-wide crop to the 1600 px output (~1.6×), so
   master artifacts get magnified — verified visually at implementation (§10).
 - **Master encode:** frames + CDP timestamps → ffmpeg concat-with-durations →
@@ -170,10 +203,16 @@ agents started in their shells via `terminals.sendInput` → provider badges con
 
 - Every arrange gate polls with a timeout; on timeout the run aborts with a specific
   error and non-zero exit. A run costs ~90 s — the retry model is "run it again."
-- **Post-run validation gates success:** average achieved fps ≥ 50 and no inter-frame
-  gap > 150 ms inside beats; every expected marker present in `storyboard.json`;
-  every camera target's rect measured; master duration in range; tour ≤ 5 MB. Any
-  miss → non-zero exit, artifacts kept for inspection.
+- **Post-run validation gates success**, distinguishing encoded output from source
+  paint cadence (sparse static frames are *valid* per §6's duration model):
+  (a) the encoded master probes as exactly CFR 60 with duration in the §5 range;
+  (b) source-cadence checks apply **only inside motion windows** declared in
+  `storyboard.ts` (streaming-terminal intervals and each cue moment ± 1 s): there, no
+  inter-frame gap > 150 ms and mean cadence ≥ 30 Hz; static intervals outside motion
+  windows are sparse by design and exempt;
+  (c) every expected marker present in `storyboard.json`; (d) every camera target's
+  rect measured; (e) tour ≤ 5 MB. Any miss → non-zero exit, artifacts kept for
+  inspection.
 - **Provenance:** `storyboard.json` records app version, git SHA, and record date, so
   any asset shipped to ai-creed traces back to what produced it.
 - Relative-time labels in the UI ("2m ago") read small and plausible because every
@@ -183,8 +222,12 @@ agents started in their shells via `terminals.sendInput` → provider badges con
 
 TDD where there is real logic; nothing new under `tests/e2e/`:
 
-- **Review seam** — service-level vitest test written first: env-gated registration,
-  append through the real `ReviewCommentStore`, renderer push event emitted.
+- **Review seam** — vitest test written first against the real `ReviewCommentService`
+  wired to a temp-dir store: `makeInjectReviewComment()` calls `create()` and the
+  `"created"` change event is observed through a real listener subscription — no
+  mocked events, and the load/save-only `ReviewCommentStore` is explicitly not the
+  test target. The one-line env-gated registration in main composition is exercised
+  by the recorder run itself.
 - **`gen-camera.ts`** — unit tests: keyframe math, aspect normalization, frame
   clamping, golden filter-string test against a known storyboard.
 - **Transcript player** — unit tests with fake timers: pacing and marker emission.
@@ -218,5 +261,6 @@ TDD where there is real logic; nothing new under `tests/e2e/`:
 - **Insights clip** for an ai-creed features section: second storyboard over the same
   pipeline; usage data staged via `AI14ALL_E2E_USAGE_SNAPSHOT`; requires its own
   claims review. Not part of this implementation.
-- Report this spec's §3 contract confirmation back to the ai-creed effort (the
-  handoff's definition of done).
+- **Done (2026-07-30):** the §3 contract confirmation and amendments were reported
+  back to the ai-creed effort per the handoff's definition of done — see
+  `~/.ai-pref-nsync/local-docs/ai-creed/knowledge-references/2026-07-30-hero-video-contract-report.md`.
