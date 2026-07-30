@@ -36,6 +36,7 @@ memory `mem-2026-07-30-high-res-60fps-video-capture-of-the-app-98fe99`):
 | Poster path | CDP `Page.captureScreenshot` **does** honor DSF 2 → 2880×1520 stills |
 | Cursor | Screencast composites the page only — no OS cursor ever appears; automation clicks are invisible |
 | Fallback | `page.screenshot` loop ≈ 33 ms/shot (not needed) |
+| CFR 60 derivation | verified: spike frames re-encoded to an 8 s, 480-frame CFR-60 master (~60 Hz source cadence maps 1:1 — no judder) |
 | Known hiccup | One ~267 ms frame gap right after screencast start → mitigated by a ≥1 s warmup with pre-t0 frames discarded |
 
 Capture geometry is fully emulated: output is independent of the machine's display
@@ -46,8 +47,10 @@ size and DPR. **No app-code change is needed for window geometry.**
 The handoff contract holds, with deltas marked:
 
 - **Master:** 2880×1520 (the contract's own example geometry; ≥2600 px ✓), constant
-  30 fps, stable staged layout, no OS chrome/cursor, silent. **Delta:** produced
-  DPR-independently via emulation — any Mac yields identical output.
+  **60 fps**, stable staged layout, no OS chrome/cursor, silent. **Deltas:** produced
+  DPR-independently via emulation — any Mac yields identical output; frame rate
+  raised from the handoff's 30 fps to 60 fps for production smoothness (capture is
+  ~60 Hz natively; 30 fps stays trivially derivable if ever needed).
 - **Content:** three agents visible as claude · codex · ezio; one working / one
   ready / one waiting on camera; an inline-review moment; claims-safe transcripts (§9).
 - **Storyboard:** `storyboard.json` with **as-executed** timestamps (plus measured
@@ -71,10 +74,10 @@ scripts/hero/                      (committed)
 
 hero-dist/                         (gitignored)
   frames/…             raw screencast JPEGs + timestamps
-  master.mp4           2880×1520, CFR 30fps, ~27 s
+  master.mp4           2880×1520, CFR 60fps, ~27 s
   storyboard.json      as-executed timestamps + measured rects + provenance
   poster.png           2880×1520 hero-state still
-  tour.mp4             1600×844, ~21 s, ≤3–4 MB, silent, faststart
+  tour.mp4             1600×844 @ 60fps, ~21 s, ≤5 MB, silent, faststart
 ```
 
 `hero:record` = stage → arrange → record → validate → encode master + poster +
@@ -150,14 +153,17 @@ agents started in their shells via `terminals.sendInput` → provider badges con
   the deepest stop upscales a ~985 px-wide crop to the 1600 px output (~1.6×), so
   master artifacts get magnified — verified visually at implementation (§10).
 - **Master encode:** frames + CDP timestamps → ffmpeg concat-with-durations →
-  `fps=30` CFR, libx264 crf ~17, yuv420p. Sparse frames during static holds are
-  correct by the duration model (last frame persists).
+  `fps=60` CFR, libx264 crf ~17, yuv420p. Sparse frames during static holds are
+  correct by the duration model (last frame persists); dips below 60 Hz paint rate
+  duplicate the prior frame.
 - **Render:** `gen-camera.ts` (pure) ports the prototype generator's ffmpeg facts —
   `zoompan` not `crop` (only x/y are per-frame in crop); no `t` var in zoompan → use
   `in/FPS`; interpolate view **width** (not zoom factor) for constant-feeling motion;
   even output dims for yuv420p — and adds **aspect normalization**: measured pane
   rects are grown to the output aspect (~1.893) with margin and clamped to frame, so
-  nothing letterboxes. Output: 1600×844, crf ~27, `+faststart`, `-an`, ≤3–4 MB.
+  nothing letterboxes. Output: 1600×844 @ **60 fps**, crf ~27–28, `+faststart`,
+  `-an`, target ≤5 MB (click-to-play `preload="none"` keeps the tour outside
+  ai-creed's pre-interaction byte budget; only the poster counts against it).
 - **Poster:** CDP `captureScreenshot` PNG under DSF 2 → true 2880×1520.
 
 ## 7. Determinism & failure handling
@@ -166,7 +172,7 @@ agents started in their shells via `terminals.sendInput` → provider badges con
   error and non-zero exit. A run costs ~90 s — the retry model is "run it again."
 - **Post-run validation gates success:** average achieved fps ≥ 50 and no inter-frame
   gap > 150 ms inside beats; every expected marker present in `storyboard.json`;
-  every camera target's rect measured; master duration in range; tour ≤ 4 MB. Any
+  every camera target's rect measured; master duration in range; tour ≤ 5 MB. Any
   miss → non-zero exit, artifacts kept for inspection.
 - **Provenance:** `storyboard.json` records app version, git SHA, and record date, so
   any asset shipped to ai-creed traces back to what produced it.
