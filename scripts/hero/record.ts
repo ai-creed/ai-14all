@@ -1138,38 +1138,28 @@ async function arrange(
 		"pullback-burst-waiting",
 	);
 
-	// Let the renderer fully settle before capture begins. KNOWN RISK (traced
-	// with a PerformanceObserver("longtask") + a CDP-frame-gap probe, not
-	// fixable from here): the ezio-waiting cue flips ezio's sidebar row to
-	// `data-attention="actionRequired"`, which starts
-	// `shell-sidebar-action-glow 1.4s ease-in-out infinite`
-	// (src/styles/modules/sidebar.css) — an INFINITE, never-reverted
-	// box-shadow animation. box-shadow forces paint, not just GPU composite,
-	// so the animation's first application costs the compositor/paint
-	// pipeline real time. Confirmed NOT a renderer JS/React block: the MCP
-	// round trip itself takes ~10ms and zero PerformanceObserver longtasks
-	// fire, yet a real ~250-265ms gap still shows up between consecutive CDP
-	// `Page.screencastFrame` deliveries at that instant, occasionally enough
-	// to blow the ezio-waiting cue's [6,8] motion-window 150ms
-	// inter-frame-gap budget (disabling that one dispatch makes the window
-	// pass cleanly every time — root cause confirmed, not incidental; the
-	// [21,23] window's codex-ready cue doesn't reproduce this because the
-	// review overlay, open since master 15, occludes the sidebar by then).
-	// No caller-side workaround eliminates it short of not reporting "waiting"
-	// at all (which would defeat the cue) — this is a paint-pipeline cost of
-	// the app's own CSS choice, and app-code changes are out of this task's
-	// scope (restricted to the Task 4 review seam). Two driver-side
-	// mitigations were tried and both failed to eliminate it, narrowing the
-	// cost further: (1) pre-triggering the same animation off-camera, both
-	// early in arrange and immediately before capture — no reliable help,
-	// ruling out a cold-cache/first-use explanation, since the cost recurs
-	// per transition, not per session; (2) injecting `will-change: box-shadow`
-	// on `.shell-sidebar__row` via `page.addStyleTag` to make the compositor
-	// pre-allocate the row's paint layer — also no reliable help, meaning the
-	// dominant cost is the shadow's own rasterization on each keyframe step,
-	// not one-time layer-allocation overhead that `will-change` avoids. This
-	// settle delay is a best-effort buffer, not a guarantee; per spec §7 the
-	// sanctioned recovery for an occasional stage-A miss is "run it again."
+	// Let the renderer fully settle before capture begins.
+	//
+	// Unrelated to that settle, but worth knowing here because this is where
+	// the cues get dispatched from: every mcp-status cue drops ~250ms of
+	// CAPTURED frames. Measured against the real app with this exact capture
+	// recipe (probe with a rAF baseline canvas plus event-loop lag samplers in
+	// both processes): Chromium's `Page.startScreencast` capturer stalls
+	// ~249-270ms whenever the page performs a layout that CHANGES BOX
+	// GEOMETRY. The ezio-waiting cue mounts new in-flow boxes into its sidebar
+	// row (the needs-you pill and the attention-context block), so it stalls
+	// every time.
+	//
+	// It is a capture-instrument artifact, NOT app jank: renderer rAF holds an
+	// unbroken 60Hz through every transition and neither process's event loop
+	// lags 60ms. Paint-only, composited, and geometry-preserving changes all
+	// capture cleanly; a bare in-flow DOM append with all attention CSS
+	// disabled stalls identically, and so does the `ready` state, which arms
+	// no glow at all. (An earlier note here blamed the row's box-shadow glow
+	// animation; that hypothesis was falsified by the probe above. So were
+	// `will-change`, `contain`, and `translateZ` mitigations — all still
+	// stall.) Stage A therefore exempts one such gap per motion window under
+	// the narrow conditions in spec §7's errata; see runStageAChecks.
 	await page.waitForTimeout(1500);
 
 	return { targetRects, mcpClient };
