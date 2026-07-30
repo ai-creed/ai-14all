@@ -733,10 +733,55 @@ function runStageAChecks(
 			);
 			continue;
 		}
-		let maxGapMs = 0;
+		const gaps: Array<{ gapMs: number; startMaster: number }> = [];
 		for (let i = 1; i < inWindow.length; i++) {
-			maxGapMs = Math.max(maxGapMs, (inWindow[i]! - inWindow[i - 1]!) * 1000);
+			gaps.push({
+				gapMs: (inWindow[i]! - inWindow[i - 1]!) * 1000,
+				startMaster: inWindow[i - 1]!,
+			});
 		}
+
+		// Errata (spec cb7f813d, 2026-07-30): Chromium's CDP screencast capturer
+		// deterministically drops ~250ms of frames on any in-flow box-geometry
+		// relayout, even though the renderer's rAF cadence holds an unbroken
+		// 60Hz — measured, not app-visible jank (task-7-report, fix round 2).
+		// An mcp-status cue always produces exactly one such gap at its own
+		// dispatch instant, so within a motion window at most ONE inter-frame
+		// gap is exempt from the 150ms rule, iff it starts within
+		// [t-0.05s, t+0.35s] of an mcp-status cue's executedMaster t inside
+		// that window AND the gap itself is ≤ 400ms.
+		const cueTimesInWindow = FLEET_TIGHT.events
+			.filter((e) => e.kind === "mcp-status")
+			.map((e) => capture.executedMasterById.get(e.id))
+			.filter(
+				(t): t is number =>
+					t !== undefined && t >= w.startMaster && t <= w.endMaster,
+			);
+
+		let exemptIndex = -1;
+		let exemptGapMs = 0;
+		gaps.forEach((g, i) => {
+			if (g.gapMs <= 150 || g.gapMs > 400) return;
+			const qualifies = cueTimesInWindow.some(
+				(t) => g.startMaster >= t - 0.05 && g.startMaster <= t + 0.35,
+			);
+			if (qualifies && g.gapMs > exemptGapMs) {
+				exemptGapMs = g.gapMs;
+				exemptIndex = i;
+			}
+		});
+
+		if (exemptIndex >= 0) {
+			console.log(
+				`[stage-A] motion window [${w.startMaster},${w.endMaster}]: exempting one ${exemptGapMs.toFixed(1)}ms gap at t=${gaps[exemptIndex]!.startMaster.toFixed(3)} (mcp-status relayout, spec errata)`,
+			);
+		}
+
+		let maxGapMs = 0;
+		gaps.forEach((g, i) => {
+			if (i === exemptIndex) return;
+			maxGapMs = Math.max(maxGapMs, g.gapMs);
+		});
 		const spanSec = inWindow[inWindow.length - 1]! - inWindow[0]!;
 		const meanCadenceHz = spanSec > 0 ? (inWindow.length - 1) / spanSec : 0;
 		if (maxGapMs > 150) {
