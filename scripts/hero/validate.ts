@@ -15,6 +15,7 @@ import {
 	checkPoster,
 	checkStoryboard,
 	checkTour,
+	maxConsecutiveDelta,
 	type AsExecutedStoryboard,
 	type VideoProbe,
 } from "./validate-rules.js";
@@ -44,8 +45,14 @@ function ffprobeText(args: string[]): string {
  * gives presentation order already; SORT it numerically anyway (defense in
  * depth against any ffprobe/container quirk that reorders it) before taking
  * consecutive deltas.
+ *
+ * Exported (not just used internally) so tests/unit/hero/validate-rules.test.ts's
+ * real-media fixtures call THIS function — not a hand-rolled copy — to probe
+ * real ffmpeg output. A copy that drifts (e.g. swaps frame= for packet=, or
+ * drops the sort) is a production regression no test could see; importing
+ * the real one closes that gap (fix-round-1 finding 3).
  */
-function probeVideo(path: string): VideoProbe {
+export function probeVideo(path: string): VideoProbe {
 	const streamJson = ffprobeJson([
 		"-v",
 		"error",
@@ -78,13 +85,7 @@ function probeVideo(path: string): VideoProbe {
 		.map((line) => Number.parseFloat(line.split(",")[0] ?? ""))
 		.filter((v) => Number.isFinite(v))
 		.sort((a, b) => a - b);
-	let maxPtsDeltaSec = 0;
-	for (let i = 1; i < ptsTimes.length; i++) {
-		maxPtsDeltaSec = Math.max(
-			maxPtsDeltaSec,
-			Math.abs(ptsTimes[i]! - ptsTimes[i - 1]!),
-		);
-	}
+	const maxPtsDeltaSec = maxConsecutiveDelta(ptsTimes);
 
 	const audioOut = ffprobeText([
 		"-v",
@@ -267,4 +268,9 @@ function main(): void {
 	);
 }
 
-main();
+// Import-safe: only run the CLI when this file is the process entry point,
+// not when a test imports probeVideo (or anything else) from it as a
+// library — otherwise every import would re-run the whole artifact scan.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+	main();
+}

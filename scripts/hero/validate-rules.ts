@@ -60,16 +60,43 @@ const POSTER_CAPTURED_MASTER_MIN = 23.0;
 const POSTER_CAPTURED_MASTER_MAX = 24.0;
 
 /**
+ * Pure max-abs-delta-between-consecutive-elements. Exported so both
+ * validate.ts's real probe AND its test's real-media fixtures compute
+ * cadence through the exact same code — a probe that swapped presentation
+ * order for decode order, or dropped the sort, would otherwise be a
+ * production bug with no test able to see it (fix-round-1 finding 3).
+ * Does NOT sort — the caller decides ordering; validate.ts sorts before
+ * calling this for presentation-ordered cadence, and a test deliberately
+ * calls it on UNSORTED decode-order timestamps to demonstrate the trap.
+ */
+export function maxConsecutiveDelta(times: number[]): number {
+	let max = 0;
+	for (let i = 1; i < times.length; i++) {
+		max = Math.max(max, Math.abs(times[i]! - times[i - 1]!));
+	}
+	return max;
+}
+
+/**
  * CFR is proven by MEASURED cadence, not the nominal rate: an adversarial VFR
  * file can report r_frame_rate=60/1 while avg_frame_rate is something else
  * entirely (e.g. 600/13), and even a genuinely-60/1-average file can still
  * have uneven presentation spacing. `maxPtsDeltaSec` must already be computed
  * by the caller over SORTED, PRESENTATION-ordered timestamps (frame=pts_time,
  * not packet=pts_time — see validate.ts) for this check to mean anything.
+ *
+ * Every numeric field this function reads is Number.isFinite-checked before
+ * any arithmetic: `Math.abs(NaN - x) > tolerance` is ALWAYS false (NaN
+ * comparisons are never true), so an ffprobe "N/A" duration/frame-count/pts
+ * value would otherwise sail through as a silent CFR pass (fix-round-1
+ * finding 2 — the same hazard checkRect already guards against for rects).
  */
 function isExactlyCfr60(p: VideoProbe): boolean {
 	if (p.rFrameRate !== NOMINAL_FRAME_RATE) return false;
 	if (p.avgFrameRate !== NOMINAL_FRAME_RATE) return false;
+	if (!Number.isFinite(p.maxPtsDeltaSec)) return false;
+	if (!Number.isFinite(p.framesCount)) return false;
+	if (!Number.isFinite(p.durationSec)) return false;
 	if (Math.abs(p.maxPtsDeltaSec - 1 / NOMINAL_FPS) > CADENCE_TOLERANCE_SEC) {
 		return false;
 	}
@@ -97,7 +124,10 @@ export function checkMaster(p: VideoProbe): string[] {
 	if (!isExactlyCfr60(p)) {
 		errors.push(`master is not exactly CFR 60 (${cfrFailureDetail(p)})`);
 	}
-	if (Math.abs(p.durationSec - 25) > MASTER_DURATION_TOLERANCE_SEC) {
+	if (
+		!Number.isFinite(p.durationSec) ||
+		Math.abs(p.durationSec - 25) > MASTER_DURATION_TOLERANCE_SEC
+	) {
 		errors.push(
 			`master duration ${p.durationSec}s outside 25s ± ${MASTER_DURATION_TOLERANCE_SEC}s`,
 		);
@@ -122,7 +152,10 @@ export function checkTour(
 	if (!isExactlyCfr60(p)) {
 		errors.push(`tour is not exactly CFR 60 (${cfrFailureDetail(p)})`);
 	}
-	if (Math.abs(p.durationSec - 21) > TOUR_DURATION_TOLERANCE_SEC) {
+	if (
+		!Number.isFinite(p.durationSec) ||
+		Math.abs(p.durationSec - 21) > TOUR_DURATION_TOLERANCE_SEC
+	) {
 		errors.push(
 			`tour duration ${p.durationSec}s outside 21s ± ${TOUR_DURATION_TOLERANCE_SEC}s`,
 		);
