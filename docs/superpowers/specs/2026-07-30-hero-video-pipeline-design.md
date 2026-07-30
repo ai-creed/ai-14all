@@ -241,9 +241,13 @@ agents started in their shells via `terminals.sendInput` → provider badges con
 - **Validation is two-staged, and success is gated at both points:**
   - **Stage A — source checks, inside `hero:record` before any encoding** (so a bad
     take fails fast): source cadence only inside motion windows declared in
-    `storyboard.ts` (streaming-terminal intervals and each cue moment ± 1 s) — no
-    inter-frame gap > 150 ms and mean cadence ≥ 30 Hz there; static intervals
-    outside motion windows are sparse by design (§6) and exempt. Marker completeness
+    `storyboard.ts` (streaming-terminal intervals and each **stream-backed** cue
+    moment ± 1 s — the status flips and the marker burst; the review-inject cue is
+    UI-mutation-backed against a static diff surface, so it carries no cadence
+    window — its sync is proven by the ±0.2 s cue assertion in stage B plus the
+    pre/post acceptance frames) — no inter-frame gap > 150 ms and mean cadence
+    ≥ 30 Hz there; static intervals outside motion windows are sparse by design
+    (§6) and exempt. Marker completeness
     and camera-rect measurement are also asserted here, as is the clock-calibration
     residual gate (§5: spread ≤ 50 ms) — all before any encoding.
   - **Stage B — produced-artifact guard, `hero:validate`, the final step of
