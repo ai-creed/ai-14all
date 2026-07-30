@@ -56,8 +56,10 @@ The handoff contract holds, with deltas marked:
 - **Storyboard:** `storyboard.json` with **as-executed** timestamps (plus measured
   camera-target rects and provenance, §7) — a superset of the agreed `[{t, beat, note}]`.
 - **Poster:** 2880×1520 PNG of the staged hero state; ai-creed bakes the play ring.
-- **Durations:** exact-length take — 27 s master = 3 s lead-in + 21 s tour + 3 s tail
-  (clock model, §5; open question 6 resolved: no ambient take; sync is the point).
+- **Durations:** exact-length take — 25 s master = 2 s lead-in + 21 s tour + 2 s tail
+  (clock model, §5). Total retained margin is 4 s, within the handoff's required
+  "tour length + 2–4 s" — no amendment needed. (Open question 6 resolved: no ambient
+  take; sync is the point.)
 - **Tour (delta):** encode ceiling raised from the handoff's ≤3–4 MB to **≤5 MB** at
   60 fps; click-to-play `preload="none"` keeps the tour outside ai-creed's
   pre-interaction byte budget (only the poster counts against it).
@@ -79,7 +81,7 @@ scripts/hero/                      (committed)
 
 hero-dist/                         (gitignored)
   frames/…             raw screencast JPEGs + timestamps
-  master.mp4           2880×1520, CFR 60fps, ~27 s
+  master.mp4           2880×1520, CFR 60fps, 25 s
   storyboard.json      as-executed timestamps + measured rects + provenance
   poster.png           2880×1520 hero-state still
   tour.mp4             1600×844 @ 60fps, ~21 s, ≤5 MB, silent, faststart
@@ -114,12 +116,13 @@ the camera settles.
   the start-up frame hiccup (§2); warmup frames are dropped and are *not* the lead-in.
 - **Master-zero (M0)** = first retained frame. All storyboard timestamps are recorded
   as raw CDP times and normalized to master-relative seconds by subtracting M0.
-- **Tour-zero (T0)** = M0 + 3.0 s retained lead-in. Beats (table below) are scheduled
+- **Tour-zero (T0)** = M0 + 2.0 s retained lead-in. Beats (table below) are scheduled
   and expressed in tour time.
-- **Tail** = 3.0 s retained after the last beat → master duration = 3.0 + 21 + 3.0 ≈
-  **27 s**, all retained content.
+- **Tail** = 2.0 s retained after the last beat → master duration = 2.0 + 21 + 2.0 =
+  **25 s**, all retained content — 4 s total margin, within the handoff contract's
+  "tour length + 2–4 s".
 
-`storyboard.json` stores master-relative event times plus `tourOffset: 3.0` and the
+`storyboard.json` stores master-relative event times plus `tourOffset: 2.0` and the
 tour duration; `hero:render` trims the master to [T0, T0 + 21 s] and `gen-camera.ts`
 emits keyframes in tour time — so master↔tour mapping is a single recorded offset,
 never an inference.
@@ -181,7 +184,7 @@ agents started in their shells via `terminals.sendInput` → provider badges con
 
 - **Capture:** CDP `Page.startScreencast`, JPEG **quality 95**, ack every frame.
   Window stays hidden; run wrapped in `caffeinate -dims`. Screencast starts ≥1 s
-  before M0; only warmup frames (pre-M0) are discarded — the 3 s lead-in after M0 is
+  before M0; only warmup frames (pre-M0) are discarded — the 2 s lead-in after M0 is
   retained master content, per the clock model in §5. Rationale for q95:
   the deepest stop upscales a ~985 px-wide crop to the 1600 px output (~1.6×), so
   master artifacts get magnified — verified visually at implementation (§10).
@@ -203,16 +206,23 @@ agents started in their shells via `terminals.sendInput` → provider badges con
 
 - Every arrange gate polls with a timeout; on timeout the run aborts with a specific
   error and non-zero exit. A run costs ~90 s — the retry model is "run it again."
-- **Post-run validation gates success**, distinguishing encoded output from source
-  paint cadence (sparse static frames are *valid* per §6's duration model):
-  (a) the encoded master probes as exactly CFR 60 with duration in the §5 range;
-  (b) source-cadence checks apply **only inside motion windows** declared in
-  `storyboard.ts` (streaming-terminal intervals and each cue moment ± 1 s): there, no
-  inter-frame gap > 150 ms and mean cadence ≥ 30 Hz; static intervals outside motion
-  windows are sparse by design and exempt;
-  (c) every expected marker present in `storyboard.json`; (d) every camera target's
-  rect measured; (e) tour ≤ 5 MB. Any miss → non-zero exit, artifacts kept for
-  inspection.
+- **Post-run validation gates success** by probing the produced files against the
+  full §3 artifact contract, plus source-cadence checks that respect §6's
+  sparse-frame duration model (sparse static frames are *valid*):
+  - **master.mp4** (ffprobe): 2880×1520, exactly CFR 60, duration 25 s ± 0.5 s,
+    `yuv420p`, zero audio streams.
+  - **tour.mp4** (ffprobe + file probe): 1600×844, exactly CFR 60, duration 21 s
+    ± 0.5 s, no audio stream, ≤ 5 MB, and faststart verified (`moov` atom precedes
+    `mdat`).
+  - **poster.png**: PNG format, exactly 2880×1520.
+  - **storyboard.json**: `tourOffset` present; provenance complete (app version, git
+    SHA, record date); every expected marker present; every camera target's rect
+    measured.
+  - **Source cadence**, only inside motion windows declared in `storyboard.ts`
+    (streaming-terminal intervals and each cue moment ± 1 s): no inter-frame gap
+    > 150 ms and mean cadence ≥ 30 Hz; static intervals outside motion windows are
+    sparse by design and exempt.
+  Any miss → non-zero exit, artifacts kept for inspection.
 - **Provenance:** `storyboard.json` records app version, git SHA, and record date, so
   any asset shipped to ai-creed traces back to what produced it.
 - Relative-time labels in the UI ("2m ago") read small and plausible because every
