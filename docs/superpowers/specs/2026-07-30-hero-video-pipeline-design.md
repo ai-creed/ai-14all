@@ -76,7 +76,8 @@ scripts/hero/                      (committed)
   transcripts/*.jsonl  per-agent scripted output: {delayMs, text, marker?}
   agent-player.mjs     generic transcript player; claude/codex/ezio are PATH shims
   record.mts           `pnpm hero:record`
-  render.mts           `pnpm hero:render`      (aggregate: `pnpm hero` = record + render)
+  render.mts           `pnpm hero:render`
+  validate.mts         `pnpm hero:validate` — full produced-artifact guard (§7 stage B)
   gen-camera.ts        pure fn: as-executed storyboard → ffmpeg zoompan filter
 
 hero-dist/                         (gitignored)
@@ -87,10 +88,13 @@ hero-dist/                         (gitignored)
   tour.mp4             1600×844 @ 60fps, ~21 s, ≤5 MB, silent, faststart
 ```
 
-`hero:record` = stage → arrange → record → validate → encode master + poster +
-storyboard. `hero:render` = storyboard + master → tour. **`pnpm hero`** runs both in
-sequence and is the canonical regeneration path — one command yields every final
-deliverable, satisfying the handoff's one-command repeatability requirement; the
+`hero:record` = stage → arrange → record → source-level checks (§7 stage A) →
+encode master + poster + storyboard. `hero:render` = storyboard + master → tour.
+`hero:validate` = the produced-artifact guard (§7 stage B) over `master.mp4`,
+`tour.mp4`, `poster.png`, and `storyboard.json` — it runs only once every artifact
+exists. **`pnpm hero`** = record → render → **validate**, the canonical regeneration
+path: one command yields every final deliverable *and* proves it against the
+contract, satisfying the handoff's one-command repeatability requirement; the
 sub-commands exist for iterating on a single stage. All local-only pnpm scripts;
 the recorder is a standalone node script using `@playwright/test`'s `_electron` —
 deliberately **not** a Playwright spec and not under `tests/e2e/` (a new e2e spec
@@ -206,23 +210,30 @@ agents started in their shells via `terminals.sendInput` → provider badges con
 
 - Every arrange gate polls with a timeout; on timeout the run aborts with a specific
   error and non-zero exit. A run costs ~90 s — the retry model is "run it again."
-- **Post-run validation gates success** by probing the produced files against the
-  full §3 artifact contract, plus source-cadence checks that respect §6's
-  sparse-frame duration model (sparse static frames are *valid*):
-  - **master.mp4** (ffprobe): 2880×1520, exactly CFR 60, duration 25 s ± 0.5 s,
-    `yuv420p`, zero audio streams.
-  - **tour.mp4** (ffprobe + file probe): 1600×844, exactly CFR 60, duration 21 s
-    ± 0.5 s, no audio stream, ≤ 5 MB, and faststart verified (`moov` atom precedes
-    `mdat`).
-  - **poster.png**: PNG format, exactly 2880×1520.
-  - **storyboard.json**: `tourOffset` present; provenance complete (app version, git
-    SHA, record date); every expected marker present; every camera target's rect
-    measured.
-  - **Source cadence**, only inside motion windows declared in `storyboard.ts`
-    (streaming-terminal intervals and each cue moment ± 1 s): no inter-frame gap
-    > 150 ms and mean cadence ≥ 30 Hz; static intervals outside motion windows are
-    sparse by design and exempt.
-  Any miss → non-zero exit, artifacts kept for inspection.
+- **Validation is two-staged, and success is gated at both points:**
+  - **Stage A — source checks, inside `hero:record` before any encoding** (so a bad
+    take fails fast): source cadence only inside motion windows declared in
+    `storyboard.ts` (streaming-terminal intervals and each cue moment ± 1 s) — no
+    inter-frame gap > 150 ms and mean cadence ≥ 30 Hz there; static intervals
+    outside motion windows are sparse by design (§6) and exempt. Marker completeness
+    and camera-rect measurement are also asserted here.
+  - **Stage B — produced-artifact guard, `hero:validate`, the final step of
+    `pnpm hero`** (runs only once all four artifacts exist; also runnable
+    standalone):
+    - **master.mp4** (ffprobe): 2880×1520, exactly CFR 60, duration 25 s ± 0.5 s,
+      `yuv420p`, zero audio streams.
+    - **tour.mp4** (ffprobe + file probe): 1600×844, exactly CFR 60, duration 21 s
+      ± 0.5 s, no audio stream, ≤ 5 MB, and faststart verified (`moov` atom precedes
+      `mdat`).
+    - **poster.png**: PNG format, exactly 2880×1520.
+    - **storyboard.json — exact clock/schema contract, not field presence:**
+      `tourOffset === 2.0` (the storyboard's declared lead-in) and declared tour
+      duration `=== 21`; every event timestamp finite, ≥ 0, ≤ master duration
+      (proving master-relative normalization), and each cue event inside its beat's
+      window; every expected marker present; every camera-target rect finite with
+      positive width/height and fully inside the 2880×1520 frame; provenance
+      complete (app version, git SHA, record date).
+  Any miss at either stage → non-zero exit, artifacts kept for inspection.
 - **Provenance:** `storyboard.json` records app version, git SHA, and record date, so
   any asset shipped to ai-creed traces back to what produced it.
 - Relative-time labels in the UI ("2m ago") read small and plausible because every
