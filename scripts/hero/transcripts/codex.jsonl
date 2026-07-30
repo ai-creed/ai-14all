@@ -2,7 +2,7 @@
 {"delayMs":600,"text":"Reproducing the cart badge count race on rapid add-to-cart clicks"}
 {"delayMs":300,"chunk":"⠋"}
 {"delayMs":150,"chunk":"⠙"}
-{"delayMs":150,"chunk":"⠹"}
+{"delayMs":150,"chunk":"⠹\n"}
 {"delayMs":550,"text":"Editing src/cart-badge.ts"}
 {"delayMs":600,"text":"Debouncing the badge count state update"}
 {"delayMs":350,"chunk":"⠸"}
@@ -66,7 +66,7 @@
 {"delayMs":25,"chunk":"across "}
 {"delayMs":25,"chunk":"repeated "}
 {"delayMs":25,"chunk":"fast "}
-{"delayMs":25,"chunk":"clicks."}
+{"delayMs":25,"chunk":"clicks.\n"}
 {"delayMs":0,"text":"✓ done — ready for review"}
 {"delayMs":25,"chunk":"Updating "}
 {"delayMs":25,"chunk":"the "}

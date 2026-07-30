@@ -2,7 +2,7 @@
 {"delayMs":1000,"text":"Drafting the Quickstart section"}
 {"delayMs":300,"chunk":"⠋"}
 {"delayMs":200,"chunk":"⠙"}
-{"delayMs":200,"chunk":"⠹"}
+{"delayMs":200,"chunk":"⠹\n"}
 {"delayMs":900,"text":"Writing an example request for POST /api/checkout"}
 {"delayMs":1400,"text":"Writing an example request for GET /api/cart-badge"}
 {"delayMs":1500,"text":"Should the examples use fetch or the sdk client? (waiting)"}

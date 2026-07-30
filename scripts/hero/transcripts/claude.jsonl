@@ -2,7 +2,7 @@
 {"delayMs":600,"text":"Reading docs/api.md"}
 {"delayMs":300,"chunk":"⠋"}
 {"delayMs":150,"chunk":"⠙"}
-{"delayMs":150,"chunk":"⠹"}
+{"delayMs":150,"chunk":"⠹\n"}
 {"delayMs":550,"text":"Editing src/checkout.ts"}
 {"delayMs":700,"text":"Adding a retry wrapper around submitOrder()"}
 {"delayMs":300,"chunk":"⠸"}
@@ -38,10 +38,17 @@
 {"delayMs":25,"chunk":"error "}
 {"delayMs":25,"chunk":"to "}
 {"delayMs":25,"chunk":"the "}
-{"delayMs":25,"chunk":"customer."}
+{"delayMs":25,"chunk":"customer.\n"}
 {"delayMs":0,"text":"✓ 14 tests passed (vitest)"}
 {"delayMs":0,"text":"git commit -m \"feat: retry checkout with backoff\" — 2 files changed","marker":"commit-line"}
 {"delayMs":500,"text":"Updating docs/api.md"}
-{"delayMs":600,"chunk":"⠋"}
+{"delayMs":600,"chunk":"⠋\n"}
+{"delayMs":650,"text":"Reviewing the diff before wrapping up"}
+{"delayMs":200,"chunk":"⠋"}
+{"delayMs":200,"chunk":"⠙"}
+{"delayMs":200,"chunk":"⠹\n"}
+{"delayMs":700,"text":"Tidying a comment in submitOrder()"}
+{"delayMs":600,"text":"Double-checking the retry test covers the timeout case"}
 {"delayMs":600,"text":"Reading src/cart-badge.ts"}
-{"delayMs":400,"text":"Watching for the next task..."}
+{"delayMs":650,"text":"Everything looks good"}
+{"delayMs":700,"text":"Watching for the next task..."}

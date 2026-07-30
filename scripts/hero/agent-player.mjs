@@ -18,6 +18,10 @@ if (!transcriptPath) {
 }
 if (title) process.stdout.write(`\x1b]0;${title}\x07`); // OSC-0 → provider badge
 
+// In-place idle spinner: each tick rewrites the same terminal cell instead of
+// accumulating braille glyphs across the screen during long parked waits.
+const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧"];
+
 const io = {
 	write: (s) => process.stdout.write(s),
 	appendMark: (marker, t) => {
@@ -31,19 +35,23 @@ const io = {
 	sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
 	waitGate: async (name, idle) => {
 		const dir = process.env.HERO_GATE_DIR;
-		if (!dir) return; // no recorder driving us (manual playback) — pass through
-		const { existsSync, writeFileSync } = await import("node:fs");
-		const { join } = await import("node:path");
-		// READY HANDSHAKE: prove we are parked here before the recorder may start M0.
-		writeFileSync(join(dir, `${name}.waiting`), String(Date.now()));
-		let lastIdle = Date.now();
-		while (!existsSync(join(dir, name))) {
-			await new Promise((r) => setTimeout(r, 25));
-			if (idle && Date.now() - lastIdle >= idle.everyMs) {
-				process.stdout.write(idle.chunk);
-				lastIdle = Date.now();
+		if (dir) {
+			const { existsSync, writeFileSync } = await import("node:fs");
+			const { join } = await import("node:path");
+			// READY HANDSHAKE: prove we are parked here before the recorder may start M0.
+			writeFileSync(join(dir, `${name}.waiting`), String(Date.now()));
+			let lastIdle = Date.now();
+			let spinnerIndex = idle ? Math.max(0, SPINNER.indexOf(idle.chunk)) : 0;
+			while (!existsSync(join(dir, name))) {
+				await new Promise((r) => setTimeout(r, 25));
+				if (idle && Date.now() - lastIdle >= idle.everyMs) {
+					process.stdout.write(`\r${SPINNER[spinnerIndex]}`);
+					spinnerIndex = (spinnerIndex + 1) % SPINNER.length;
+					lastIdle = Date.now();
+				}
 			}
-		}
+		} // else: no recorder driving us (manual playback) — pass through
+		process.stdout.write("\n"); // gate open — burst starts on a fresh line
 	},
 };
 const items = parseTranscript(readFileSync(transcriptPath, "utf8"));

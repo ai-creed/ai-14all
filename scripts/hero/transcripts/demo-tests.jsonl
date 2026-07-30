@@ -9,6 +9,6 @@
 {"delayMs":80,"chunk":"."}
 {"delayMs":80,"chunk":"."}
 {"delayMs":80,"chunk":"."}
-{"delayMs":80,"chunk":"."}
+{"delayMs":80,"chunk":".\n"}
 {"delayMs":200,"text":"✓ 14 tests passed (14 passed | 0 failed)"}
 {"delayMs":3300,"text":"Waiting for file changes..."}
