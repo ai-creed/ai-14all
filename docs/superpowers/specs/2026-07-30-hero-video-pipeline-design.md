@@ -118,13 +118,39 @@ the camera settles.
 
 - **Warmup** (discarded): screencast starts ≥1 s before master-zero purely to absorb
   the start-up frame hiccup (§2); warmup frames are dropped and are *not* the lead-in.
-- **Master-zero (M0)** = first retained frame. All storyboard timestamps are recorded
-  as raw CDP times and normalized to master-relative seconds by subtracting M0.
+- **Master-zero (M0)** = first retained frame. Every storyboard timestamp is
+  normalized to master-relative seconds against M0's wall-clock time via the clock
+  calibration defined below.
 - **Tour-zero (T0)** = M0 + 2.0 s retained lead-in. Beats (table below) are scheduled
   and expressed in tour time.
 - **Tail** = 2.0 s retained after the last beat → master duration = 2.0 + 21 + 2.0 =
   **25 s**, all retained content — 4 s total margin, within the handoff contract's
   "tour length + 2–4 s".
+
+**Clock domains & calibration — one authoritative clock.** The authoritative event
+clock is the **recorder's wall clock** (`Date.now()`, Unix epoch ms). Events need no
+cross-process calibration: MCP status calls and the review-seam hook are stamped by
+the recorder itself at dispatch, and shim markers are stamped by `agent-player.mjs`
+with the same system wall clock (same machine, same clock — sidecar and recorder
+read identical time). The only foreign domain is CDP frame timestamps, whose
+protocol origin (TimeSinceEpoch vs arbitrary-origin MonotonicTime) is deliberately
+**not assumed**: during warmup the recorder records `(cdpTimestamp,
+wallClockAtReceipt)` for every discarded frame and takes the **median** of
+`wall − cdp·1000` as a constant offset (local-pipe receipt latency is small and
+bounded; the median rejects outlier frames; if CDP already emits epoch time the
+offset is simply ≈ 0 — one mechanism covers both protocol variants). That offset
+places M0 on the wall clock, normalizing every event; frame **durations** continue
+to use raw CDP differences, where any offset cancels exactly. The run **fails** if
+the calibration residual spread exceeds 50 ms, and `storyboard.json` provenance
+records `clockOffsetMs` and `clockResidualMs`.
+
+**Timestamp semantics.** Every event timestamp is **dispatch time** — the instant
+the recorder issues the MCP call or invokes the seam hook, or the shim writes the
+marker line to stdout. Visibility follows within a bounded budget (≤ 100 ms: 16 ms
+terminal output batching + renderer paint + IPC forwarding), an order of magnitude
+inside the ±0.5 s cue placement and 3 s holds — dispatch-time sync cannot visibly
+desynchronize the camera, and the §7 cue-window assertions prove each event landed
+in its beat on the calibrated clock.
 
 `storyboard.json` stores master-relative event times plus `tourOffset: 2.0` and the
 tour duration; `hero:render` trims the master to [T0, T0 + 21 s] and `gen-camera.ts`
@@ -216,7 +242,8 @@ agents started in their shells via `terminals.sendInput` → provider badges con
     `storyboard.ts` (streaming-terminal intervals and each cue moment ± 1 s) — no
     inter-frame gap > 150 ms and mean cadence ≥ 30 Hz there; static intervals
     outside motion windows are sparse by design (§6) and exempt. Marker completeness
-    and camera-rect measurement are also asserted here.
+    and camera-rect measurement are also asserted here, as is the clock-calibration
+    residual gate (§5: spread ≤ 50 ms) — all before any encoding.
   - **Stage B — produced-artifact guard, `hero:validate`, the final step of
     `pnpm hero`** (runs only once all four artifacts exist; also runnable
     standalone):
@@ -229,10 +256,13 @@ agents started in their shells via `terminals.sendInput` → provider badges con
     - **storyboard.json — exact clock/schema contract, not field presence:**
       `tourOffset === 2.0` (the storyboard's declared lead-in) and declared tour
       duration `=== 21`; every event timestamp finite, ≥ 0, ≤ master duration
-      (proving master-relative normalization), and each cue event inside its beat's
-      window; every expected marker present; every camera-target rect finite with
-      positive width/height and fully inside the 2880×1520 frame; provenance
-      complete (app version, git SHA, record date).
+      (proving master-relative normalization on the calibrated clock, §5), and each
+      cue event's calibrated dispatch time inside its beat's window — the real-run
+      proof that marker, status, and review events from all three sources normalize
+      into the correct beats; every expected marker present; every camera-target
+      rect finite with positive width/height and fully inside the 2880×1520 frame;
+      provenance complete (app version, git SHA, record date, `clockOffsetMs`,
+      `clockResidualMs`).
   Any miss at either stage → non-zero exit, artifacts kept for inspection.
 - **Provenance:** `storyboard.json` records app version, git SHA, and record date, so
   any asset shipped to ai-creed traces back to what produced it.
@@ -252,6 +282,11 @@ TDD where there is real logic; nothing new under `tests/e2e/`:
 - **`gen-camera.ts`** — unit tests: keyframe math, aspect normalization, frame
   clamping, golden filter-string test against a known storyboard.
 - **Transcript player** — unit tests with fake timers: pacing and marker emission.
+- **Clock calibration** — unit tests on the pure calibration function: median offset
+  from synthetic `(cdpTimestamp, wallClockAtReceipt)` pairs including outlier frames,
+  residual-spread computation, and the ≈ 0-offset epoch-time case. The §7 residual
+  gate (≤ 50 ms) plus the stage-B cue-window assertions are the required real-run
+  proof of cross-source normalization.
 - **Recorder orchestration** — exercised by its own validation pass (§7) plus a real
   run; glue code gets no unit tests.
 
