@@ -112,7 +112,9 @@ Two structural moves kill the prototype's flaws:
 ## 5. Storyboard "Fleet-tight" & staging
 
 Tour ≈ 21 s (4 stops). Holds ~3 s, eased glides ~2 s. Cue events fire ~0.5 s after
-the camera settles.
+the camera settles; each event's exact cue target (settle instant + 0.5 s) is
+declared in `storyboard.ts`, and §7 asserts execution within the handoff's accepted
+jitter of ±0.2 s.
 
 **Clock model (explicit):** four named instants govern all timing —
 
@@ -257,9 +259,12 @@ agents started in their shells via `terminals.sendInput` → provider badges con
       `tourOffset === 2.0` (the storyboard's declared lead-in) and declared tour
       duration `=== 21`; every event timestamp finite, ≥ 0, ≤ master duration
       (proving master-relative normalization on the calibrated clock, §5), and each
-      cue event's calibrated dispatch time inside its beat's window — the real-run
-      proof that marker, status, and review events from all three sources normalize
-      into the correct beats; every expected marker present; every camera-target
+      cue event's calibrated dispatch time within **±0.2 s of its declared cue
+      target** (the beat's camera-settle instant + 0.5 s, declared per event in
+      `storyboard.ts` — the handoff's accepted jitter): a cue that lands inside its
+      beat but outside this tolerance **fails**. This is the real-run proof that
+      marker, status, and review events from all three sources land on target, not
+      merely somewhere in the beat; every expected marker present; every camera-target
       rect finite with positive width/height and fully inside the 2880×1520 frame;
       provenance complete (app version, git SHA, record date, `clockOffsetMs`,
       `clockResidualMs`).
