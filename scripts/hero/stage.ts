@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 export type HeroWorld = {
 	repoPath: string; // demo repo root (main checkout)
 	worktrees: { claude: string; codex: string; ezio: string }; // absolute paths
-	userDataDir: string; // seeded settings.json ({"theme":"dark"})
+	userDataDir: string; // seeded settings.json ({"version":1,"theme":"dark","restorePreference":"alwaysRestore"})
 	workspaceStatePath: string; // seeded v2 workspace-state.json
 	stubBinDir: string; // claude/codex/ezio shims on PATH
 	marksPath: string; // HERO_MARKS_PATH target
@@ -182,98 +182,147 @@ function buildWorkspaceState(
  * `cleanup()` when the recording is done.
  */
 export function stageHeroWorld(rootDir: string): HeroWorld {
-	const repoPath = realpathSync(mkdtempSync(join(rootDir, "hero-demo-")));
+	// Unwind bookkeeping: every top-level temp dir mkdtemp'd so far (LIFO
+	// removal order) and every linked worktree registered with git so far
+	// (must be `worktree remove`d before its parent dir disappears). Populated
+	// as staging proceeds so a throw partway through leaves nothing behind —
+	// see the catch block below.
+	const createdDirs: string[] = [];
+	const createdWorktrees: string[] = [];
+	let demoParentDir = "";
+	let repoPath = "";
 
-	git("init -b main", repoPath);
-	git("config user.email 'hero-demo@example.com'", repoPath);
-	git("config user.name 'Hero Demo'", repoPath);
+	try {
+		// mkdtemp the PARENT dir (hero-demo-<rand>) and put the repo at a fixed
+		// `orbit-shop` name inside it — the app labels a workspace by the repo
+		// dir's basename (services/insights/store/path-identity.ts,
+		// src/features/insights/workspaceIndex.ts), so a random-suffixed repo
+		// dir would show up on camera as "HERO-DEMO-XXXXXX" instead of
+		// "ORBIT-SHOP".
+		demoParentDir = realpathSync(mkdtempSync(join(rootDir, "hero-demo-")));
+		createdDirs.push(demoParentDir);
+		mkdirSync(join(demoParentDir, "orbit-shop"), { recursive: true });
+		repoPath = realpathSync(join(demoParentDir, "orbit-shop"));
 
-	mkdirSync(join(repoPath, "src"), { recursive: true });
-	mkdirSync(join(repoPath, "docs"), { recursive: true });
-	writeFileSync(
-		join(repoPath, "package.json"),
-		JSON.stringify(PACKAGE_JSON, null, "\t") + "\n",
-	);
-	writeFileSync(join(repoPath, "src", "checkout.ts"), CHECKOUT_TS);
-	writeFileSync(join(repoPath, "src", "cart-badge.ts"), CART_BADGE_TS);
-	writeFileSync(join(repoPath, "docs", "api.md"), API_MD);
+		git("init -b main", repoPath);
+		git("config user.email 'hero-demo@example.com'", repoPath);
+		git("config user.name 'Hero Demo'", repoPath);
 
-	git("add -A", repoPath);
-	git('commit -m "initial commit"', repoPath);
+		mkdirSync(join(repoPath, "src"), { recursive: true });
+		mkdirSync(join(repoPath, "docs"), { recursive: true });
+		writeFileSync(
+			join(repoPath, "package.json"),
+			JSON.stringify(PACKAGE_JSON, null, "\t") + "\n",
+		);
+		writeFileSync(join(repoPath, "src", "checkout.ts"), CHECKOUT_TS);
+		writeFileSync(join(repoPath, "src", "cart-badge.ts"), CART_BADGE_TS);
+		writeFileSync(join(repoPath, "docs", "api.md"), API_MD);
 
-	// origin/HEAD → origin/master, mirroring create-test-repo.ts so worktree
-	// creation resolves a base ref the same way it would against a real clone.
-	git("update-ref refs/remotes/origin/main HEAD", repoPath);
-	git("update-ref refs/remotes/origin/master HEAD", repoPath);
-	git(
-		"symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/master",
-		repoPath,
-	);
+		git("add -A", repoPath);
+		git('commit -m "initial commit"', repoPath);
 
-	mkdirSync(join(repoPath, ".worktrees"), { recursive: true });
-	const worktrees = {
-		claude: stageWorktree(repoPath, "feat/checkout-retry"),
-		codex: stageWorktree(repoPath, "fix/cart-badge-count"),
-		ezio: stageWorktree(repoPath, "docs/api-examples"),
-	};
+		// origin/HEAD → origin/master, mirroring create-test-repo.ts so worktree
+		// creation resolves a base ref the same way it would against a real clone.
+		git("update-ref refs/remotes/origin/main HEAD", repoPath);
+		git("update-ref refs/remotes/origin/master HEAD", repoPath);
+		git(
+			"symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/master",
+			repoPath,
+		);
 
-	// Dirty (uncommitted) diff in codex's worktree — the review beat shows it.
-	writeFileSync(
-		join(worktrees.codex, "src", "cart-badge.ts"),
-		CART_BADGE_TS_DIRTY,
-	);
+		mkdirSync(join(repoPath, ".worktrees"), { recursive: true });
+		const worktrees = {
+			claude: stageWorktree(repoPath, "feat/checkout-retry"),
+			codex: stageWorktree(repoPath, "fix/cart-badge-count"),
+			ezio: stageWorktree(repoPath, "docs/api-examples"),
+		};
+		createdWorktrees.push(...Object.values(worktrees));
 
-	const userDataDir = realpathSync(
-		mkdtempSync(join(rootDir, "hero-userdata-")),
-	);
-	writeFileSync(
-		join(userDataDir, "settings.json"),
-		JSON.stringify({ theme: "dark" }),
-	);
+		// Dirty (uncommitted) diff in codex's worktree — the review beat shows it.
+		writeFileSync(
+			join(worktrees.codex, "src", "cart-badge.ts"),
+			CART_BADGE_TS_DIRTY,
+		);
 
-	const stateDir = realpathSync(mkdtempSync(join(rootDir, "hero-state-")));
-	const workspaceStatePath = join(stateDir, "workspace-state.json");
-	writeFileSync(
-		workspaceStatePath,
-		JSON.stringify(buildWorkspaceState(repoPath, worktrees)),
-	);
+		const userDataDir = realpathSync(
+			mkdtempSync(join(rootDir, "hero-userdata-")),
+		);
+		createdDirs.push(userDataDir);
+		// version: 1 is required by PersistedSettingsV1Schema (no default) — an
+		// unversioned file fails schema parse, the app falls back to DEFAULTS
+		// (system theme, restorePreference "prompt"), and boots into a
+		// restore-prompt modal in light theme instead of the seeded dark fleet
+		// view. restorePreference: "alwaysRestore" here also suppresses the
+		// legacy migration path that would otherwise pull alwaysRestore off of
+		// workspace-state.json instead.
+		writeFileSync(
+			join(userDataDir, "settings.json"),
+			JSON.stringify({
+				version: 1,
+				theme: "dark",
+				restorePreference: "alwaysRestore",
+			}),
+		);
 
-	const stubBinDir = realpathSync(mkdtempSync(join(rootDir, "hero-bin-")));
-	for (const name of ["claude", "codex", "ezio"] as const) {
-		writeShim(stubBinDir, name);
-	}
+		const stateDir = realpathSync(mkdtempSync(join(rootDir, "hero-state-")));
+		createdDirs.push(stateDir);
+		const workspaceStatePath = join(stateDir, "workspace-state.json");
+		writeFileSync(
+			workspaceStatePath,
+			JSON.stringify(buildWorkspaceState(repoPath, worktrees)),
+		);
 
-	const marksDir = realpathSync(mkdtempSync(join(rootDir, "hero-marks-")));
-	const marksPath = join(marksDir, "marks.jsonl");
+		const stubBinDir = realpathSync(mkdtempSync(join(rootDir, "hero-bin-")));
+		createdDirs.push(stubBinDir);
+		for (const name of ["claude", "codex", "ezio"] as const) {
+			writeShim(stubBinDir, name);
+		}
 
-	const gateDir = realpathSync(mkdtempSync(join(rootDir, "hero-gate-")));
+		const marksDir = realpathSync(mkdtempSync(join(rootDir, "hero-marks-")));
+		createdDirs.push(marksDir);
+		const marksPath = join(marksDir, "marks.jsonl");
 
-	return {
-		repoPath,
-		worktrees,
-		userDataDir,
-		workspaceStatePath,
-		stubBinDir,
-		marksPath,
-		gateDir,
-		cleanup(): void {
-			for (const path of Object.values(worktrees)) {
-				try {
-					git(`worktree remove "${path}" --force`, repoPath);
-				} catch {
-					// worktree may already be removed
+		const gateDir = realpathSync(mkdtempSync(join(rootDir, "hero-gate-")));
+		createdDirs.push(gateDir);
+
+		return {
+			repoPath,
+			worktrees,
+			userDataDir,
+			workspaceStatePath,
+			stubBinDir,
+			marksPath,
+			gateDir,
+			cleanup(): void {
+				for (const path of createdWorktrees) {
+					try {
+						git(`worktree remove "${path}" --force`, repoPath);
+					} catch {
+						// worktree may already be removed
+					}
 				}
+				for (const dir of [...createdDirs].reverse()) {
+					rmSync(dir, { recursive: true, force: true });
+				}
+			},
+		};
+	} catch (err) {
+		// Partial-staging unwind: best-effort, each removal independently
+		// guarded so one failure doesn't stop the rest from being attempted.
+		for (const path of createdWorktrees) {
+			try {
+				git(`worktree remove "${path}" --force`, repoPath);
+			} catch {
+				// best-effort — the recursive rmSync below covers this anyway
 			}
-			for (const dir of [
-				gateDir,
-				marksDir,
-				stubBinDir,
-				stateDir,
-				userDataDir,
-				repoPath,
-			]) {
+		}
+		for (const dir of [...createdDirs].reverse()) {
+			try {
 				rmSync(dir, { recursive: true, force: true });
+			} catch {
+				// best-effort unwind
 			}
-		},
-	};
+		}
+		throw err;
+	}
 }
