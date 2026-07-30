@@ -44,6 +44,7 @@ import { applyInsightsConsent } from "./insights-ipc.js";
 import type { KnownWorktree } from "../../shared/models/usage.js";
 import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
 import { ReviewCommentService } from "../../services/review/review-comment-service.js";
+import { makeInjectReviewComment } from "../../services/review/review-e2e-hook.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
 import {
 	loadOrPickPort,
@@ -271,6 +272,11 @@ app.whenReady().then(async () => {
 	);
 	const reviewCommentService = new ReviewCommentService(reviewCommentStore);
 	await reviewCommentService.init();
+	if (process.env.AI14ALL_E2E === "1") {
+		(globalThis as { __AI14ALL_E2E_HOOKS__?: object }).__AI14ALL_E2E_HOOKS__ = {
+			injectReviewComment: makeInjectReviewComment(reviewCommentService),
+		};
+	}
 
 	const worktreeService = new WorktreeService();
 
