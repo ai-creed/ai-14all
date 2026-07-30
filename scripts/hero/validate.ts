@@ -47,10 +47,16 @@ function ffprobeText(args: string[]): string {
  * consecutive deltas.
  *
  * Exported (not just used internally) so tests/unit/hero/validate-rules.test.ts's
- * real-media fixtures call THIS function — not a hand-rolled copy — to probe
- * real ffmpeg output. A copy that drifts (e.g. swaps frame= for packet=, or
- * drops the sort) is a production regression no test could see; importing
- * the real one closes that gap (fix-round-1 finding 3).
+ * real-media fixtures call THIS function — not a hand-rolled copy that could
+ * silently drift from it (fix-round-1 finding 3).
+ *
+ * What that does and does not catch, precisely: `frame=` and `packet=` return
+ * the same SET of timestamps, differing only in emission order, so with the
+ * sort below in place EITHER selector measures the same cadence — the sort is
+ * what actually defeats decode order, and swapping the selector alone would
+ * not change a result. The sort's order-sensitivity is therefore pinned
+ * directly, on `maxConsecutiveDelta`, by a unit test over a synthetic
+ * out-of-order array; the real-media fixtures prove the end-to-end outcome.
  */
 export function probeVideo(path: string): VideoProbe {
 	const streamJson = ffprobeJson([

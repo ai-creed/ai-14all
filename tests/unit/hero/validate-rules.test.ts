@@ -690,12 +690,38 @@ describe("exhaustive mutation table — every row fails for its own reason", () 
 //
 // Both tests call validate.ts's REAL `probeVideo` (imported, not
 // reimplemented) and validate-rules.ts's REAL `maxConsecutiveDelta` — a
-// hand-rolled copy of either would let a production regression (e.g.
-// swapping frame= for packet=, or dropping the sort) sail through with all
-// tests green (fix-round-1 finding 3). validate.ts only runs its CLI `main()`
-// when it's the process entry point, so importing `probeVideo` from it here
-// doesn't also execute the artifact scan against hero-dist/.
+// hand-rolled copy of either would let a production regression sail through
+// with all tests green (fix-round-1 finding 3). validate.ts only runs its CLI
+// `main()` when it's the process entry point, so importing `probeVideo` from
+// it here doesn't also execute the artifact scan against hero-dist/.
+//
+// These prove the END-TO-END outcome on real ffmpeg output. The ordering
+// contract they depend on is pinned separately and deterministically, just
+// below, because on any given fixture either half of the frame=/sort pair can
+// mask a break in the other.
 // ---------------------------------------------------------------------------
+
+describe("maxConsecutiveDelta ordering contract", () => {
+	// probeVideo sorts before measuring. That sort is the load-bearing defense
+	// against decode-order timestamps, so pin its effect on the pure function
+	// rather than on a media fixture whose emission order could coincidentally
+	// already be sorted.
+	const cfr60Presentation = [0, 1 / 60, 2 / 60, 3 / 60, 4 / 60, 5 / 60];
+	// The same six timestamps as a B-frame decode order emits them (I, P, B, B…):
+	// same SET, shuffled — which is exactly why the SELECTOR is not what saves us.
+	const cfr60DecodeOrder = [0, 3 / 60, 1 / 60, 2 / 60, 5 / 60, 4 / 60];
+
+	it("measures a tight 1/60 cadence on presentation-ordered timestamps", () => {
+		expect(maxConsecutiveDelta(cfr60Presentation)).toBeCloseTo(1 / 60, 6);
+	});
+
+	it("rejects the same timestamps walked in decode order — proving the sort carries the rule", () => {
+		expect(maxConsecutiveDelta(cfr60DecodeOrder)).toBeGreaterThan(1 / 60);
+		expect(
+			maxConsecutiveDelta([...cfr60DecodeOrder].sort((a, b) => a - b)),
+		).toBeCloseTo(1 / 60, 6);
+	});
+});
 
 function ffmpegToolingAvailable(): boolean {
 	try {
@@ -771,13 +797,16 @@ describe.skipIf(!FFMPEG_AVAILABLE)(
 			);
 			expect(pictTypes).toContain("B");
 
-			// The decode-order packet walk is the exact bug this rule guards
-			// against: with B-frames present, UNSORTED packet=pts_time deltas run
-			// from -0.033s to +0.083s on this very file — that probe would reject
-			// a perfectly valid CFR-60 file. Prove it here, through the same
-			// maxConsecutiveDelta production code path (called on unsorted decode
-			// order), so a future edit that swaps frame= back to packet= (or drops
-			// the sort) in validate.ts fails loudly.
+			// The decode-order walk is the exact bug this rule guards against:
+			// with B-frames present, UNSORTED packet=pts_time deltas run from
+			// -0.033s to +0.083s on this very file — that probe would reject a
+			// perfectly valid CFR-60 file. Prove it on real media here, through
+			// the same maxConsecutiveDelta production path. Note what this does
+			// NOT prove: swapping frame= back to packet= in validate.ts would
+			// still pass, because both selectors yield the same SET of
+			// timestamps and the sort reorders either one identically. The sort
+			// is the load-bearing part, and its order-sensitivity is pinned
+			// directly by the synthetic maxConsecutiveDelta test above.
 			const packetOut = execFileSync(
 				"ffprobe",
 				[
