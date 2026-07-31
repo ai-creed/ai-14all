@@ -2,8 +2,8 @@
 // films: a throwaway git repo with three linked worktrees (one per fleet
 // agent), a userData dir + workspace-state.json seeded so the app boots
 // straight into the fleet view, and PATH shims that make `claude`/`codex`/
-// `ezio` resolve to the transcript player (Task 3) instead of real agent
-// CLIs.
+// `ezio` — plus the two demo panes' `watch-tests`/`dev-server` — resolve to
+// the transcript player (Task 3) instead of real CLIs.
 import {
 	mkdtempSync,
 	mkdirSync,
@@ -21,7 +21,7 @@ export type HeroWorld = {
 	worktrees: { claude: string; codex: string; ezio: string }; // absolute paths
 	userDataDir: string; // seeded settings.json ({"version":1,"theme":"dark","restorePreference":"alwaysRestore"})
 	workspaceStatePath: string; // seeded v2 workspace-state.json
-	stubBinDir: string; // claude/codex/ezio shims on PATH
+	stubBinDir: string; // SHIMS (agent + demo-player commands) on PATH
 	marksPath: string; // HERO_MARKS_PATH target
 	gateDir: string; // HERO_GATE_DIR — recorder writes gate files here
 	cleanup(): void;
@@ -33,6 +33,38 @@ type AgentName = "claude" | "codex" | "ezio";
 // rather than process.cwd() so the shims work regardless of who invokes
 // stageHeroWorld() from where.
 const HERO_DIR = dirname(fileURLToPath(import.meta.url));
+
+/** The two demo-player commands the recorder types into the fleet beat's
+ * extra slots. Named for what their pane DISPLAYS, not after the fixture file
+ * behind them, because the typed command line is legible on camera and has to
+ * read as a plausible project command (spec §9). Exported so record.ts types
+ * the shim name and never a `node <absolute path>` command line. */
+export const WATCH_TESTS_COMMAND = "watch-tests"; // streams vitest output
+export const DEV_SERVER_COMMAND = "dev-server"; // streams HTTP request logs
+
+/** One PATH shim: the one-word command a terminal pane is driven with, and
+ * the transcript-player invocation it hides. */
+type ShimSpec = {
+	command: string; // what the recorder types — appears on camera
+	transcript: string; // basename under transcripts/, without .jsonl
+	title?: AgentName; // OSC-0 window title → sidebar provider badge
+	loop?: boolean; // replay the transcript forever
+};
+
+/** Agent shims MUST NOT loop — a second pass would re-emit the `commit-line`
+ * marker and break the recorder's cue timing. Only the demo players (which
+ * write no markers) loop, so their panes keep streaming for the whole tour. */
+const SHIMS: ShimSpec[] = [
+	{ command: "claude", transcript: "claude", title: "claude" },
+	{ command: "codex", transcript: "codex", title: "codex" },
+	{ command: "ezio", transcript: "ezio", title: "ezio" },
+	{
+		command: WATCH_TESTS_COMMAND,
+		transcript: "demo-tests",
+		loop: true,
+	},
+	{ command: DEV_SERVER_COMMAND, transcript: "demo-dev", loop: true },
+];
 
 const PACKAGE_JSON = { name: "orbit-shop", private: true };
 
@@ -115,11 +147,18 @@ function stageWorktree(repoPath: string, branch: string): string {
 	return realpathSync(dir);
 }
 
-function writeShim(stubBinDir: string, name: AgentName): void {
+function writeShim(stubBinDir: string, spec: ShimSpec): void {
 	const agentPlayerPath = join(HERO_DIR, "agent-player.mjs");
-	const transcriptPath = join(HERO_DIR, "transcripts", `${name}.jsonl`);
-	const script = `#!/bin/sh\nexec node "${agentPlayerPath}" --transcript "${transcriptPath}" --title ${name}\n`;
-	const shimPath = join(stubBinDir, name);
+	const transcriptPath = join(
+		HERO_DIR,
+		"transcripts",
+		`${spec.transcript}.jsonl`,
+	);
+	const args = [`--transcript "${transcriptPath}"`];
+	if (spec.title) args.push(`--title ${spec.title}`);
+	if (spec.loop) args.push("--loop");
+	const script = `#!/bin/sh\nexec node "${agentPlayerPath}" ${args.join(" ")}\n`;
+	const shimPath = join(stubBinDir, spec.command);
 	writeFileSync(shimPath, script);
 	chmodSync(shimPath, 0o755);
 }
@@ -176,10 +215,10 @@ function buildWorkspaceState(
  * repo with a fleet worktree per agent (claude on the checkout-retry
  * feature, codex on the cart-badge fix — left dirty for the review beat —
  * ezio on API docs), a seeded userData dir + workspace-state.json so the app
- * restores straight into the fleet view, and PATH shims that route
- * `claude`/`codex`/`ezio` through the transcript player instead of spawning
- * real agent CLIs. All temp dirs are created under `rootDir`; call
- * `cleanup()` when the recording is done.
+ * restores straight into the fleet view, and PATH shims that route every
+ * on-camera command (`claude`/`codex`/`ezio` plus `watch-tests`/`dev-server`)
+ * through the transcript player instead of spawning real CLIs. All temp dirs
+ * are created under `rootDir`; call `cleanup()` when the recording is done.
  */
 export function stageHeroWorld(rootDir: string): HeroWorld {
 	// Unwind bookkeeping: every top-level temp dir mkdtemp'd so far (LIFO
@@ -274,8 +313,8 @@ export function stageHeroWorld(rootDir: string): HeroWorld {
 
 		const stubBinDir = realpathSync(mkdtempSync(join(rootDir, "hero-bin-")));
 		createdDirs.push(stubBinDir);
-		for (const name of ["claude", "codex", "ezio"] as const) {
-			writeShim(stubBinDir, name);
+		for (const spec of SHIMS) {
+			writeShim(stubBinDir, spec);
 		}
 
 		const marksDir = realpathSync(mkdtempSync(join(rootDir, "hero-marks-")));

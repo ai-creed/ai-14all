@@ -27,7 +27,12 @@ import {
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-import { stageHeroWorld, type HeroWorld } from "./stage.js";
+import {
+	stageHeroWorld,
+	DEV_SERVER_COMMAND,
+	WATCH_TESTS_COMMAND,
+	type HeroWorld,
+} from "./stage.js";
 import {
 	calibrateClock,
 	cdpToWallMs,
@@ -50,9 +55,6 @@ import type { CreateInput } from "../../services/review/review-comment-service.j
 const HERO_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERO_DIR, "..", "..");
 const HERO_DIST_DIR = join(REPO_ROOT, "hero-dist");
-const AGENT_PLAYER_PATH = join(HERO_DIR, "agent-player.mjs");
-const DEMO_TESTS_TRANSCRIPT = join(HERO_DIR, "transcripts", "demo-tests.jsonl");
-const DEMO_DEV_TRANSCRIPT = join(HERO_DIR, "transcripts", "demo-dev.jsonl");
 
 type AgentName = "claude" | "codex" | "ezio";
 
@@ -161,6 +163,16 @@ async function waitForFile(
  * the stub dir — that file is sourced AFTER `/etc/zprofile`'s path_helper
  * (login-shell order: /etc/zprofile, ~/.zprofile, /etc/zshrc, ~/.zshrc), so
  * it wins. Verified live against this exact path_helper/Homebrew collision.
+ *
+ * The same ZDOTDIR also carries a `.zshrc` that overrides the PROMPT. macOS's
+ * `/etc/zshrc` sets `PS1="%n@%m %1~ %# "` — a real username and hostname,
+ * legible in every terminal pane for the whole tour, which spec §9's
+ * claims-safety checklist forbids on camera. `/etc/zshrc` is sourced AFTER
+ * `$ZDOTDIR/.zprofile` (so the prompt cannot be fixed there) and BEFORE
+ * `$ZDOTDIR/.zshrc`, so `.zshrc` is the only file in the scratch ZDOTDIR that
+ * wins. `%1~` keeps the worktree/branch dir name — that part is good demo
+ * content — and drops `%n@%m`. PATH is untouched by `/etc/zshrc`, so the
+ * shims still resolve first (verified live).
  */
 function setUpShellPathOverride(
 	rootDir: string,
@@ -171,11 +183,19 @@ function setUpShellPathOverride(
 		join(zdotDir, ".zprofile"),
 		`export PATH="${stubBinDir}:$PATH"\n`,
 	);
+	writeFileSync(join(zdotDir, ".zshrc"), "PROMPT='%1~ %# '\n");
 	return { zdotDir };
 }
 
+// Every file any stage of the pipeline writes into hero-dist/. `tour.mp4` and
+// `tour-filter.txt` are hero:render's outputs, cleared here too: without that,
+// a failed record followed by a standalone `hero:record` + `hero:validate`
+// (both documented in the README) would let stage B PASS a stale tour from an
+// unrelated capture and ship it beside a mismatched storyboard/poster.
 const STALE_HERO_DIST_ENTRIES = [
 	"master.mp4",
+	"tour.mp4",
+	"tour-filter.txt",
 	"poster.png",
 	"storyboard.json",
 	"frame-times.json",
@@ -184,9 +204,10 @@ const STALE_HERO_DIST_ENTRIES = [
 ];
 
 /** A failed run's leftovers must never mix with a later run's — clear
- * hero-dist/ at the start of every run (not just on success), then recreate
- * it fresh. Without this, a failed run's frames/frame-times/poster can splice
- * against a stale master/storyboard from an earlier, unrelated run. */
+ * `frames/` plus every entry in STALE_HERO_DIST_ENTRIES at the start of every
+ * run (not just on success), then recreate the directory fresh. Without this,
+ * a failed run's frames/frame-times/poster can splice against a stale
+ * master/tour/storyboard from an earlier, unrelated run. */
 function clearHeroDist(): void {
 	rmSync(join(HERO_DIST_DIR, "frames"), { recursive: true, force: true });
 	for (const name of STALE_HERO_DIST_ENTRIES) {
@@ -295,12 +316,6 @@ async function openReviewAndSelectCartBadge(page: Page): Promise<void> {
 	await fileButton.click({ force: true });
 }
 
-async function measureRectDevicePx(locator: Locator): Promise<Rect> {
-	const box = await locator.boundingBox();
-	if (!box) throw new Error("[measure] boundingBox() returned null");
-	return { x: box.x * 2, y: box.y * 2, w: box.width * 2, h: box.height * 2 };
-}
-
 /** Sidebar target is a TOP-ANCHORED SLICE, not the full measured pane: a
  * full-height sidebar rect saturates aspect normalization to a no-zoom
  * full-frame crop (Task 2 adjudication, carried into Task 7). Same x/y/w as
@@ -310,6 +325,45 @@ async function measureSidebarRect(page: Page): Promise<Rect> {
 	if (!box)
 		throw new Error("[measure] .shell-sidebar boundingBox() returned null");
 	return { x: box.x * 2, y: box.y * 2, w: box.width * 2, h: 520 };
+}
+
+/** Review target is a TOP-ANCHORED SLICE of the DIFF PANE, not the whole
+ * expanded portal — same adjudication Task 2 made for the sidebar. The
+ * portal's measured rect is 2304x1416 of a 2880x1520 frame; after the 6%
+ * margin and aspect normalization that clamps to ~2845x1501, a 1.012x "zoom",
+ * so the review beat, its transition and the pullback render as one static
+ * full-frame shot and the spec's push-in never happens on screen.
+ *
+ * The diff pane is what the beat is actually about: the changed file plus the
+ * inline comment thread injected at line 3, which mounts near the pane's top.
+ * Its measured width (~1646 device px) is what sets the crop — normalization
+ * grows it by the 6% margin to ~1745 and derives the height from the aspect
+ * (~920), a genuine ~1.65x push-in. The height cap below is therefore a
+ * VERTICAL ANCHOR rather than a size: it puts the crop's centre 350 CSS px
+ * under the pane's top edge, which frames the file header, the BADGE_MAX
+ * line, the whole comment card and the reduce/Math.min hunk without spending
+ * frame on the app's top chrome.
+ *
+ * Measured by class, not by testid: no `data-testid` exists on the diff pane
+ * (the review surface's testids are the portal, the grid, the rail and the
+ * minimap — all portal-sized), and a stable class selector is already how
+ * `measureSidebarRect` targets `.shell-sidebar`. Scoped under the portal so it
+ * can never match a viewer rendered elsewhere in the app. */
+const REVIEW_SLICE_H = 700;
+
+async function measureReviewSurfaceRect(page: Page): Promise<Rect> {
+	const box = await page
+		.locator('[data-testid="review-expanded-portal"] .shell-viewer-panel')
+		.boundingBox();
+	if (!box) {
+		throw new Error("[measure] review diff pane boundingBox() returned null");
+	}
+	return {
+		x: box.x * 2,
+		y: box.y * 2,
+		w: box.width * 2,
+		h: Math.min(box.height * 2, REVIEW_SLICE_H),
+	};
 }
 
 async function measureUnionRectDevicePx(locators: Locator[]): Promise<Rect> {
@@ -1053,23 +1107,19 @@ async function arrange(
 	await waitVisible(page.getByTestId("slot-cta-1"), "slot-cta-1");
 	await waitVisible(page.getByTestId("slot-cta-2"), "slot-cta-2");
 
+	// Both demo panes are driven through their PATH shim (stage.ts SHIMS), NOT
+	// a raw `node <abs path> --transcript <abs path>` line: the typed command is
+	// legible on camera for the whole fleet beat, and a real repo path there is
+	// a spec §9 claims-safety violation (and gives the fixture away).
 	await page.getByTestId("slot-cta-1").click();
 	await waitVisible(page.getByTestId("slot-1"), "slot-1-filled");
 	const slot1Sid = await getSlotSessionId(page, 1);
-	await sendInput(
-		page,
-		slot1Sid,
-		`node "${AGENT_PLAYER_PATH}" --transcript "${DEMO_TESTS_TRANSCRIPT}" --loop\r`,
-	);
+	await sendInput(page, slot1Sid, `${WATCH_TESTS_COMMAND}\r`);
 
 	await page.getByTestId("slot-cta-2").click();
 	await waitVisible(page.getByTestId("slot-2"), "slot-2-filled");
 	const slot2Sid = await getSlotSessionId(page, 2);
-	await sendInput(
-		page,
-		slot2Sid,
-		`node "${AGENT_PLAYER_PATH}" --transcript "${DEMO_DEV_TRANSCRIPT}" --loop\r`,
-	);
+	await sendInput(page, slot2Sid, `${DEV_SERVER_COMMAND}\r`);
 
 	targetRects["terminal-grid"] = await measureUnionRectDevicePx([
 		page.locator('[data-testid="slot-0"]'),
@@ -1099,9 +1149,15 @@ async function arrange(
 	// until the on-cue `open-review` choreography re-opens it at tour 13.0.
 	await switchToWorktree(page, WORKTREE_NAME_RE.codex);
 	await openReviewAndSelectCartBadge(page);
-	targetRects["review-surface"] = await measureRectDevicePx(
-		page.locator('[data-testid="review-expanded-portal"]'),
+	// Wait for the diff itself to render before measuring — the pane is a grid
+	// cell whose geometry doesn't depend on its content, but measuring a
+	// "Loading diff…" placeholder would mean the rect was never checked against
+	// the surface the beat actually films.
+	await waitVisible(
+		page.locator('[data-testid="review-expanded-portal"] .shell-viewer'),
+		"review-diff-viewer",
 	);
+	targetRects["review-surface"] = await measureReviewSurfaceRect(page);
 	await page.keyboard.press("Escape");
 	// The portal's own "detached" wait can't distinguish a real close from a
 	// still-mounted-but-occluded element — assert the count itself hits 0.
