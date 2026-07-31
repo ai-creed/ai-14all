@@ -48,10 +48,18 @@ describe("row viewed toggle layout", () => {
 		expect(r).toMatch(/right:\s*8px/);
 	});
 
-	it("reserves right-hand space on the open row so the chip never overlaps content", () => {
-		expect(rule(".shell-list__item-row--has-toggle .shell-list__item")).toMatch(
-			/padding-right:/,
-		);
+	// The chip is out of flow, so this reserve is the only thing keeping row
+	// content out from under it. Measured in Electron across all four themes,
+	// the widest chip (`○ Mark viewed`) is 97.5px plus its 8px `right` inset =
+	// 105.5px; a 100px reserve let it cover the status letter by ~4.5px. jsdom
+	// cannot compute layout, so the floor is pinned here as CSS text instead.
+	const CHIP_FOOTPRINT_PX = 106;
+
+	it("reserves more right-hand space than the chip's widest footprint", () => {
+		const r = rule(".shell-list__item-row--has-toggle .shell-list__item");
+		const reserve = /padding-right:\s*(\d+)px/.exec(r);
+		expect(reserve).not.toBeNull();
+		expect(Number(reserve?.[1])).toBeGreaterThanOrEqual(CHIP_FOOTPRINT_PX);
 	});
 
 	it("truncates long file names with an ellipsis so the row never overflows", () => {

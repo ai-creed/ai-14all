@@ -197,9 +197,18 @@
 	}
 
 	/* Reserve top-right space on the open row so the absolutely-positioned "Viewed"
-	   chip never overlaps the filename or the status badge. */
+	   chip never overlaps the filename or the status badge. The chip is out of
+	   flow, so this reserve is the ONLY thing holding content out from under it
+	   and has to be at least its widest footprint: measured in Electron across
+	   all four themes, `○ Mark viewed` (the unreviewed label — `✓ Viewed` is
+	   33px narrower) is 105.5px wide including its 8px `right` inset. A 100px
+	   reserve therefore left the chip covering the status letter by ~4.5px;
+	   110px clears it by 5.5px while keeping the filename's share of a narrow
+	   rail as large as possible. Pinned by
+	   tests/unit/styles/row-viewed-toggle-layout.test.ts — re-measure before
+	   changing either this value or the chip's label/padding/inset. */
 	.shell-list__item-row--has-toggle .shell-list__item {
-		padding-right: 100px;
+		padding-right: 110px;
 	}
 
 	/* Truncate long file names so a name with no break points can't force the row
