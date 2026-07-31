@@ -4,6 +4,41 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] – 2026-07-31
+
+A patch release for an insights dashboard that could get stuck showing a store-read error in a long-running app, and for a review-pane chip that sat on top of the filename beside it. Most of this release's commits are internal: a fixture-driven pipeline for recording the hero video, which ships no app code.
+
+### Fixed
+
+- **The insights dashboard no longer gets stuck on "could not be read".** In an app left running for hours, opening insights could show the store-unavailable state permanently — retry did nothing — while the insights database was demonstrably healthy. The failing subsystem was token usage, and two defects composed. A batch step ran inside a callback the surrounding promise had already returned from, catching nothing and rejecting nothing, so an ordinary filesystem error — an agent CLI rotating its log out from under a sweep — became an uncaught exception that killed the usage worker outright. The host registered no exit handler, so the dead worker's handle stayed non-null: reads sailed past the liveness guard, posted into a closed pipe, and could only settle by timing out, which the dashboard renders as its error state. And because retry re-ran the same dead read, the state was absorbing. The worker is now supervised — the host notices the exit, settles in-flight reads, and re-forks while capture is enabled, bounded at five consecutive failures so a worker that always dies cannot spin forever. Sweep failures are recoverable rather than fatal: a per-file pass is now all-or-nothing (a mid-file failure used to leave tokens counted against an un-advanced offset, so every retry re-counted the same lines, compounding without bound), a file that fails three times running is quarantined instead of stalling the sweep, and a file that vanishes or turns unreadable mid-read is left for the next pass with its offset intact rather than silently skipped.
+- **The dashboard error names the store that actually failed.** Three of the five paths into the error state are token-usage reads, but every one of them blamed "the local insights database" — which sent a real bug report at the wrong subsystem. Usage failures now read "token usage unavailable"; only genuine insights-store failures name the insights database.
+- **The "Mark viewed" pill no longer overlaps the filename.** In the review and commits file lists, the chip's opaque background covered the unreviewed row's status glyph by a few pixels, leaving a clipped fragment poking out beside it; reviewed rows have a shorter label and cleared it, which is why it survived. The row's right reserve is now sized to the chip's measured footprint, so long names truncate beside the chip instead of sliding under it. Purely a spacing value — no color, radius, or chrome change, verified identical in all four themes.
+
+## [1.9.0] – 2026-07-30
+
+This release adds insights: a private, local record of how you actually use the app — focused time, ai-whisper workflow runs, token burn — and a dashboard to read it, either as an in-app overlay or as its own detachable window. Capture is a default-on sub-setting of usage telemetry with a one-time notice, everything stays in a local database that never leaves the machine, and one action deletes all of it. Paired phones also gain a visible push wake, so a backgrounded phone can be told a terminal wants attention.
+
+### Added
+
+- **Local insights capture.** A local SQLite store records app focus/idle spans and archives ai-whisper workflow runs, behind a `usageTelemetry.insights` sub-setting (default-on) with its own Settings toggle, a one-time first-capture notice, and a delete-all action that clears the store and restarts capture cleanly. Capture is consent-gated at capture time — disabling it stops collection immediately and drains what is in flight. The collector survives a worker crash through a bounded at-least-once outbox with replay-before-pending on respawn, writes are idempotent and payload-allowlisted, and retention prunes observations and coverage in lockstep on UTC-day rollover.
+- **The insights dashboard.** Reachable from the chip bar and the command palette, over today / 7d / 30d / all. The overview shows app time as an area chart, rhythm as average focused minutes per local hour, ai-whisper runs by status, and token burn per day; a workspaces view breaks the same period down per worktree. The footer states honestly how much of the selected range the local store actually covers, so a partial history reads as partial rather than as a dip, and the empty, loading, and error states are distinguishable surfaces rather than an empty chart.
+- **A detachable dashboard window.** The dashboard pops out into its own window — a singleton, opened at the app's size, remembering an in-session resize — and reattaches to the overlay on demand. It closes with the main window rather than stranding itself.
+- **Exact-range token-usage queries.** The usage worker answers an exact-range rollup query, and any renderer window can pull it over a correlated `usage:queryRange` request. Day walks re-normalize across DST boundaries and snap to day-aligned windows, and all-history reads emit sparse days, so an "all" total is exact rather than truncated at a span cap.
+- **Visible push wake for a backgrounded phone (push-wake v2).** A content-free push notification wakes a paired phone when an agent wants attention, gated by a two-detector watcher — attention state plus a generation-bound live-connection signal, so a phone already connected is not woken — with every decision recorded in an exact audit log.
+
+## [1.8.2] – 2026-07-28
+
+A small release that rebuilds the paired-phone view in Settings around what each device is actually allowed to do, and adds a third way for a phone to reach its host.
+
+### Added
+
+- **Tailscale is offered as a direct reach candidate.** The pairing offer now advertises the host's auto-detected Tailscale IPv4 — and `XBP_REACH_HOST` when set — alongside the LAN address and the relay, so a phone off the home network can connect directly instead of falling through to the relay.
+- **A `control:inspect` row in the ledger.** The paired-device view said a phone could type into terminals while saying nothing about it reading them — `control:inspect` is what grants reading agent terminal output, and every phone paired since the input release already holds it. It now states itself, next to the write grant it pairs with. There is no switch: re-pairing is the only way to change it, and the row says so rather than implying a control that does not exist.
+
+### Changed
+
+- **The paired-device card is a capability ledger.** Each capability the device holds is its own row, stating what it actually permits; the ones that can be disarmed live carry a switch, and the ones that cannot are plain facts rather than dead controls. A switch now reverts if the setting fails to reach disk, so it can never sit showing "disarmed" while the host is still armed. The relay URL moved into a disclosure at the bottom of the panel — set-once and empty for most people, it should not outrank the device card — and unpair is quieter: still destructive, no longer the loudest thing on screen. The panel is sized to the pairing flow, so pairing does not clip at the bottom.
+
 ## [1.8.1] – 2026-07-27
 
 A patch release for two ways the app could get stuck: a throwaway shell that survived its own close confirmation and wedged on screen, and a macOS update that hid the window instead of installing.
