@@ -12,7 +12,10 @@ import {
 	type AsExecutedStoryboard,
 	type VideoProbe,
 } from "../../../scripts/hero/validate-rules";
-import { probeVideo } from "../../../scripts/hero/validate";
+import {
+	parsePresentationPtsTimes,
+	probeVideo,
+} from "../../../scripts/hero/validate";
 import { FLEET_TIGHT } from "../../../scripts/hero/storyboard";
 
 // ---------------------------------------------------------------------------
@@ -715,11 +718,67 @@ describe("maxConsecutiveDelta ordering contract", () => {
 		expect(maxConsecutiveDelta(cfr60Presentation)).toBeCloseTo(1 / 60, 6);
 	});
 
-	it("rejects the same timestamps walked in decode order — proving the sort carries the rule", () => {
+	it("rejects the same timestamps walked in decode order — proving order is what matters", () => {
 		expect(maxConsecutiveDelta(cfr60DecodeOrder)).toBeGreaterThan(1 / 60);
 		expect(
 			maxConsecutiveDelta([...cfr60DecodeOrder].sort((a, b) => a - b)),
 		).toBeCloseTo(1 / 60, 6);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// The PRODUCTION sort — the two tests above sort in the TEST, so they pin
+// maxConsecutiveDelta's order-sensitivity and nothing else, and the real-media
+// fixtures below survive a deleted sort because ffprobe already emits
+// frame=pts_time in presentation order. Deleting validate.ts's sort therefore
+// used to leave the whole suite green. These tests assert on what the real
+// production step RETURNS, with no sorting of their own.
+// ---------------------------------------------------------------------------
+
+describe("parsePresentationPtsTimes — validate.ts's production sort", () => {
+	/** Six CFR-60 timestamps exactly as ffprobe's `csv=p=0` writes them (six
+	 * decimals), emitted in B-frame DECODE order — I P B B, then P B B. */
+	const decodeOrderCsv =
+		[
+			"0.000000",
+			"0.050000",
+			"0.016667",
+			"0.033333",
+			"0.083333",
+			"0.066667",
+		].join("\n") + "\n";
+
+	it("returns decode-ordered timestamps in presentation order", () => {
+		// Direct pin: delete the `.sort()` in validate.ts and this row fails on
+		// the first element pair, before any cadence maths is involved.
+		expect(parsePresentationPtsTimes(decodeOrderCsv)).toEqual([
+			0.0, 0.016667, 0.033333, 0.05, 0.066667, 0.083333,
+		]);
+	});
+
+	it("feeds maxConsecutiveDelta a tight 1/60 cadence from a decode-ordered probe", () => {
+		// The end-to-end consequence, assembled the way probeVideo assembles it:
+		// unsorted this measures 0.05s and checkMaster rejects a valid CFR-60
+		// master as "not exactly CFR 60".
+		expect(
+			maxConsecutiveDelta(parsePresentationPtsTimes(decodeOrderCsv)),
+		).toBeCloseTo(1 / 60, 5);
+	});
+
+	it("does not launder genuinely uneven presentation spacing into a pass", () => {
+		// Reordering must not close a hole that exists in the timestamps
+		// themselves — a real VFR file still fails.
+		const vfrCsv = "0.000000\n0.016667\n0.500000\n0.516667\n";
+		expect(maxConsecutiveDelta(parsePresentationPtsTimes(vfrCsv))).toBeCloseTo(
+			0.483333,
+			5,
+		);
+	});
+
+	it("drops ffprobe's trailing blank line and any non-numeric row", () => {
+		expect(parsePresentationPtsTimes("0.033333\n\n0.000000\nN/A\n")).toEqual([
+			0.0, 0.033333,
+		]);
 	});
 });
 
@@ -805,8 +864,9 @@ describe.skipIf(!FFMPEG_AVAILABLE)(
 			// NOT prove: swapping frame= back to packet= in validate.ts would
 			// still pass, because both selectors yield the same SET of
 			// timestamps and the sort reorders either one identically. The sort
-			// is the load-bearing part, and its order-sensitivity is pinned
-			// directly by the synthetic maxConsecutiveDelta test above.
+			// is the load-bearing part, and it is pinned directly by the
+			// parsePresentationPtsTimes tests above — this fixture cannot pin it,
+			// because ffprobe hands it presentation order to begin with.
 			const packetOut = execFileSync(
 				"ffprobe",
 				[

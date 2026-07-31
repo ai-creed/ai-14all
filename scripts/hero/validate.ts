@@ -38,25 +38,40 @@ function ffprobeText(args: string[]): string {
 }
 
 /**
- * Cadence MUST be measured on presentation-ordered timestamps: `packet=
- * pts_time` is emitted in DECODE order, and with libx264 B-frames a
- * perfectly valid CFR-60 file shows packet deltas anywhere from -0.033s to
- * +0.083s — a naive packet walk rejects correct output. `frame=pts_time`
- * gives presentation order already; SORT it numerically anyway (defense in
- * depth against any ffprobe/container quirk that reorders it) before taking
- * consecutive deltas.
+ * Parse ffprobe's `frame=pts_time` CSV into the PRESENTATION-ORDERED timestamps
+ * the cadence rule measures.
  *
+ * The numeric sort is the whole point of this function, and it is load-bearing:
+ * `packet=pts_time` is emitted in DECODE order, and with libx264 B-frames a
+ * perfectly valid CFR-60 file shows packet deltas anywhere from -0.033s to
+ * +0.083s — a naive decode-order walk rejects correct output. `frame=pts_time`
+ * happens to arrive in presentation order already, so the sort is defense in
+ * depth against any ffprobe/container quirk that reorders it.
+ *
+ * That "happens to" is exactly why this is its own exported step. While the
+ * sort lived inline in `probeVideo`, deleting it left every test green: the
+ * real-media fixtures survived because ffprobe had already ordered their
+ * frames, and the synthetic ordering test sorted IN THE TEST, pinning
+ * `maxConsecutiveDelta` rather than production. tests/unit/hero/
+ * validate-rules.test.ts now asserts on what THIS function returns for a
+ * deliberately decode-ordered input, so removing the sort fails a test.
+ *
+ * Note what is NOT load-bearing: `frame=` vs `packet=` return the same SET of
+ * timestamps, differing only in emission order, so with the sort in place
+ * either selector measures the same cadence.
+ */
+export function parsePresentationPtsTimes(ptsCsv: string): number[] {
+	return ptsCsv
+		.split("\n")
+		.map((line) => Number.parseFloat(line.split(",")[0] ?? ""))
+		.filter((v) => Number.isFinite(v))
+		.sort((a, b) => a - b);
+}
+
+/**
  * Exported (not just used internally) so tests/unit/hero/validate-rules.test.ts's
  * real-media fixtures call THIS function — not a hand-rolled copy that could
  * silently drift from it (fix-round-1 finding 3).
- *
- * What that does and does not catch, precisely: `frame=` and `packet=` return
- * the same SET of timestamps, differing only in emission order, so with the
- * sort below in place EITHER selector measures the same cadence — the sort is
- * what actually defeats decode order, and swapping the selector alone would
- * not change a result. The sort's order-sensitivity is therefore pinned
- * directly, on `maxConsecutiveDelta`, by a unit test over a synthetic
- * out-of-order array; the real-media fixtures prove the end-to-end outcome.
  */
 export function probeVideo(path: string): VideoProbe {
 	const streamJson = ffprobeJson([
@@ -86,11 +101,7 @@ export function probeVideo(path: string): VideoProbe {
 		"csv=p=0",
 		path,
 	]);
-	const ptsTimes = ptsOut
-		.split("\n")
-		.map((line) => Number.parseFloat(line.split(",")[0] ?? ""))
-		.filter((v) => Number.isFinite(v))
-		.sort((a, b) => a - b);
+	const ptsTimes = parsePresentationPtsTimes(ptsOut);
 	const maxPtsDeltaSec = maxConsecutiveDelta(ptsTimes);
 
 	const audioOut = ffprobeText([
