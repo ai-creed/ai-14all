@@ -110,6 +110,13 @@ export interface DashboardFooter {
 
 export interface DashboardData {
 	status: "loading" | "live" | "empty" | "error";
+	/**
+	 * WHICH store failed, when `status === "error"`. Three of the five error
+	 * branches below are usage reads, not insights ones, and the panel used to
+	 * blame "the local insights database" for all of them — which sent a real
+	 * bug report at the wrong subsystem and cost hours of falsification.
+	 */
+	errorSource: "insights" | "usage" | null;
 	range: RangeKey;
 	setRange(r: RangeKey): void;
 	view: "overview" | "workspaces";
@@ -229,6 +236,8 @@ export function useInsightsDashboardData(
 	const [range, setRange] = useState<RangeKey>("7d");
 	const [view, setView] = useState<"overview" | "workspaces">("overview");
 	const [status, setStatus] = useState<DashboardData["status"]>("loading");
+	const [errorSource, setErrorSource] =
+		useState<DashboardData["errorSource"]>(null);
 	const [updatedAt, setUpdatedAt] = useState<number | null>(null);
 	const [domain, setDomain] = useState<Domain | null>(null);
 	const [series, setSeries] = useState<InsightsAppTimeSeries | null>(null);
@@ -313,6 +322,7 @@ export function useInsightsDashboardData(
 
 		if (!anchorsResult.ok) {
 			if (generationRef.current !== my) return; // superseded — discard
+			setErrorSource("insights");
 			setStatus("error");
 			setUpdatedAt(Date.now());
 			return;
@@ -328,6 +338,7 @@ export function useInsightsDashboardData(
 		} else {
 			// "timeout" -> error, per §4.1/§6.
 			if (generationRef.current !== my) return; // superseded — discard
+			setErrorSource("usage");
 			setStatus("error");
 			setUpdatedAt(Date.now());
 			return;
@@ -349,6 +360,7 @@ export function useInsightsDashboardData(
 			} else {
 				// "timeout" -> error, mirroring the domain probe's handling above.
 				if (generationRef.current !== my) return; // superseded — discard
+				setErrorSource("usage");
 				setStatus("error");
 				setUpdatedAt(Date.now());
 				return;
@@ -406,6 +418,7 @@ export function useInsightsDashboardData(
 
 		if (!seriesResult.ok || !runsResult.ok || !rhythmResult.ok) {
 			if (generationRef.current !== my) return; // superseded — discard
+			setErrorSource("insights");
 			setStatus("error");
 			setUpdatedAt(Date.now());
 			return;
@@ -430,6 +443,7 @@ export function useInsightsDashboardData(
 			} else {
 				// "timeout" -> error, mirroring the other usage reads above.
 				if (generationRef.current !== my) return; // superseded — discard
+				setErrorSource("usage");
 				setStatus("error");
 				setUpdatedAt(Date.now());
 				return;
@@ -509,6 +523,7 @@ export function useInsightsDashboardData(
 		setTiles({ focusedMs, engagedMs, runCounts, tokens, costUsd });
 		setWsRows(rows);
 		setFooter(footerData);
+		setErrorSource(null); // a completed cycle clears any prior failure
 		setStatus(isEmpty ? "empty" : "live");
 		setUpdatedAt(Date.now());
 	}, []);
@@ -552,6 +567,7 @@ export function useInsightsDashboardData(
 
 	return {
 		status,
+		errorSource,
 		range,
 		setRange,
 		view,

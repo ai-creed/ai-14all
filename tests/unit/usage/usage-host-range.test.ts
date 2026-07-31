@@ -396,13 +396,32 @@ describe("UsageHost re-fork budget", () => {
 		await expect(p).resolves.toEqual({ ok: false, reason: "disabled" });
 	});
 
-	it("re-enabling after a give-up clears the budget and forks again", () => {
+	// `settings:write` calls setEnabled for EVERY usage-telemetry patch (chip
+	// range, include-untracked, even an insights-only change), so an
+	// unconditional reset there is a second way to re-arm a crash loop with no
+	// healthy worker — the exact thing the readiness-only rule exists to stop.
+	it("a repeated setEnabled(true) from an unrelated settings patch does NOT re-arm the budget", () => {
+		const { host, procs, forks } = startedWithForkQueue(12);
+		for (let i = 0; i < 10; i++) procs[i].emit("exit", 1);
+		expect(forks()).toBe(6); // budget spent
+		expect(host.hasGivenUp).toBe(true);
+
+		// Telemetry was already enabled; this is a chip-range/untracked patch.
+		host.setEnabled(true);
+		host.setEnabled(true);
+
+		expect(forks()).toBe(6); // still spent — no new worker
+		expect(host.hasGivenUp).toBe(true);
+	});
+
+	it("a real disable -> enable transition DOES clear the budget", () => {
 		const { host, procs, forks } = startedWithForkQueue(12);
 		for (let i = 0; i < 10; i++) procs[i].emit("exit", 1);
 		expect(forks()).toBe(6);
 		expect(host.hasGivenUp).toBe(true);
 
-		host.setEnabled(true);
+		host.setEnabled(false); // user turns telemetry off...
+		host.setEnabled(true); // ...then back on: a genuine transition
 		expect(forks()).toBe(7);
 		expect(host.hasGivenUp).toBe(false);
 	});

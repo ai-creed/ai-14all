@@ -6,12 +6,12 @@ import { buildSnapshot } from "../../../services/usage/snapshot.js";
 import { saveState } from "../../../services/usage/ledger-store.js";
 import {
 	type SweepState,
-	SweepFileError,
 	createSweepState,
 	loadPersistedState,
 	recoverCodexLimits,
 	sweepFiles,
 } from "../../../services/usage/sweep.js";
+import { createSweepRunner } from "../../../services/usage/sweep-runner.js";
 import type {
 	MainToWorker,
 	UsageWorkerConfig,
@@ -58,57 +58,46 @@ function persist(): void {
 	saveState(ledgerPath(), state.ledger, state.offsets, state.codexLimits);
 }
 
-// Consecutive failures per file, and the set quarantined once they exceed the
-// budget. Cleared for a file as soon as it sweeps cleanly.
-const fileFailures = new Map<string, number>();
-const quarantined = new Set<string>();
-const MAX_FILE_FAILURES = 3;
+// Failure recovery (reload-on-failure, per-file quarantine, and the honest
+// success signal the `ready` message depends on) lives in the electron-free
+// runner so it is directly unit-tested; this shell only supplies the effects.
+const runner = createSweepRunner({
+	getState: () => state,
+	setState: (s) => {
+		state = s;
+	},
+	runSweep: (s, skipFile) =>
+		// All scan + idempotency + sealed-truncation-rebuild logic lives in
+		// sweepFiles (electron-free + unit-tested in tests/unit/usage/sweep.test.ts).
+		sweepFiles(
+			s,
+			jsonlDrivers,
+			cfg!.home,
+			cfg!.launchMs,
+			cfg!.backfillBatchSize,
+			scheduleEmit,
+			skipFile,
+		).then(() => undefined),
+	persist: () => persist(),
+	reload: () => loadPersistedState(ledgerPath()),
+	onQuarantine: (file, n) =>
+		console.error(
+			`[usage] quarantining ${file} after ${n} consecutive failures; its usage data will be missing until the next launch`,
+		),
+	onError: (err) =>
+		console.error("[usage] sweep failed; reloading last persisted state", err),
+});
 
-async function sweep(): Promise<void> {
-	if (!cfg) return;
+async function sweep(): Promise<boolean> {
+	if (!cfg) return false;
 	if (backfilling) {
 		rescanQueued = true;
-		return;
+		return false;
 	}
 	backfilling = true;
+	let ok: boolean;
 	try {
-		// All scan + idempotency + sealed-truncation-rebuild logic lives in sweepFiles
-		// (electron-free + unit-tested in tests/unit/usage/sweep.test.ts).
-		await sweepFiles(
-			state,
-			jsonlDrivers,
-			cfg.home,
-			cfg.launchMs,
-			cfg.backfillBatchSize,
-			scheduleEmit,
-			(file) => quarantined.has(file),
-		);
-		persist();
-		// A clean pass clears the failure counters: only CONSECUTIVE failures
-		// should ever quarantine a file.
-		fileFailures.clear();
-	} catch (err) {
-		// Recovery (design §3.2): discard in-memory state and reload the last
-		// atomically persisted ledger+offset pair. A failure can land after some
-		// events reached the ledger but before the offset was committed; keeping
-		// that half-applied state would make the next sweep re-read the same
-		// bytes and inflate the totals without bound. The persisted file is
-		// written as ONE atomic unit, so reloading restores a consistent pair by
-		// construction, and anything discarded is re-derived by the next sweep
-		// (which is idempotent against those offsets).
-		const file = err instanceof SweepFileError ? err.file : null;
-		if (file) {
-			const n = (fileFailures.get(file) ?? 0) + 1;
-			fileFailures.set(file, n);
-			if (n >= MAX_FILE_FAILURES) {
-				quarantined.add(file);
-				console.error(
-					`[usage] quarantining ${file} after ${n} consecutive failures; its usage data will be missing until the next launch`,
-				);
-			}
-		}
-		console.error("[usage] sweep failed; reloading last persisted state", err);
-		state = loadPersistedState(ledgerPath());
+		ok = await runner.run();
 	} finally {
 		// Always released: a throw used to strand this `true`, which silently
 		// turned every later sweep into a no-op.
@@ -120,6 +109,7 @@ async function sweep(): Promise<void> {
 			console.error("[usage] queued rescan failed", err);
 		});
 	}
+	return ok;
 }
 
 function emitSnapshot(): void {
@@ -163,8 +153,23 @@ function watchDir(dir: string): void {
 	}
 }
 
+// E2E seam only: hold the worker unresponsive for N ms after `config`, so a
+// test can observe the read-timeout error state a user sees while a
+// replacement worker is still coming up — and then observe Retry recovering
+// once it answers. Never set in production.
+const SLOW_START_MS = Number(process.env.AI14ALL_E2E_USAGE_SLOW_START_MS ?? 0);
+const slowStartUntil =
+	Number.isFinite(SLOW_START_MS) && SLOW_START_MS > 0
+		? Date.now() + SLOW_START_MS
+		: 0;
+const holdingStart = (): boolean =>
+	slowStartUntil > 0 && Date.now() < slowStartUntil;
+
 parentPort.on("message", (e: { data: MainToWorker }) => {
 	const msg = e.data;
+	// Drop reads while held: the host sees no `rangeResult` and settles the read
+	// as `timeout`, which is exactly what a still-starting worker produces.
+	if (msg.kind === "queryRange" && holdingStart()) return;
 	if (msg.kind === "config") {
 		cfg = msg.config;
 		state = loadPersistedState(ledgerPath());
@@ -181,13 +186,20 @@ parentPort.on("message", (e: { data: MainToWorker }) => {
 			state.codexLimits = recovered;
 		}
 		const roots = jsonlDrivers.flatMap((d) => d.roots(cfg!.home));
-		// Readiness (design §3.4): announced only once the FIRST sweep and its
-		// persist have both completed, which is what the host's re-fork budget
-		// keys off. `sweep()` already contains its own failure recovery, so a
-		// worker that survives a bad first pass still reports ready; one that
-		// dies outright never does, and the budget correctly counts it.
+		// Readiness (design §3.4): announced ONLY when the first sweep and its
+		// persist both actually succeeded, which is what the host's re-fork
+		// budget keys off. `sweep()` recovers from its own failures, so it
+		// resolves either way — reporting ready on a recovered failure would let
+		// a worker that can never persist re-arm the budget on every attempt and
+		// re-fork without bound.
 		void sweep()
-			.then(() => parentPort.postMessage({ kind: "ready" }))
+			.then((ok) => {
+				if (ok) parentPort.postMessage({ kind: "ready" });
+				else
+					console.error(
+						"[usage] initial sweep did not complete cleanly; not reporting ready",
+					);
+			})
 			.catch((err: unknown) => {
 				console.error("[usage] initial sweep failed", err);
 			});

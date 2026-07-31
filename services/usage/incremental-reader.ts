@@ -3,6 +3,13 @@ import { closeSync, openSync, readSync, statSync } from "node:fs";
 export interface IncrementalRead {
 	lines: string[];
 	offset: number;
+	/**
+	 * The file could not be stat'd or opened at all. Distinct from "no new
+	 * lines": the caller must NOT advance (or even re-commit) its cache entry,
+	 * or an unread tail is skipped forever once access returns — the cached
+	 * mtime would match and `changed()` would report nothing to do.
+	 */
+	unreadable?: true;
 }
 
 // Reads bytes appended after `fromOffset`, returns complete lines (split on \n)
@@ -17,28 +24,28 @@ export function readNewLines(
 	toOffset?: number,
 ): IncrementalRead {
 	// The agent CLIs rotate these logs, so a file enumerated at the top of a
-	// sweep can be gone by the time it is read. Treat "vanished" as "no new
-	// lines" — the same outcome an unreadable file already gets in the scanner's
-	// own listing pass — rather than throwing out of a batched callback, where
-	// the throw is uncaught and kills the worker.
+	// sweep can be gone (or briefly unreadable) by the time it is read. Report
+	// that as `unreadable` rather than throwing out of a batched callback, where
+	// the throw is uncaught and kills the worker — and rather than as an empty
+	// successful read, which would let the caller commit progress it never made.
 	let size: number;
 	try {
 		size = statSync(file).size;
 	} catch {
-		return { lines: [], offset: fromOffset };
+		return { lines: [], offset: fromOffset, unreadable: true };
 	}
 	const end = toOffset !== undefined ? Math.min(toOffset, size) : size;
 	let start = fromOffset;
 	if (size < fromOffset) start = 0; // truncated/rotated
 	if (end <= start) return { lines: [], offset: start };
 
-	// Same race, one step later: the file can disappear between the stat above
-	// and this open.
+	// Same race, one step later: the file can disappear — or lose read
+	// permission — between the stat above and this open.
 	let fd: number;
 	try {
 		fd = openSync(file, "r");
 	} catch {
-		return { lines: [], offset: start };
+		return { lines: [], offset: start, unreadable: true };
 	}
 	try {
 		const buf = Buffer.allocUnsafe(end - start);

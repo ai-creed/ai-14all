@@ -1,5 +1,6 @@
 import {
 	appendFileSync,
+	chmodSync,
 	mkdirSync,
 	mkdtempSync,
 	rmSync,
@@ -724,5 +725,71 @@ describe("processJsonlFile transaction boundary", () => {
 		// The same failing bytes were re-read twice more; the total must not have
 		// grown. (Currently 10 -> 30.)
 		expect(sum()).toBe(afterFirst);
+	});
+});
+
+// Regression: a guard that swallows a read failure must not also COMMIT that
+// file's cache entry. The first cut of the vanished-file fix returned an empty
+// successful read on stat/open failure, and processJsonlFile then stored the
+// NEW mtime against the OLD offset — so once access came back, `changed()`
+// compared equal mtimes, returned null, and the unread bytes were skipped
+// forever. Losing usage data silently is worse than the crash the guard
+// replaced: an unreadable file must stay RETRYABLE.
+describe("sweep resilience: a file that cannot be opened", () => {
+	const inertHandlers = (): ScanHandlers => ({
+		ingest: () => {},
+		onLimits: () => {},
+		onSubtract: () => {},
+		onSealedTruncation: () => {},
+	});
+
+	it("a read denied mid-sweep leaves the file retryable, and its data lands once access returns", () => {
+		const root = mkdtempSync(join(tmpdir(), "denied-"));
+		const dir = join(root, "-Users-me-Dev-app");
+		const file = writeClaudeEvent(dir, "s1.jsonl", "2026-05-01T00:00:00.000Z");
+		const cache: OffsetCache = new Map();
+		const seen: UsageEvent[] = [];
+		const handlers: ScanHandlers = {
+			...inertHandlers(),
+			ingest: (e) => void seen.push(e),
+		};
+
+		// Pass 1 reads the first event normally.
+		processJsonlFile(claudeDriver, file, cache, handlers);
+		expect(seen).toHaveLength(1);
+
+		// A second event is appended (new mtime), but the file is unreadable when
+		// the sweep reaches it.
+		appendFileSync(
+			file,
+			JSON.stringify({
+				type: "assistant",
+				timestamp: "2026-05-02T00:00:00.000Z",
+				cwd: "/Users/me/Dev/app",
+				sessionId: "s1",
+				message: { model: "m", usage: { output_tokens: 10 } },
+			}) + "\n",
+		);
+		const later = Date.now() + 5_000;
+		utimesSync(file, new Date(later), new Date(later));
+		const before = cache.get(file)!;
+		const priorOffset = before.offset;
+		const priorMtime = before.mtime;
+
+		chmodSync(file, 0o000);
+		expect(() =>
+			processJsonlFile(claudeDriver, file, cache, handlers),
+		).not.toThrow();
+		expect(seen).toHaveLength(1); // nothing new could be read — expected
+
+		// The cache entry must be UNTOUCHED, so the next sweep still sees a
+		// changed file rather than concluding it is already up to date.
+		expect(cache.get(file)?.offset).toBe(priorOffset);
+		expect(cache.get(file)?.mtime).toBe(priorMtime);
+
+		// Access restored: the second event must still be ingested.
+		chmodSync(file, 0o644);
+		processJsonlFile(claudeDriver, file, cache, handlers);
+		expect(seen).toHaveLength(2);
 	});
 });

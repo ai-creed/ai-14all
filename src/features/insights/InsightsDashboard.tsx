@@ -196,10 +196,19 @@ export function InsightsDashboard({
 				{data.status === "error" && (
 					<div className="idb-state idb-state--error">
 						<span className="glyph">!</span>
-						<div className="h">insights store unavailable</div>
+						{/* Name the store that ACTUALLY failed. Three of the hook's five
+						    error branches are usage reads, and blaming "the local insights
+						    database" for those sent a real bug report at the wrong
+						    subsystem — the insights store was healthy throughout. */}
+						<div className="h">
+							{data.errorSource === "usage"
+								? "token usage unavailable"
+								: "insights store unavailable"}
+						</div>
 						<p className="p">
-							the local insights database could not be read. your data is
-							intact; this view will recover on retry.
+							{data.errorSource === "usage"
+								? "the local token-usage store could not be read. your data is intact; this view will recover on retry."
+								: "the local insights database could not be read. your data is intact; this view will recover on retry."}
 						</p>
 						<button type="button" className="idb-act" onClick={data.retry}>
 							retry

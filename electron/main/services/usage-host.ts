@@ -62,6 +62,9 @@ export class UsageHost {
 	// True once the re-fork budget is spent: reads then report `disabled` (there
 	// really is no worker) rather than burning 2s on a timeout each time.
 	private gaveUp = false;
+	// Last consent value seen by setEnabled, so a repeated `setEnabled(true)`
+	// from an unrelated settings patch is not mistaken for a re-enable.
+	private enabled: boolean;
 	// Monotonic per-host request-id source for queryRange, deterministic so
 	// correlation is testable (mirrors InsightsHost's querySeq).
 	private rangeSeq = 0;
@@ -74,6 +77,7 @@ export class UsageHost {
 		const s = opts.loadSettings();
 		this.chipRange = s.chipRange;
 		this.includeUntracked = s.includeUntracked;
+		this.enabled = s.enabled;
 	}
 
 	buildConfig(): UsageWorkerConfig {
@@ -200,13 +204,28 @@ export class UsageHost {
 	}
 
 	setEnabled(enabled: boolean): void {
-		if (enabled) {
-			// An explicit re-enable is the user asking for another go: clear a spent
-			// crash budget so a previously-abandoned worker gets a fresh chance.
+		// `settings:write` calls this for EVERY usage-telemetry patch — chip
+		// range, include-untracked, even an insights-only change — so `enabled`
+		// is usually unchanged. Only a real disable -> enable TRANSITION counts
+		// as the user asking for another go; clearing the budget on every patch
+		// would be a second way to re-arm a crash loop with no healthy worker,
+		// which is exactly what the readiness-only reset rule exists to prevent.
+		const wasEnabled = this.enabled;
+		this.enabled = enabled;
+		if (!enabled) {
+			this.stop();
+			return;
+		}
+		if (!wasEnabled) {
 			this.consecutiveReforks = 0;
 			this.gaveUp = false;
-			this.start();
-		} else this.stop();
+		} else if (this.gaveUp) {
+			// Already enabled AND already abandoned: an unrelated settings patch
+			// must not quietly resurrect the worker either, or the budget is
+			// bypassed rather than merely re-armed.
+			return;
+		}
+		this.start();
 	}
 
 	/** True once repeated crashes exhausted the re-fork budget (diagnostics). */

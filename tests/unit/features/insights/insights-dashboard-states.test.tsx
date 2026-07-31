@@ -97,6 +97,50 @@ describe("InsightsDashboard", () => {
 		);
 	});
 
+	// The panel must name the store that ACTUALLY failed. Three of the hook's
+	// five error branches are usage reads, and blaming "the local insights
+	// database" for those sent a real bug report at the wrong subsystem while
+	// the insights store was healthy throughout.
+	it("a USAGE read failure blames token usage, not the insights database", async () => {
+		stubApi();
+		const api = (window as unknown as { ai14all: StubApi }).ai14all;
+		api.usage.queryRange
+			.mockResolvedValueOnce({ ok: false, reason: "timeout" })
+			.mockResolvedValue({
+				ok: true,
+				days: [],
+				byWorkspace: [],
+				byProvider: [],
+				cost: {
+					perProvider: {},
+					total: 0,
+					currency: "USD",
+					notional: true,
+					unpricedTokens: 0,
+				},
+				earliestDayMs: null,
+			});
+		render(<InsightsDashboard host="overlay" workspaces={[]} {...handlers} />);
+
+		expect(
+			await screen.findByText("token usage unavailable"),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByText("insights store unavailable"),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByText(/the local token-usage store could not be read/),
+		).toBeInTheDocument();
+
+		// Retry recovers, and the copy does not linger once it does.
+		fireEvent.click(screen.getByRole("button", { name: "retry" }));
+		await waitFor(() =>
+			expect(
+				screen.queryByText("token usage unavailable"),
+			).not.toBeInTheDocument(),
+		);
+	});
+
 	it("usage disabled: quiet caption, NOT the error state and not zeros", async () => {
 		stubApi();
 		const api = (window as unknown as { ai14all: StubApi }).ai14all;

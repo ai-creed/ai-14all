@@ -72,6 +72,45 @@ interface SessionState {
 - Every ingested event writes the **ledger** unconditionally and the **session** accumulator only when `timestampMs >= launchMs`. (An event newly read this run but timestamped before launch — e.g. written while the app was closed — lands in the ledger only, not the session.)
 - `hourly` powers the Session chart (hourly bars over this run).
 
+#### 3.2.1 Worker replacement resets run scope (added 2026-07-31)
+
+The usage worker is now supervised: `UsageHost` re-forks it on an unexpected
+exit, and the worker itself reloads the last atomically persisted state after a
+failed sweep (see the bugfix diagnosis for
+`docs/bugreports/bug-insights-dashboard-error-state-in-packaged-build.md`). Both
+paths construct a fresh `SweepState`, so **run-scoped state resets mid-launch**:
+
+| Field | On worker replacement | Why |
+|---|---|---|
+| `ledger` | **restored** from the persisted pair | durable by definition |
+| `offsets` | **restored** (same atomic file) | must stay consistent with the ledger |
+| `codexLimits` | **restored** | latest-known gauge, re-derivable anyway |
+| `session` (`scopes.session`, `seriesHourly`) | **reset to empty** | "this run" — see below |
+| `providersWithData` (`hasData`) | **reset to empty** | "this run" — see below |
+
+This is a deliberate contract clause, not an implementation artifact. The two
+rejected alternatives:
+
+1. **Re-read recent files to rebuild run scope** (`resetRecentOffsets`). It
+   deletes the cache entry, so the next pass re-ingests the whole file with no
+   compensating subtraction — measured **10 → 20 tokens** against an
+   already-loaded persisted ledger. That helper's premise ("the aggregator is
+   rebuilt empty each run") stopped holding when the persisted ledger became
+   authoritative in v3; it is unused in production for that reason.
+2. **Project `providersWithData` from the persisted ledger.** `hasData` is
+   defined in `shared/models/usage.ts` as *"produced >= 1 event **this run**"*,
+   and `seriesHourly` as *"by provider, **this run**"*. An all-time projection
+   would mark a provider untouched since April as active this run — a silent
+   change to a shared contract with several consumers.
+
+So a mid-launch replacement restarts the chip's session figures and clears
+`hasData` until the next event arrives. That is the only option that neither
+corrupts the ledger nor redefines a shared model. If run-scope continuity is
+ever required it must come from a **separate** accumulator with its own bounded
+re-read that never touches the ledger or the offset cache — or from
+deliberately redefining these semantics here, with every consumer and test
+updated.
+
 ### 3.3 Deriving each scope
 
 | Scope | Source | Window |

@@ -162,7 +162,12 @@ export function processJsonlFile(
 		Object.assign(ctx, driver.recoverCtx(file, ch.from));
 	}
 	const keep = driver.keep ?? ((): boolean => true);
-	const { lines, offset } = readNewLines(file, ch.from, keep);
+	const { lines, offset, unreadable } = readNewLines(file, ch.from, keep);
+	// Unreadable is NOT "no new lines": committing here would store the new
+	// mtime against the old offset, and the next `changed()` would then compare
+	// equal mtimes and skip the unread tail permanently. Leave the cache entry
+	// exactly as it was so the file stays retryable.
+	if (unreadable) return;
 	const fileMtime = driver.capabilities.timeSource === "file-mtime";
 
 	// Re-reading after truncation resets contribution; appends extend it. Cloned
