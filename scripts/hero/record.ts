@@ -49,7 +49,7 @@ import {
 	type CameraTarget,
 	type HeroEvent,
 } from "./storyboard.js";
-import type { Rect } from "./gen-camera.js";
+import { DEFAULT_MARGIN_FRAC, type Rect } from "./gen-camera.js";
 import type { CreateInput } from "../../services/review/review-comment-service.js";
 
 const HERO_DIR = dirname(fileURLToPath(import.meta.url));
@@ -339,8 +339,9 @@ async function measureSidebarRect(page: Page): Promise<Rect> {
  * Its measured width (~1646 device px) is what sets the crop — normalization
  * grows it by the 6% margin to ~1745 and derives the height from the aspect
  * (~920), a genuine ~1.65x push-in. The height cap below is therefore a
- * VERTICAL ANCHOR rather than a size: it puts the crop's centre 350 CSS px
- * under the pane's top edge, which frames the file header, the BADGE_MAX
+ * VERTICAL ANCHOR rather than a size: 700 device px puts the crop's centre
+ * 350 device px (175 CSS px) under the pane's top edge, which frames the
+ * file header, the BADGE_MAX
  * line, the whole comment card and the reduce/Math.min hunk without spending
  * frame on the app's top chrome.
  *
@@ -757,6 +758,10 @@ async function recordCapture(
 
 type StageAResult = { ok: boolean; errors: string[] };
 
+/** A crop wider than this fraction of the frame is not a push-in at all — see
+ * the stage-A check that uses it. */
+const MAX_CROP_FRAME_FRACTION = 0.95;
+
 const ALL_CAMERA_TARGETS: CameraTarget[] = [
 	"full",
 	"sidebar",
@@ -870,6 +875,22 @@ function runStageAChecks(
 		) {
 			errors.push(
 				`camera target rect '${target}' missing or out of frame bounds: ${JSON.stringify(rect)}`,
+			);
+			continue;
+		}
+
+		// A rect can be positive and in-bounds yet still frame nothing: the
+		// review beat once measured the whole portal (2304 wide), which the 6%
+		// margin grew to 0.988 of the frame — a 1.012x "push-in" that rendered
+		// as a static full-frame shot for the last 6.5s of the tour. Nothing
+		// caught it but a human looking at frames. Assert the crop is actually
+		// a crop. Measured beats today: sidebar 0.177, review 0.587, fleet
+		// 0.845 — fleet is legitimately wide (the whole terminal grid), so the
+		// ceiling sits above it with margin rather than at the tightest value.
+		const frameFraction = (rect.w * (1 + DEFAULT_MARGIN_FRAC)) / 2880;
+		if (frameFraction > MAX_CROP_FRAME_FRACTION) {
+			errors.push(
+				`camera target rect '${target}' spans ${frameFraction.toFixed(3)} of frame width once the ${DEFAULT_MARGIN_FRAC} margin is applied — that renders as a no-op push-in (ceiling ${MAX_CROP_FRAME_FRACTION})`,
 			);
 		}
 	}
@@ -1244,6 +1265,18 @@ async function main(): Promise<void> {
 				HERO_GATE_DIR: world.gateDir,
 				PATH: `${world.stubBinDir}:${process.env.PATH}`,
 				ZDOTDIR: zdotDir,
+				// The ZDOTDIR mechanism below is zsh-only, and the app spawns
+				// `$SHELL -l`. On a machine where $SHELL is bash, /etc/bashrc's
+				// `\u@\h` would put a real username and hostname back on camera
+				// AND the operator's own ~/.bashrc would run inside the take.
+				// Pin the shell so the recording never depends on who runs it.
+				SHELL: "/bin/zsh",
+				// /etc/zshrc sources /etc/zshrc_$TERM_PROGRAM; under Apple
+				// Terminal that emits per-prompt OSC 7 carrying an absolute
+				// path. xterm.js drops unhandled OSC today, so nothing renders
+				// — but an inherited value makes startup depend on the
+				// operator's terminal, which a deterministic take cannot allow.
+				TERM_PROGRAM: "",
 			},
 		});
 		const page = await electronApp.firstWindow({ timeout: 60_000 });

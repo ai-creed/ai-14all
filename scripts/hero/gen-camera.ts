@@ -7,12 +7,18 @@ export type ExecutedBeat = {
 	rect: Rect | null;
 };
 
+/** Breathing room added around a measured rect before it becomes a crop.
+ * Exported so callers that reason about the RESULTING crop size (the
+ * recorder's stage-A no-op-push-in check) derive it from the same number
+ * this function applies, instead of hardcoding a copy that can drift. */
+export const DEFAULT_MARGIN_FRAC = 0.06;
+
 /** Grow `rect` to `aspect` around its center with margin, clamped to `frame`. */
 export function normalizeRectToAspect(
 	rect: Rect,
 	frame: Rect,
 	aspect: number,
-	marginFrac = 0.06,
+	marginFrac = DEFAULT_MARGIN_FRAC,
 ): Rect {
 	let w = rect.w * (1 + marginFrac);
 	let h = rect.h * (1 + marginFrac);
