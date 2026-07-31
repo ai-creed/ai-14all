@@ -68,9 +68,9 @@ this checklist before the next master is accepted** — transcript content is
 exactly what the checklist is scoped to, and a passing `hero:validate` run
 proves the clock/schema contract, not claims-safety.
 
-## Two fixture traps the frames pay for
+## Fixture traps the frames pay for
 
-Neither is caught by any automated stage — both are checked by reading frames.
+None is caught by any automated stage — all are checked by reading frames.
 
 - **Transcript wording drives the sidebar's red "NEEDS YOU" tier.** The app
   derives a pane's attention state from its raw output
@@ -88,6 +88,19 @@ Neither is caught by any automated stage — both are checked by reading frames.
   `claude.jsonl` instead has to be long enough to keep emitting past the end
   of the take: the master runs 25s and the poster is captured at master 23s,
   measured from the `fleet-burst` gate opening at master ≈11.2.
+- **Accepted limitation — the `feat/checkout-retry` row shows a shell session,
+  not claude's provider badge.** That worktree hosts three panes (claude plus
+  the two demo shells), and the sidebar row surfaces one summary: attention
+  tier first, then recency (`src/features/workspace/logic/sidebar-shell-
+summary.ts`). All three are `active` during the establish beat, so recency
+  decides, and `dev-server` emits every few tens of ms against claude's
+  ~0.6-0.9s cadence — it always wins. Keeping claude alive cannot change this.
+  Both apparent fixes are worse than the symptom: re-ranking agents over
+  shells is an app behavior change to a shared, test-pinned path made only to
+  flatter a video, and quieting `dev-server` removes the dominant motion
+  source inside the `[2,4.5]` window. The frame is not misleading — it names
+  the genuinely most-recent session — and the three-agent story is carried by
+  the AGENTS tab bar and the `claude`-titled pane in the fleet beat.
 
 ## Delivering to ai-creed
 
