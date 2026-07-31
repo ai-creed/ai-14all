@@ -652,3 +652,77 @@ describe("sweep resilience: a file that vanishes mid-sweep", () => {
 		expect(threw).toBeNull();
 	});
 });
+
+// Regression: the ledger/offset transaction boundary. processJsonlFile ingests
+// into the ledger inside its line loop but commits the new offset only after
+// the loop (scanner.ts:153-172), so a failure in between leaves the mutation
+// recorded against the OLD offset. Today the process dies, so nothing retries.
+// The moment the sweep survives errors — which is the whole point of making
+// processInBatches reject and catching it (tests/unit/usage/batch.test.ts) —
+// the 60s sweep retries the same file and re-ingests the same bytes, and the
+// inflation COMPOUNDS: measured 10 -> 20 -> 30 across three passes with the
+// offset never committed. That is strictly worse than the crash it replaces, so
+// containment is only net-safe once this invariant holds.
+// Deliberately policy-agnostic: it pins "retrying a failure must not grow the
+// ledger", not whether the fix rolls back, commits partially, or reloads from
+// the last atomic persist.
+describe("processJsonlFile transaction boundary", () => {
+	it("a retried mid-file failure must not inflate the ledger", () => {
+		const root = mkdtempSync(join(tmpdir(), "partial-"));
+		const dir = join(root, "-Users-me-Dev-app");
+		mkdirSync(dir, { recursive: true });
+		const file = join(dir, "s1.jsonl");
+		const event = (sessionId: string): string =>
+			JSON.stringify({
+				type: "assistant",
+				timestamp: "2026-05-01T00:00:00.000Z",
+				cwd: "/Users/me/Dev/app",
+				sessionId,
+				message: { model: "m", usage: { output_tokens: 10 } },
+			});
+		// Line 1 is a real 10-token event; line 2 is equally well-formed but the
+		// parser throws on it — any mid-file failure AFTER the first ingest.
+		writeFileSync(file, event("ok") + "\n" + event("boom") + "\n");
+
+		const ledger = createLedger();
+		const session = createSession();
+		const h: ScanHandlers = {
+			ingest: (e) => ingestEvent(ledger, session, e, 0),
+			onLimits: () => {},
+			onSubtract: (contrib: ContributionJson) =>
+				applyContribution(ledger, contrib, -1),
+			onSealedTruncation: () => {},
+		};
+		const exploding: TelemetryDriver = {
+			...claudeDriver,
+			parseLine: (line: string, ctx) => {
+				if (line.includes('"boom"')) throw new Error("mid-file parse failure");
+				return claudeDriver.parseLine!(line, ctx);
+			},
+		};
+		const sum = (): number => {
+			let n = 0;
+			for (const buckets of ledger.days.values())
+				for (const t of buckets.values()) n += t.billable;
+			return n;
+		};
+
+		const cache: OffsetCache = new Map();
+		const runPass = (): void => {
+			try {
+				processJsonlFile(exploding, file, cache, h);
+			} catch {
+				/* contained by the sweep, which then retries on its next tick */
+			}
+		};
+
+		runPass();
+		const afterFirst = sum();
+		runPass();
+		runPass();
+
+		// The same failing bytes were re-read twice more; the total must not have
+		// grown. (Currently 10 -> 30.)
+		expect(sum()).toBe(afterFirst);
+	});
+});
