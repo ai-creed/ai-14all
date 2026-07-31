@@ -21,6 +21,12 @@ export interface InsightsTestSeam {
 	 * `exit` handler's re-fork + outbox replay.
 	 */
 	crashWorker(): void;
+	/**
+	 * Kill the USAGE worker without marking the stop intentional, so the real
+	 * `exit` handler runs its re-fork. Lets an e2e prove dashboard recovery
+	 * after a worker death instead of only unit-testing the host.
+	 */
+	crashUsageWorker(): void;
 }
 
 // Registers the three renderer-facing insights IPC handlers.
@@ -119,6 +125,10 @@ export function registerInsightsIpc(
 		const type = typeof p.type === "string" ? p.type : "";
 		if (type === "crashWorker") {
 			testSeam.seam.crashWorker();
+			return { ok: true };
+		}
+		if (type === "crashUsageWorker") {
+			testSeam.seam.crashUsageWorker();
 			return { ok: true };
 		}
 		if (!allowed.has(type)) return { ok: false, error: "unsupported_signal" };

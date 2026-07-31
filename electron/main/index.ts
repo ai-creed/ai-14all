@@ -963,6 +963,7 @@ app.whenReady().then(async () => {
 			? {
 					signal: (type, arg) => appFocusCollector.signal(type, arg),
 					crashWorker: () => insightsHost.crashWorkerForTest(),
+					crashUsageWorker: () => usageHost.crashWorkerForTest(),
 				}
 			: undefined,
 		installUpdate: () => updateService.installUpdate(),

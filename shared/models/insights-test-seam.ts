@@ -29,6 +29,8 @@ export interface InsightsTestBridge {
 		arg?: { atMs?: number; idleSeconds?: number },
 	): Promise<{ ok: boolean; error?: string }>;
 	crashWorker(): Promise<{ ok: boolean; error?: string }>;
+	/** Kill the USAGE worker (a different utilityProcess) the same way. */
+	crashUsageWorker(): Promise<{ ok: boolean; error?: string }>;
 }
 
 /**
@@ -55,6 +57,11 @@ export function buildInsightsTestBridge(
 			}>,
 		crashWorker: () =>
 			invoke(INSIGHTS_TEST_CHANNEL, { type: "crashWorker" }) as Promise<{
+				ok: boolean;
+				error?: string;
+			}>,
+		crashUsageWorker: () =>
+			invoke(INSIGHTS_TEST_CHANNEL, { type: "crashUsageWorker" }) as Promise<{
 				ok: boolean;
 				error?: string;
 			}>,

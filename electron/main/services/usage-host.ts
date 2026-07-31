@@ -214,6 +214,17 @@ export class UsageHost {
 		return this.gaveUp;
 	}
 
+	/**
+	 * E2E seam only: kill the worker WITHOUT marking the stop intentional, so
+	 * the real `exit` handler runs — settling in-flight reads and re-forking.
+	 * Lets an e2e exercise dashboard recovery through the production path rather
+	 * than only unit-testing the host.
+	 */
+	crashWorkerForTest(): void {
+		this.spawned = false;
+		this.proc?.kill();
+	}
+
 	setKnownWorktrees(known: KnownWorktree[]): void {
 		this.known = known;
 		this.postMessage({ kind: "setKnown", known });
