@@ -2,6 +2,7 @@ import {
 	appendFileSync,
 	mkdirSync,
 	mkdtempSync,
+	rmSync,
 	statSync,
 	truncateSync,
 	utimesSync,
@@ -559,5 +560,60 @@ describe("processJsonlFile idempotency", () => {
 		expect(rebuildRequested).toBe(true);
 		// sealed branch returns early without re-reading: ledger must stay at the stale 20, not 24 or 4
 		expect(sumBillable(ledger)).toBe(20);
+	});
+});
+
+// Regression: the sweep enumerates files first (listJsonlFiles) and processes
+// them in later batches, so a session log can be rotated or deleted in between —
+// routine for the agent CLIs whose logs these are. Every OTHER statSync in the
+// sweep path is guarded (listJsonl, resetRecentOffsets, recoverCodexLimits);
+// `changed()` and readNewLines are not, so a vanished file throws ENOENT out of
+// processJsonlFile. The worker drives sweeps as `void sweep()` (usage-worker.ts
+// on "config", the fs watcher, and the 60s interval), so that throw surfaces as
+// an unhandled rejection and terminates the utilityProcess — which is what
+// leaves UsageHost holding a dead handle and wedges the insights dashboard.
+// A missing file must be skipped, exactly like an unreadable one already is.
+describe("sweep resilience: a file that vanishes mid-sweep", () => {
+	const inertHandlers = (): ScanHandlers => ({
+		ingest: () => {},
+		onLimits: () => {},
+		onSubtract: () => {},
+		onSealedTruncation: () => {},
+	});
+
+	it("processJsonlFile skips a file deleted between enumeration and processing", () => {
+		const root = mkdtempSync(join(tmpdir(), "vanish-"));
+		const file = writeClaudeEvent(
+			join(root, "-Users-me-Dev-app"),
+			"s1.jsonl",
+			"2026-05-01T00:00:00.000Z",
+		);
+		const cache: OffsetCache = new Map();
+
+		rmSync(file); // rotated away after listJsonlFiles() returned it
+
+		expect(() =>
+			processJsonlFile(claudeDriver, file, cache, inertHandlers()),
+		).not.toThrow();
+	});
+
+	it("processJsonlFile skips a file deleted after its first successful pass", () => {
+		const root = mkdtempSync(join(tmpdir(), "vanish2-"));
+		const dir = join(root, "-Users-me-Dev-app");
+		const file = writeClaudeEvent(dir, "s1.jsonl", "2026-05-01T00:00:00.000Z");
+		const cache: OffsetCache = new Map();
+
+		processJsonlFile(claudeDriver, file, cache, inertHandlers());
+		expect(cache.has(file)).toBe(true);
+
+		// Re-created with a NEW mtime so `changed()` cannot short-circuit on the
+		// cached mtime, then removed before the read — the readNewLines window.
+		writeClaudeEvent(dir, "s1.jsonl", "2026-05-02T00:00:00.000Z");
+		utimesSync(file, new Date(), new Date(Date.now() + 1000));
+		rmSync(file);
+
+		expect(() =>
+			processJsonlFile(claudeDriver, file, cache, inertHandlers()),
+		).not.toThrow();
 	});
 });
