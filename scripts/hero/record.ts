@@ -915,8 +915,16 @@ export function runStageAChecks(
 			if (i === exemptIndex) return;
 			maxGapMs = Math.max(maxGapMs, g.gapMs);
 		});
-		const spanSec = inWindow[inWindow.length - 1]! - inWindow[0]!;
-		const meanCadenceHz = spanSec > 0 ? (inWindow.length - 1) / spanSec : 0;
+		// Cadence is judged on the window's OWN frames, never the anchored set —
+		// for the same reason the frame-count check above is. An anchor sits
+		// OUTSIDE the window, so including it adds one frame while extending the
+		// span by less than one frame-interval whenever the anchors are closer
+		// than the window's own cadence: (n+1)/(span+d) > (n-1)/span, and a
+		// genuinely sub-30Hz window passes. The anchors exist to expose gaps that
+		// STRADDLE an edge (maxGapMs, above, is measured on them) — they must
+		// never pad this floor.
+		const spanSec = inside[inside.length - 1]! - inside[0]!;
+		const meanCadenceHz = spanSec > 0 ? (inside.length - 1) / spanSec : 0;
 		if (maxGapMs > 150) {
 			errors.push(
 				`motion window [${w.startMaster},${w.endMaster}]: max inter-frame gap ${maxGapMs.toFixed(1)}ms exceeds 150ms`,

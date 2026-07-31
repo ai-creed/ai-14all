@@ -67,6 +67,27 @@ function framesThinned(from: number, to: number, stepSec: number) {
 	return frames.sort((a, b) => a.cdpTimestamp - b.cdpTimestamp);
 }
 
+/** `count` frames evenly spread across `[from, to]`, with the only surviving
+ * neighbours sitting `gapSec` outside each edge. Isolates the edge-anchor
+ * question: the window's own cadence and its anchor distances are both exact,
+ * so a check that counts the anchors gives a measurably different answer than
+ * one that does not. */
+function framesJustOutside(
+	from: number,
+	to: number,
+	count: number,
+	gapSec: number,
+): RetainedFrame[] {
+	const frames = framesWithDrops([[from - gapSec * 2, to + gapSec * 2]]);
+	const step = (to - from) / (count - 1);
+	for (let i = 0; i < count; i++) {
+		frames.push({ cdpTimestamp: from + i * step, data: EMPTY_JPEG });
+	}
+	frames.push({ cdpTimestamp: from - gapSec, data: EMPTY_JPEG });
+	frames.push({ cdpTimestamp: to + gapSec, data: EMPTY_JPEG });
+	return frames.sort((a, b) => a.cdpTimestamp - b.cdpTimestamp);
+}
+
 /** Every storyboard event executed exactly on its nominal master time. */
 function onTimeEvents(): Map<string, number> {
 	return new Map(
@@ -195,6 +216,20 @@ const ROWS: Row[] = [
 		name: "a window that never stalls but runs at 10Hz fails the cadence floor",
 		capture: { frames: framesThinned(11, 13, 0.1) },
 		expect: /motion window \[11,13\]: mean cadence 10\.\dHz below 30Hz/,
+		expectedErrorCount: 1,
+	},
+	{
+		// The anchors must never PAD the cadence floor. They sit outside the
+		// window, so counting them adds two frames while extending the span by
+		// less than two frame-intervals: (n+1)/(span+d) > (n-1)/span. Tuned to
+		// the band where that difference decides the verdict — 60 frames evenly
+		// spread across [11,13] is a true 29.5Hz (fails), but with anchors 5ms
+		// outside each edge the padded figure is 30.35Hz (would pass). A window
+		// genuinely below the floor must fail no matter how close the neighbours
+		// on either side happen to land.
+		name: "frames just outside a sub-30Hz window do not lift it over the cadence floor",
+		capture: { frames: framesJustOutside(11, 13, 60, 0.005) },
+		expect: /motion window \[11,13\]: mean cadence 29\.5Hz below 30Hz/,
 		expectedErrorCount: 1,
 	},
 	{
