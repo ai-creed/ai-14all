@@ -139,6 +139,22 @@ const crashUsageWorker = (p: Page): Promise<unknown> =>
 		).ai14all.__insightsTest.crashUsageWorker(),
 	);
 
+// Drive a real fetch cycle the way a user would: switch range and come back.
+// `7d` is the default, so this ends where it started and the tile assertions
+// stay comparable across the whole test.
+async function forceRefetch(p: Page): Promise<void> {
+	await p.getByRole("button", { name: "30d", exact: true }).click();
+	await p.getByRole("button", { name: "7d", exact: true }).click();
+}
+
+// Let a fetch cycle finish before asserting anything about it. This matters
+// more than it looks: a failing usage read needs the host's full 2s
+// RANGE_TIMEOUT_MS before the view flips to its error state, and the previous
+// render stays on screen until then. Assert too early and BOTH a
+// `.idb-state--error` count-of-0 and a `12M` tile match pass against a build
+// with no worker at all — verified in both directions while writing this.
+const settle = (p: Page): Promise<void> => p.waitForTimeout(6000);
+
 test("the dashboard survives a usage-worker crash and recovers without an app restart", async () => {
 	await page.click(".insights-entry-button");
 	await expect(
@@ -152,33 +168,34 @@ test("the dashboard survives a usage-worker crash and recovers without an app re
 	);
 	await expect(page.locator(".idb-state--error")).toHaveCount(0);
 
-	// Kill the REAL usage utilityProcess through the production exit path.
+	// Kill the REAL usage utilityProcess through the production exit path, then
+	// FORCE a fetch cycle. Forcing it is the whole point: the hook only refetches
+	// on a range switch, retry, or its 30s poll, so merely re-asserting here
+	// would pass against the broken build purely because the DOM still held the
+	// pre-crash render. A range switch runs the same `fetchAll` a user's click
+	// does, and every cycle issues `api.usage.queryRange`.
 	await crashUsageWorker(page);
-
-	// The host settles in-flight reads and re-forks, so a refetch must succeed.
-	// Before the fix this is exactly where the dashboard wedged: the read went
-	// to a dead pipe, timed out after 2s, and rendered "insights store
-	// unavailable" — permanently, because retry re-ran the same dead read.
-	await page
-		.locator(".idb-act", { hasText: "retry" })
-		.click()
-		.catch(() => {
-			/* no error panel to retry from is the passing case */
-		});
-
+	await forceRefetch(page);
+	// Assert the POSITIVE signal first. A bare `.idb-state--error` count-of-0
+	// would pass vacuously: the panel needs the read's full 2s timeout to
+	// appear, so an absence assertion fired straight after the click succeeds on
+	// the transient pre-error render (verified — the broken build reaches
+	// `error: true` only ~2s later). The tokens tile can only render from a
+	// COMPLETED usage read, so waiting for it is what actually proves recovery.
 	await expect(page.locator('[data-testid="tile-tokens"] .v')).toHaveText(
 		"12M",
 		{ timeout: 30_000 },
 	);
 	await expect(page.locator(".idb-state--error")).toHaveCount(0);
 
-	// A second crash must be survivable too — the budget is per consecutive
-	// failure, and a worker that reported ready resets it, so an occasional
-	// crash can never exhaust the re-fork allowance.
+	// A second crash must be survivable too — the budget counts CONSECUTIVE
+	// failures and a worker that reports ready resets it, so an occasional crash
+	// can never exhaust the re-fork allowance.
 	await crashUsageWorker(page);
+	await forceRefetch(page);
+	await settle(page);
+	await expect(page.locator(".idb-state--error")).toHaveCount(0);
 	await expect(page.locator('[data-testid="tile-tokens"] .v')).toHaveText(
 		"12M",
-		{ timeout: 30_000 },
 	);
-	await expect(page.locator(".idb-state--error")).toHaveCount(0);
 });

@@ -236,7 +236,11 @@ describe("insights seam guard + appTime query", () => {
 		// Main side: the channel is never registered.
 		const ipc = stubIpcMain();
 		registerInsightsIpc(asIpc(ipc), host(), vi.fn(), {
-			seam: { signal: vi.fn(), crashWorker: vi.fn() },
+			seam: {
+				signal: vi.fn(),
+				crashWorker: vi.fn(),
+				crashUsageWorker: vi.fn(),
+			},
 			env: {},
 		});
 		expect(ipc.has(INSIGHTS_TEST_CHANNEL)).toBe(false);
@@ -263,17 +267,33 @@ describe("insights seam guard + appTime query", () => {
 		expect(invoke).toHaveBeenLastCalledWith(INSIGHTS_TEST_CHANNEL, {
 			type: "crashWorker",
 		});
+		// The usage worker is a SECOND utilityProcess, killed over the same
+		// gated channel so the e2e can prove dashboard recovery after it dies.
+		await bridge!.crashUsageWorker();
+		expect(invoke).toHaveBeenLastCalledWith(INSIGHTS_TEST_CHANNEL, {
+			type: "crashUsageWorker",
+		});
 	});
 
 	it("with the flag it accepts ONLY enumerated signals and rejects anything else", () => {
 		expect(isInsightsTestSeamEnabled({ AI14ALL_E2E: "1" })).toBe(true);
 		const ipc = stubIpcMain();
-		const seam = { signal: vi.fn(), crashWorker: vi.fn() };
+		const seam = {
+			signal: vi.fn(),
+			crashWorker: vi.fn(),
+			crashUsageWorker: vi.fn(),
+		};
 		registerInsightsIpc(asIpc(ipc), host(), vi.fn(), {
 			seam,
 			env: { AI14ALL_E2E: "1" },
 		});
 		expect(ipc.has(INSIGHTS_TEST_CHANNEL)).toBe(true);
+
+		// crashWorker / crashUsageWorker are handled ahead of the enumeration
+		// gate (they are not focus signals), so each must route to its OWN host.
+		void ipc.invoke(INSIGHTS_TEST_CHANNEL, { type: "crashUsageWorker" });
+		expect(seam.crashUsageWorker).toHaveBeenCalledTimes(1);
+		expect(seam.crashWorker).not.toHaveBeenCalled();
 
 		// Pin the enumeration itself: the loop below proves every LISTED signal is
 		// accepted, but only this catches the array silently growing an entry.
