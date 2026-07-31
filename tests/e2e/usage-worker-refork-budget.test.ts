@@ -101,10 +101,14 @@ test("an unpersistable ledger cannot re-arm the re-fork budget", async () => {
 	const out = stderr.join("");
 	const reforks = (out.match(/re-forking \(attempt/g) ?? []).length;
 
-	// No worker ever persisted, so none may claim readiness...
+	// No worker ever persisted, so none may claim readiness. The COUNT of these
+	// is timing-dependent (initial sweep plus whatever periodic sweeps landed),
+	// so only presence is pinned.
 	expect(out).toContain("not reporting ready");
-	// ...the budget therefore never resets, and the ceiling engages.
-	expect(reforks).toBeLessThanOrEqual(MAX_REFORKS);
+	// The re-fork count is NOT timing-dependent: with the budget never resetting,
+	// KILLS(8) exits must produce exactly MAX_REFORKS(5) replacements and then
+	// stop. `<=` would pass vacuously at 0, so pin the exact number.
+	expect(reforks).toBe(MAX_REFORKS);
 	expect(out).toContain("giving up on the automatic re-fork");
 
 	await app.close().catch(() => {});
