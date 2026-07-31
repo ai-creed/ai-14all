@@ -227,3 +227,126 @@ describe("loadPersistedState single atomic state file", () => {
 		expect(rl?.primary?.resetsAtMs).toBe(1_782_739_536_000);
 	});
 });
+
+// Coverage for the crash-recovery design (diagnosis §3.2/§3.3): what a sweep
+// failure must leave behind, and what a replacement worker must restore.
+describe("sweep failure recovery", () => {
+	// Stub drivers rooted at the temp dir, following this file's convention:
+	// claude's parsing, none of its real ~/.claude path resolution.
+	const cleanDriver = (root: string): TelemetryDriver => ({
+		id: "claude",
+		capabilities: claudeDriver.capabilities,
+		roots: () => [root],
+		keep: claudeDriver.keep,
+		seedCtx: claudeDriver.seedCtx,
+		parseLine: claudeDriver.parseLine,
+	});
+
+	// …and one that blows up on a specific line, so a sweep fails
+	// deterministically at a known file — the shape of any mid-file failure.
+	const explodingOn = (root: string, marker: string): TelemetryDriver => ({
+		...cleanDriver(root),
+		parseLine: (line, ctx) => {
+			if (line.includes(marker)) throw new Error("mid-file parse failure");
+			return claudeDriver.parseLine!(line, ctx);
+		},
+	});
+
+	const seed = (): { root: string; good: string; bad: string } => {
+		const root = mkdtempSync(join(tmpdir(), "sweep-recover-"));
+		const proj = join(root, "-Users-me-Dev-app");
+		mkdirSync(proj);
+		const good = join(proj, "a-good.jsonl");
+		const bad = join(proj, "b-bad.jsonl");
+		writeFileSync(good, claudeLine(10));
+		writeFileSync(
+			bad,
+			claudeLine(5) +
+				JSON.stringify({
+					type: "assistant",
+					timestamp: "2026-05-01T00:00:00.000Z",
+					cwd: "/Users/me/Dev/app",
+					sessionId: "POISON",
+					message: { model: "m", usage: { output_tokens: 7 } },
+				}) +
+				"\n",
+		);
+		return { root, good, bad };
+	};
+
+	it("rejects with the failing file named, so the caller can quarantine it", async () => {
+		const { root, bad } = seed();
+		const state = createSweepState();
+		await expect(
+			sweepFiles(state, [explodingOn(root, "POISON")], root, 0, 8),
+		).rejects.toMatchObject({ name: "SweepFileError", file: bad });
+	});
+
+	it("after a contained failure the state still matches the last persisted state, and repeats stay stable", async () => {
+		const { root } = seed();
+		const statePath = join(root, "usage-ledger.json");
+
+		// A clean first pass over the good file only, then persist — the
+		// "last atomic persisted state" the worker falls back to.
+		const first = createSweepState();
+		await sweepFiles(first, [cleanDriver(root)], root, 0, 8, undefined, (f) =>
+			f.includes("b-bad"),
+		);
+		saveState(statePath, first.ledger, first.offsets, first.codexLimits);
+		const persistedTotal = sumBillable(first);
+		expect(persistedTotal).toBe(10);
+
+		// Now the worker's recover loop: sweep -> fail -> reload from persisted.
+		let state = loadPersistedState(statePath);
+		for (let i = 0; i < 3; i++) {
+			await expect(
+				sweepFiles(state, [explodingOn(root, "POISON")], root, 0, 8),
+			).rejects.toThrow();
+			state = loadPersistedState(statePath);
+			// Every retry lands back on exactly the persisted total — never a
+			// compounding re-ingest of the same bytes.
+			expect(sumBillable(state)).toBe(persistedTotal);
+		}
+	});
+
+	it("a quarantined file is skipped, and the rest of the sweep still completes", async () => {
+		const { root, bad } = seed();
+		const state = createSweepState();
+		// Same poison driver, but the caller has quarantined the offending file.
+		await expect(
+			sweepFiles(
+				state,
+				[explodingOn(root, "POISON")],
+				root,
+				0,
+				8,
+				undefined,
+				(f) => f === bad,
+			),
+		).resolves.toEqual({ rebuilt: false });
+		// The good file's data is still collected; only the poison file is missing.
+		expect(sumBillable(state)).toBe(10);
+	});
+
+	it("a replacement worker restores the ledger but resets run-scoped state", async () => {
+		const { root } = seed();
+		const statePath = join(root, "usage-ledger.json");
+		const before = createSweepState();
+		await sweepFiles(before, [cleanDriver(root)], root, 0, 8, undefined, (f) =>
+			f.includes("b-bad"),
+		);
+		expect(before.session.since.size).toBeGreaterThan(0);
+		expect(before.providersWithData.has("claude")).toBe(true);
+		saveState(statePath, before.ledger, before.offsets, before.codexLimits);
+
+		// What a re-forked worker sees (diagnosis §3.3): the ledger total carries
+		// over exactly, while `session` and `providersWithData` — both "this run"
+		// by the shared contract (shared/models/usage.ts) — start empty rather
+		// than being reconstructed, which is what would double-count.
+		const after = loadPersistedState(statePath);
+		expect(sumBillable(after)).toBe(sumBillable(before));
+		expect(after.session.since.size).toBe(0);
+		expect(after.session.hourly.size).toBe(0);
+		expect(after.providersWithData.size).toBe(0);
+	});
+});

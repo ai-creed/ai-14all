@@ -48,6 +48,19 @@ function resetState(s: SweepState): void {
 	s.codexLimits = null;
 }
 
+// Carries the path of the file whose processing threw, so the worker can count
+// consecutive failures per file and quarantine a poison one. The original error
+// is kept as `cause` — nothing is hidden.
+export class SweepFileError extends Error {
+	constructor(
+		readonly file: string,
+		override readonly cause: unknown,
+	) {
+		super(`usage sweep failed on ${file}: ${String(cause)}`);
+		this.name = "SweepFileError";
+	}
+}
+
 // Scan every driver's files into `state`, chunked via processInBatches (yields to
 // the event loop; fires onProgress after each batch). Append-only reads and active
 // truncations are idempotent (the scanner subtracts a truncated active file's
@@ -62,6 +75,10 @@ export async function sweepFiles(
 	launchMs: number,
 	batchSize: number,
 	onProgress?: () => void,
+	// Quarantine hook: files the caller has already seen fail repeatedly. The
+	// sweep skips them so one poison file degrades to "that file's data is
+	// missing" instead of failing every sweep forever.
+	skipFile?: (file: string) => boolean,
 ): Promise<{ rebuilt: boolean }> {
 	let sealedTruncation = false;
 	const handlers: ScanHandlers = {
@@ -92,8 +109,17 @@ export async function sweepFiles(
 					files,
 					batchSize,
 					(file) => {
-						if (!sealedTruncation)
+						if (sealedTruncation || skipFile?.(file)) return;
+						try {
 							processJsonlFile(driver, file, state.offsets, handlers);
+						} catch (err) {
+							// Annotate and RE-THROW — never swallow. Swallowing here would
+							// be the blanket per-file catch the diagnosis rules out; this
+							// only names the file so the caller can quarantine it, and the
+							// failure still aborts the pass so the caller can reload from
+							// the last atomically persisted state.
+							throw new SweepFileError(file, err);
+						}
 					},
 					onProgress,
 				);

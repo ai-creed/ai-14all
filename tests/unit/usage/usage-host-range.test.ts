@@ -333,3 +333,77 @@ describe("UsageHost worker-crash recovery", () => {
 		expect(forks()).toBe(1);
 	});
 });
+
+// Coverage for the re-fork budget (diagnosis §3.4). The budget must be keyed on
+// the worker's explicit `ready` message — NOT on any message: `snapshot` is
+// emitted progressively DURING the initial sweep and `rangeResult` is answered
+// straight off the in-memory ledger, so a worker that always dies mid-sweep
+// would reset the budget before every exit and re-fork forever.
+describe("UsageHost re-fork budget", () => {
+	function startedWithForkQueue(count: number): {
+		host: UsageHost;
+		procs: FakeProc[];
+		forks: () => number;
+	} {
+		const procs = Array.from({ length: count }, () => fakeProc());
+		let forked = 0;
+		const host = new UsageHost(
+			hostOpts({}, () => asProc(procs[forked++] ?? procs[procs.length - 1])),
+		);
+		host.start();
+		procs[0].emit("spawn");
+		return { host, procs, forks: () => forked };
+	}
+
+	it("gives up after 5 consecutive exits with no `ready` in between", () => {
+		const { procs, forks } = startedWithForkQueue(12);
+		// Each replacement dies without ever reporting ready.
+		for (let i = 0; i < 10; i++) procs[i].emit("exit", 1);
+		// 1 initial + 5 re-forks, then the host stops trying.
+		expect(forks()).toBe(6);
+	});
+
+	it("a progress snapshot does NOT restore the budget — only `ready` does", () => {
+		const { procs, forks } = startedWithForkQueue(12);
+		for (let i = 0; i < 10; i++) {
+			// A worker that emits a progressive snapshot and then dies mid-sweep is
+			// exactly the unbounded-loop case; it must still be counted.
+			procs[i].emit("message", {
+				kind: "snapshot",
+				snapshot: { generatedAtMs: 0 } as never,
+			});
+			procs[i].emit("exit", 1);
+		}
+		expect(forks()).toBe(6);
+	});
+
+	it("`ready` restores the budget, so an occasional crash never exhausts it", () => {
+		const { procs, forks } = startedWithForkQueue(20);
+		for (let i = 0; i < 10; i++) {
+			procs[i].emit("message", { kind: "ready" });
+			procs[i].emit("exit", 1);
+			procs[i + 1]?.emit("spawn");
+		}
+		expect(forks()).toBe(11); // every death was re-forked
+	});
+
+	it("in-flight reads settle as `disabled` when the worker exits, not after the 2s timeout", async () => {
+		const { host, procs } = startedWithForkQueue(2);
+		const p = host.queryRange({ fromMs: 0, toMs: 86_400_000 });
+		procs[0].emit("exit", 1);
+		// Resolves from the exit handler itself — no fake timers needed, so this
+		// would hang if the read were still waiting on RANGE_TIMEOUT_MS.
+		await expect(p).resolves.toEqual({ ok: false, reason: "disabled" });
+	});
+
+	it("re-enabling after a give-up clears the budget and forks again", () => {
+		const { host, procs, forks } = startedWithForkQueue(12);
+		for (let i = 0; i < 10; i++) procs[i].emit("exit", 1);
+		expect(forks()).toBe(6);
+		expect(host.hasGivenUp).toBe(true);
+
+		host.setEnabled(true);
+		expect(forks()).toBe(7);
+		expect(host.hasGivenUp).toBe(false);
+	});
+});

@@ -52,7 +52,16 @@ function changed(
 	file: string,
 	cache: OffsetCache,
 ): { from: number; mtime: number; truncated: boolean } | null {
-	const st = statSync(file);
+	// A file enumerated at the top of a sweep can be rotated away before its
+	// batch runs. `null` here means "nothing to do for this file", which is
+	// exactly the right answer for a file that no longer exists — and matches
+	// how the listing pass already skips files it cannot stat.
+	let st: Stats;
+	try {
+		st = statSync(file);
+	} catch {
+		return null;
+	}
 	const mtime = st.mtimeMs;
 	const prev = cache.get(file);
 	if (prev && prev.mtime === mtime) return null;
@@ -120,9 +129,20 @@ export function processJsonlFile(
 	if (!ch) return;
 	const prev = cache.get(file);
 
+	// Everything this function mutates outside itself — the truncation subtract,
+	// the ingests, and the offset commit — is applied together at the very end.
+	// Before this was staged, a mid-file failure left ledger mutations recorded
+	// against the OLD offset, so the next sweep re-read the same bytes and the
+	// total compounded (measured 10 -> 20 -> 30 across three passes). That was
+	// harmless only while such a failure killed the process; once the sweep
+	// survives errors it becomes silent, unbounded ledger inflation. Staging
+	// makes the per-file pass all-or-nothing, so a retry is always safe.
+	let subtract: ContributionJson | null = null;
+	const staged: UsageEvent[] = [];
+
 	if (ch.truncated) {
 		if (prev?.contribution) {
-			h.onSubtract(prev.contribution); // active file: reconcile precisely
+			subtract = prev.contribution; // active file: reconcile precisely
 		} else {
 			// Sealed file with no contribution detail: cannot subtract in isolation.
 			// Signal a full rebuild and stop touching this file this pass.
@@ -145,22 +165,29 @@ export function processJsonlFile(
 	const { lines, offset } = readNewLines(file, ch.from, keep);
 	const fileMtime = driver.capabilities.timeSource === "file-mtime";
 
-	// Re-reading after truncation resets contribution; appends extend it.
+	// Re-reading after truncation resets contribution; appends extend it. Cloned
+	// rather than extended in place: `prev.contribution` is the live cache
+	// entry's object, so mutating it directly would survive a mid-file failure
+	// even though nothing else about the pass did.
 	const contribution: ContributionJson = ch.truncated
 		? {}
-		: (prev?.contribution ?? {});
+		: structuredClone(prev?.contribution ?? {});
+
+	// Limits are latest-wins and carry no ledger arithmetic, so they are staged
+	// as plain values rather than applied mid-loop like the events below.
+	const stagedLimits: ProviderRateLimits[] = [];
 
 	for (const line of lines) {
 		const r = driver.parseLine?.(line, ctx);
 		if (!r) continue;
-		if (r.limits) h.onLimits(driver.id, r.limits);
+		if (r.limits) stagedLimits.push(r.limits);
 		if (r.event) {
 			// Stamp file mtime for file-mtime drivers AND for any event whose
 			// parser produced a falsy timestamp (legacy ezio rows, or any row
 			// missing a per-line timestamp) — so a 0/NaN never reaches the
 			// ledger and timestamp-less rows still bucket sanely.
 			if (fileMtime || !r.event.timestampMs) r.event.timestampMs = ch.mtime;
-			h.ingest(r.event);
+			staged.push(r.event);
 			recordContribution(
 				contribution,
 				startOfLocalDay(r.event.timestampMs),
@@ -169,6 +196,14 @@ export function processJsonlFile(
 			);
 		}
 	}
+
+	// Commit: parsing succeeded, so apply every external effect at once. Nothing
+	// above this line has touched the ledger, the session, or the offset cache,
+	// so a throw anywhere in the loop leaves all three exactly as they were and
+	// the next sweep re-reads the same bytes from the same offset.
+	if (subtract) h.onSubtract(subtract);
+	for (const limits of stagedLimits) h.onLimits(driver.id, limits);
+	for (const event of staged) h.ingest(event);
 	cache.set(file, { offset, mtime: ch.mtime, ctx, contribution });
 }
 

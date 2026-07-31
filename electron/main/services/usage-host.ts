@@ -38,6 +38,13 @@ export const USAGE_SNAPSHOT_CHANNEL = "usage:snapshot";
 // timer in `queryRange`). Mirrors InsightsHost's QUERY_TIMEOUT_MS.
 const RANGE_TIMEOUT_MS = 2000;
 
+// Ceiling on the automatic crash re-fork, mirroring InsightsHost's. The budget
+// is restored by the worker's `ready` message — NOT by `spawn` and NOT by any
+// message: a worker that dies during its own initial sweep spawns happily every
+// time and emits progress snapshots on the way down, so keying off either would
+// re-arm the loop forever.
+const MAX_CONSECUTIVE_REFORKS = 5;
+
 export class UsageHost {
 	private proc: UtilityProcess | null = null;
 	private known: KnownWorktree[] = [];
@@ -47,6 +54,14 @@ export class UsageHost {
 	private lastSnapshot: UsageSnapshot | null = null;
 	private spawned = false;
 	private pending: MainToWorker[] = [];
+	// Set before a deliberate kill so the `exit` handler can tell an intentional
+	// stop from a crash; cleared when a new worker is forked.
+	private intentionalStop = false;
+	// Crash re-forks since the last worker that reported ready.
+	private consecutiveReforks = 0;
+	// True once the re-fork budget is spent: reads then report `disabled` (there
+	// really is no worker) rather than burning 2s on a timeout each time.
+	private gaveUp = false;
 	// Monotonic per-host request-id source for queryRange, deterministic so
 	// correlation is testable (mirrors InsightsHost's querySeq).
 	private rangeSeq = 0;
@@ -101,8 +116,21 @@ export class UsageHost {
 			return;
 		}
 
-		this.proc = (this.opts.forkWorker ?? (() => this.defaultFork()))();
-		this.proc.on("message", (msg: WorkerToMain) => {
+		this.intentionalStop = false;
+		// Bind the handle LOCALLY and identity-guard every handler: a worker we
+		// have already replaced can emit a delayed exit long after the fact, and
+		// without this guard that stale event would null out the CURRENT worker's
+		// handle and trigger a spurious extra fork.
+		const proc = (this.opts.forkWorker ?? (() => this.defaultFork()))();
+		this.proc = proc;
+		proc.on("message", (msg: WorkerToMain) => {
+			if (this.proc !== proc) return;
+			if (msg.kind === "ready") {
+				// The worker completed an initial sweep AND persisted it, so it is
+				// genuinely healthy: restore the crash budget.
+				this.consecutiveReforks = 0;
+				return;
+			}
 			if (msg.kind === "snapshot") {
 				this.lastSnapshot = msg.snapshot;
 				this.opts.send(USAGE_SNAPSHOT_CHANNEL, msg.snapshot);
@@ -119,25 +147,71 @@ export class UsageHost {
 		});
 		// utilityProcess can drop messages posted before the child has spawned, so
 		// send config first on "spawn", then flush anything queued meanwhile.
-		this.proc.on("spawn", () => {
+		proc.on("spawn", () => {
+			if (this.proc !== proc) return; // stale worker: it owns nothing now
 			this.spawned = true;
 			const config = this.buildConfig();
-			this.proc?.postMessage({ kind: "config", config });
-			for (const msg of this.pending) this.proc?.postMessage(msg);
+			proc.postMessage({ kind: "config", config });
+			for (const msg of this.pending) proc.postMessage(msg);
 			this.pending = [];
+		});
+		// An unexpected exit is a crash. Without this handler the host kept a
+		// stale non-null `proc`, so every later queryRange posted into a dead pipe
+		// and could only settle via its 2s timeout — which the insights dashboard
+		// renders as "the local insights database could not be read", permanently,
+		// because retry re-runs the same dead read.
+		proc.on("exit", (code?: number) => {
+			if (this.proc !== proc) return; // already replaced — ignore entirely
+			this.spawned = false;
+			this.proc = null;
+			// Don't make callers wait out a timeout for a worker that is already
+			// gone: settle every in-flight read now.
+			this.failPendingRanges("disabled");
+			if (this.intentionalStop) return;
+			if (this.consecutiveReforks >= MAX_CONSECUTIVE_REFORKS) {
+				this.gaveUp = true;
+				console.error(
+					`[usage] worker exited ${this.consecutiveReforks} times in a row without ever reporting ready (a boot failure: corrupt state, disk full, EACCES); giving up on the automatic re-fork. Usage capture stays off until telemetry is toggled or the app restarts.`,
+				);
+				return;
+			}
+			this.consecutiveReforks += 1;
+			console.error(
+				`[usage] worker exited unexpectedly (code ${String(code)}); re-forking (attempt ${this.consecutiveReforks}/${MAX_CONSECUTIVE_REFORKS})`,
+			);
+			this.start();
 		});
 	}
 
+	// Settle every in-flight range read at once, so a dead worker cannot leave
+	// callers hanging until their individual timers fire.
+	private failPendingRanges(reason: "disabled" | "timeout"): void {
+		for (const settle of [...this.pendingRanges.values()])
+			settle({ ok: false, reason });
+	}
+
 	stop(): void {
+		this.intentionalStop = true; // cleared when a new worker is forked
 		this.spawned = false;
 		this.pending = [];
 		this.proc?.kill();
 		this.proc = null;
+		this.failPendingRanges("disabled");
 	}
 
 	setEnabled(enabled: boolean): void {
-		if (enabled) this.start();
-		else this.stop();
+		if (enabled) {
+			// An explicit re-enable is the user asking for another go: clear a spent
+			// crash budget so a previously-abandoned worker gets a fresh chance.
+			this.consecutiveReforks = 0;
+			this.gaveUp = false;
+			this.start();
+		} else this.stop();
+	}
+
+	/** True once repeated crashes exhausted the re-fork budget (diagnostics). */
+	get hasGivenUp(): boolean {
+		return this.gaveUp;
 	}
 
 	setKnownWorktrees(known: KnownWorktree[]): void {

@@ -16,13 +16,30 @@ export function readNewLines(
 	keep: (line: string) => boolean,
 	toOffset?: number,
 ): IncrementalRead {
-	const size = statSync(file).size;
+	// The agent CLIs rotate these logs, so a file enumerated at the top of a
+	// sweep can be gone by the time it is read. Treat "vanished" as "no new
+	// lines" — the same outcome an unreadable file already gets in the scanner's
+	// own listing pass — rather than throwing out of a batched callback, where
+	// the throw is uncaught and kills the worker.
+	let size: number;
+	try {
+		size = statSync(file).size;
+	} catch {
+		return { lines: [], offset: fromOffset };
+	}
 	const end = toOffset !== undefined ? Math.min(toOffset, size) : size;
 	let start = fromOffset;
 	if (size < fromOffset) start = 0; // truncated/rotated
 	if (end <= start) return { lines: [], offset: start };
 
-	const fd = openSync(file, "r");
+	// Same race, one step later: the file can disappear between the stat above
+	// and this open.
+	let fd: number;
+	try {
+		fd = openSync(file, "r");
+	} catch {
+		return { lines: [], offset: start };
+	}
 	try {
 		const buf = Buffer.allocUnsafe(end - start);
 		readSync(fd, buf, 0, buf.length, start);
