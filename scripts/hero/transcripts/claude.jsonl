@@ -51,4 +51,31 @@
 {"delayMs":600,"text":"Double-checking the retry test covers the timeout case"}
 {"delayMs":600,"text":"Reading src/cart-badge.ts"}
 {"delayMs":650,"text":"Everything looks good"}
-{"delayMs":700,"text":"Watching for the next task..."}
+{"delayMs":700,"text":"Re-running the checkout tests before handing off"}
+{"delayMs":300,"chunk":"⠋"}
+{"delayMs":200,"chunk":"⠙"}
+{"delayMs":200,"chunk":"⠹\n"}
+{"delayMs":700,"text":"✓ 14 tests passed (vitest)"}
+{"delayMs":750,"text":"Checking the backoff delay stays capped between attempts"}
+{"delayMs":800,"text":"Confirming submitOrder() still surfaces the original error"}
+{"delayMs":700,"text":"Scanning for other call sites of submitOrder()"}
+{"delayMs":300,"chunk":"⠋"}
+{"delayMs":200,"chunk":"⠙"}
+{"delayMs":200,"chunk":"⠹\n"}
+{"delayMs":750,"text":"No other call site needs the retry wrapper"}
+{"delayMs":800,"text":"Re-reading docs/api.md for consistent wording"}
+{"delayMs":850,"text":"Noting the retry behavior in the checkout section"}
+{"delayMs":300,"chunk":"⠋"}
+{"delayMs":200,"chunk":"⠙"}
+{"delayMs":200,"chunk":"⠹\n"}
+{"delayMs":700,"text":"Formatting the files this change touched"}
+{"delayMs":700,"text":"✓ formatting clean"}
+{"delayMs":800,"text":"Writing up the change summary"}
+{"delayMs":850,"text":"Retry wrapper: three attempts, exponential backoff with jitter"}
+{"delayMs":800,"text":"Docs updated alongside the code change"}
+{"delayMs":900,"text":"Re-reading the diff one last time"}
+{"delayMs":300,"chunk":"⠋"}
+{"delayMs":200,"chunk":"⠙"}
+{"delayMs":200,"chunk":"⠹\n"}
+{"delayMs":800,"text":"Change looks complete"}
+{"delayMs":900,"text":"Watching for the next task..."}

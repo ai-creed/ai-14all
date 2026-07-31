@@ -172,7 +172,8 @@ async function waitForFile(
  * `$ZDOTDIR/.zshrc`, so `.zshrc` is the only file in the scratch ZDOTDIR that
  * wins. `%1~` keeps the worktree/branch dir name — that part is good demo
  * content — and drops `%n@%m`. PATH is untouched by `/etc/zshrc`, so the
- * shims still resolve first (verified live).
+ * shims still resolve first (verified live). The same `.zshrc` clears
+ * PROMPT_EOL_MARK — see the comment on the write below.
  */
 function setUpShellPathOverride(
 	rootDir: string,
@@ -183,7 +184,16 @@ function setUpShellPathOverride(
 		join(zdotDir, ".zprofile"),
 		`export PATH="${stubBinDir}:$PATH"\n`,
 	);
-	writeFileSync(join(zdotDir, ".zshrc"), "PROMPT='%1~ %# '\n");
+	// PROMPT_EOL_MARK='' suppresses zsh's reverse-video "%" partial-line marker.
+	// zsh prints it whenever the previous command's output does not end in a
+	// newline — which is every pane the transcript player drives, because it
+	// parks on a spinner chunk. The marker lands as the first cell of the
+	// scrollback, sits on camera for the whole tour, and is magnified at the
+	// sidebar beat's deepest zoom stop.
+	writeFileSync(
+		join(zdotDir, ".zshrc"),
+		"PROMPT='%1~ %# '\nPROMPT_EOL_MARK=''\n",
+	);
 	return { zdotDir };
 }
 

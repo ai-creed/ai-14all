@@ -68,6 +68,27 @@ this checklist before the next master is accepted** — transcript content is
 exactly what the checklist is scoped to, and a passing `hero:validate` run
 proves the clock/schema contract, not claims-safety.
 
+## Two fixture traps the frames pay for
+
+Neither is caught by any automated stage — both are checked by reading frames.
+
+- **Transcript wording drives the sidebar's red "NEEDS YOU" tier.** The app
+  derives a pane's attention state from its raw output
+  (`src/features/terminals/logic/process-attention.ts`): `continue?`, `y/n`,
+  `error:`, `failed` or `exception` in ANY chunk raises `actionRequired` on
+  that process. While the pane is on screen in the active worktree the
+  recorder's own viewing clears it, so it only becomes visible AFTER the
+  storyboard switches worktrees — i.e. exactly in the closing tableau and the
+  poster. This is why `demo-tests.jsonl` reports `0 skipped` rather than a
+  vitest-realistic `0 failed`. Grep any new transcript line against those five
+  patterns.
+- **An agent shim that runs out of transcript exits, and its dead session
+  flags the worktree.** Agent shims must not loop (a second pass re-emits the
+  `commit-line` marker and double-fires the cue — see `stage.ts`), so
+  `claude.jsonl` instead has to be long enough to keep emitting past the end
+  of the take: the master runs 25s and the poster is captured at master 23s,
+  measured from the `fleet-burst` gate opening at master ≈11.2.
+
 ## Delivering to ai-creed
 
 After a `pnpm hero` run passes stage B, hand off the three files ai-creed
