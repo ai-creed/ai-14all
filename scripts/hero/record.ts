@@ -499,7 +499,7 @@ async function mcpReportAtCue(
 // Marks file (Task 3 shim markers)
 // ---------------------------------------------------------------------------
 
-type Mark = { marker: string; t: number };
+export type Mark = { marker: string; t: number };
 
 function readMarks(path: string): Mark[] {
 	// world.marksPath may not exist until claude's first marker write.
@@ -514,9 +514,9 @@ function readMarks(path: string): Mark[] {
 // Capture: calibration, event loop, frame collection
 // ---------------------------------------------------------------------------
 
-type RetainedFrame = { cdpTimestamp: number; data: Buffer };
+export type RetainedFrame = { cdpTimestamp: number; data: Buffer };
 
-type CaptureResult = {
+export type CaptureResult = {
 	cal: Calibration;
 	frames: RetainedFrame[];
 	M0wall: number;
@@ -773,7 +773,7 @@ async function recordCapture(
 // Stage A — in-process source checks, before any encoding
 // ---------------------------------------------------------------------------
 
-type StageAResult = { ok: boolean; errors: string[] };
+export type StageAResult = { ok: boolean; errors: string[] };
 
 /** A crop wider than this fraction of the frame is not a push-in at all — see
  * the stage-A check that uses it. */
@@ -786,7 +786,49 @@ const ALL_CAMERA_TARGETS: CameraTarget[] = [
 	"review-surface",
 ];
 
-function runStageAChecks(
+/**
+ * Frames inside `[startMaster, endMaster]`, PLUS the last frame at or before
+ * the start and the first at or after the end.
+ *
+ * Filtering to frames strictly inside a window makes it blind to a freeze that
+ * STRADDLES a window edge: a 1s stall spanning [6,7] still leaves 60 frames in
+ * [7,8] at 59Hz, so an inside-only scan sees a perfect window and passes. The
+ * two anchors turn that stall into a single measured inter-frame gap, which is
+ * what it is. On a clean take the anchors add only one normal frame interval at
+ * each edge (15-32ms on the shipped run), so they do not move the verdict.
+ */
+export function windowFramesWithEdgeAnchors(
+	sortedMasterTimes: number[],
+	startMaster: number,
+	endMaster: number,
+): { inside: number[]; anchored: number[] } {
+	const inside: number[] = [];
+	let leftAnchor: number | undefined;
+	let rightAnchor: number | undefined;
+	for (const t of sortedMasterTimes) {
+		if (t < startMaster) leftAnchor = t;
+		else if (t <= endMaster) inside.push(t);
+		else {
+			rightAnchor = t;
+			break;
+		}
+	}
+	const anchored: number[] = [];
+	if (leftAnchor !== undefined) anchored.push(leftAnchor);
+	anchored.push(...inside);
+	if (rightAnchor !== undefined) anchored.push(rightAnchor);
+	return { inside, anchored };
+}
+
+/**
+ * The only take-quality gate on the branch: everything that can make a capture
+ * unusable while still encoding cleanly is caught here, before any encoding
+ * happens. Exported so tests/unit/hero/stage-a.test.ts drives the REAL function
+ * — the errata exemption's branches are too load-bearing to be verified by
+ * reading them. Pure in `(CaptureResult, targetRects)`: no fs, no clock, no
+ * network.
+ */
+export function runStageAChecks(
 	capture: CaptureResult,
 	targetRects: Partial<Record<CameraTarget, Rect | null>>,
 ): StageAResult {
@@ -796,19 +838,26 @@ function runStageAChecks(
 	// (writes calibration-failure.json, rejects) before a CaptureResult ever
 	// exists, so this function never sees one — checking it again is dead code.
 
-	const masterTimes = capture.frames.map(
-		(f) => (cdpToWallMs(f.cdpTimestamp, capture.cal) - capture.M0wall) / 1000,
-	);
+	const masterTimes = capture.frames
+		.map(
+			(f) => (cdpToWallMs(f.cdpTimestamp, capture.cal) - capture.M0wall) / 1000,
+		)
+		.sort((a, b) => a - b);
 	for (const w of FLEET_TIGHT.motionWindows) {
-		const inWindow = masterTimes
-			.filter((t) => t >= w.startMaster && t <= w.endMaster)
-			.sort((a, b) => a - b);
-		if (inWindow.length < 2) {
+		const { inside, anchored } = windowFramesWithEdgeAnchors(
+			masterTimes,
+			w.startMaster,
+			w.endMaster,
+		);
+		// Frame-count coverage is judged on the window's OWN frames — the anchors
+		// exist to measure straddling gaps, not to pad a window into passing.
+		if (inside.length < 2) {
 			errors.push(
-				`motion window [${w.startMaster},${w.endMaster}]: only ${inWindow.length} frame(s) captured`,
+				`motion window [${w.startMaster},${w.endMaster}]: only ${inside.length} frame(s) captured`,
 			);
 			continue;
 		}
+		const inWindow = anchored;
 		const gaps: Array<{ gapMs: number; startMaster: number }> = [];
 		for (let i = 1; i < inWindow.length; i++) {
 			gaps.push({
@@ -1359,7 +1408,12 @@ async function main(): Promise<void> {
 	}
 }
 
-main().catch((err) => {
-	console.error("[hero:record] fatal:", err);
-	process.exitCode = 1;
-});
+// Import-safe: only run the CLI when this file is the process entry point, not
+// when a test imports runStageAChecks from it as a library — otherwise every
+// import would launch Electron and start a capture. Mirrors validate.ts.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+	main().catch((err) => {
+		console.error("[hero:record] fatal:", err);
+		process.exitCode = 1;
+	});
+}
