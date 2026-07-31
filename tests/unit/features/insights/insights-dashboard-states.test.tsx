@@ -491,6 +491,14 @@ describe("InsightsDashboard", () => {
 		// is inherently slower than this suite's usual fixtures — the default
 		// 5s per-test timeout isn't about correctness here, just jsdom's raw
 		// node-creation cost at this deliberately-extreme depth.
+		//
+		// The budget is 60s, not the 20s it started at, because that 20s was
+		// tight enough to make this test load-sensitive rather than merely slow:
+		// measured 7.2s running this file alone but 25.5s under a full
+		// `pnpm test` run, where it timed out and reddened the whole suite. CI
+		// runners are slower and more contended than a dev machine, so the
+		// headroom is deliberate — the number is a "this render is huge" budget,
+		// not an assertion about performance.
 		stubApi();
 		const api = (window as unknown as { ai14all: StubApi }).ai14all;
 		const now = Date.now();
@@ -590,5 +598,5 @@ describe("InsightsDashboard", () => {
 			expect(edges.length).toBeLessThanOrEqual(9001);
 		}
 		expect(seriesCalls.some((edges) => edges.length <= 60)).toBe(true);
-	}, 20_000);
+	}, 60_000);
 });
