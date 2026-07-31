@@ -79,6 +79,11 @@ export async function sweepFiles(
 	// sweep skips them so one poison file degrades to "that file's data is
 	// missing" instead of failing every sweep forever.
 	skipFile?: (file: string) => boolean,
+	// Fired after each file is processed WITHOUT throwing. The caller needs
+	// per-file success, not just per-pass: quarantine counts CONSECUTIVE
+	// failures of the same file, so a file that succeeded in this pass must have
+	// its counter cleared even when a LATER file aborts the pass.
+	onFileDone?: (file: string) => void,
 ): Promise<{ rebuilt: boolean }> {
 	let sealedTruncation = false;
 	const handlers: ScanHandlers = {
@@ -112,6 +117,7 @@ export async function sweepFiles(
 						if (sealedTruncation || skipFile?.(file)) return;
 						try {
 							processJsonlFile(driver, file, state.offsets, handlers);
+							onFileDone?.(file);
 						} catch (err) {
 							// Annotate and RE-THROW — never swallow. Swallowing here would
 							// be the blanket per-file catch the diagnosis rules out; this

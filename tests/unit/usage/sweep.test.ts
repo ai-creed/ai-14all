@@ -350,3 +350,57 @@ describe("sweep failure recovery", () => {
 		expect(after.providersWithData.size).toBe(0);
 	});
 });
+
+// The per-file success signal the quarantine counter depends on. Asserted
+// against the REAL sweepFiles rather than a stub, because the ordering
+// guarantee ("files before the failure reported done, files after did not")
+// comes from sweepFiles' own batching, not from the runner.
+describe("sweepFiles per-file completion reporting", () => {
+	it("reports every file processed before the failure, and none after", async () => {
+		const root = mkdtempSync(join(tmpdir(), "sweep-filedone-"));
+		const proj = join(root, "-Users-me-Dev-app");
+		mkdirSync(proj);
+		// Sorted enumeration: a-good, b-bad, c-after.
+		writeFileSync(join(proj, "a-good.jsonl"), claudeLine(10));
+		writeFileSync(
+			join(proj, "b-bad.jsonl"),
+			JSON.stringify({
+				type: "assistant",
+				timestamp: "2026-05-01T00:00:00.000Z",
+				cwd: "/Users/me/Dev/app",
+				sessionId: "POISON",
+				message: { model: "m", usage: { output_tokens: 5 } },
+			}) + "\n",
+		);
+		writeFileSync(join(proj, "c-after.jsonl"), claudeLine(3));
+
+		const driver: TelemetryDriver = {
+			id: "claude",
+			capabilities: claudeDriver.capabilities,
+			roots: () => [root],
+			keep: claudeDriver.keep,
+			seedCtx: claudeDriver.seedCtx,
+			parseLine: (line, ctx) => {
+				if (line.includes('"POISON"')) throw new Error("mid-file failure");
+				return claudeDriver.parseLine!(line, ctx);
+			},
+		};
+
+		const done: string[] = [];
+		const state = createSweepState();
+		await expect(
+			sweepFiles(
+				state,
+				[driver],
+				"ignored-home",
+				0,
+				1,
+				undefined,
+				undefined,
+				(f) => void done.push(f),
+			),
+		).rejects.toMatchObject({ name: "SweepFileError" });
+
+		expect(done).toEqual([join(proj, "a-good.jsonl")]);
+	});
+});

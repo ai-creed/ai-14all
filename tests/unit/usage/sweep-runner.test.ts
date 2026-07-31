@@ -7,13 +7,13 @@ import {
 	SweepFileError,
 	createSweepState,
 } from "../../../services/usage/sweep.js";
-import {
-	createLedger,
-	createSession,
-	ingestEvent,
-} from "../../../services/usage/ledger.js";
+import { ingestEvent } from "../../../services/usage/ledger.js";
+import { buildSnapshot } from "../../../services/usage/snapshot.js";
 import type { SweepState } from "../../../services/usage/sweep.js";
-import type { UsageEvent } from "../../../shared/models/usage.js";
+import type {
+	UsageEvent,
+	UsageSnapshot,
+} from "../../../shared/models/usage.js";
 
 // These pin the worker's OWN recovery behaviour, which previously lived inline
 // in the Electron shell where no test could reach it: removing the reload
@@ -61,7 +61,10 @@ interface Harness {
  */
 function harness(opts: {
 	persistedTotal: number;
-	runSweep: (s: SweepState) => Promise<void>;
+	runSweep: (
+		s: SweepState,
+		onFileDone: (file: string) => void,
+	) => Promise<void>;
 	persist?: () => void;
 	maxFileFailures?: number;
 }): Harness {
@@ -73,7 +76,7 @@ function harness(opts: {
 		setState: (s) => {
 			live = s;
 		},
-		runSweep: (s) => opts.runSweep(s),
+		runSweep: (s, _skip, onFileDone) => opts.runSweep(s, onFileDone),
 		persist: opts.persist ?? ((): void => {}),
 		reload: () => {
 			reloads++;
@@ -198,6 +201,40 @@ describe("createSweepRunner", () => {
 		expect(h.runner.isQuarantined(file)).toBe(false); // never reached 3 in a row
 	});
 
+	// "Consecutive" is per FILE, not per pass: A succeeding during the pass that
+	// B fails must reset A. Clearing counters only on a wholly clean sweep let an
+	// unrelated poison file freeze A's count and eventually quarantine a
+	// perfectly healthy file, suppressing its usage data until restart.
+	it("a file that succeeds has its streak cleared even when a LATER file fails the pass", async () => {
+		const A = "/logs/a.jsonl";
+		const B = "/logs/b.jsonl";
+		let failing: string | null = A;
+		const h = harness({
+			persistedTotal: 0,
+			runSweep: async (_s, onFileDone) => {
+				if (failing === A) throw new SweepFileError(A, new Error("boom"));
+				onFileDone(A);
+				if (failing === B) throw new SweepFileError(B, new Error("boom"));
+				onFileDone(B);
+			},
+		});
+
+		await h.runner.run(); // A fails
+		await h.runner.run(); // A fails
+		expect(h.runner.failureCount(A)).toBe(2);
+
+		failing = B; // A now succeeds; B aborts the pass
+		await h.runner.run();
+		expect(h.runner.failureCount(A)).toBe(0); // streak broken
+		expect(h.runner.failureCount(B)).toBe(1);
+
+		failing = A;
+		await h.runner.run();
+		expect(h.runner.failureCount(A)).toBe(1); // NOT 3
+		expect(h.runner.isQuarantined(A)).toBe(false);
+		expect(h.quarantines).toEqual([]);
+	});
+
 	it("passes its quarantine set to the sweep, so a poison file is actually skipped", async () => {
 		const file = "/logs/poison.jsonl";
 		const skipChecks: boolean[] = [];
@@ -245,34 +282,78 @@ describe("createSweepRunner", () => {
 	});
 });
 
-describe("run-scoped state across a worker replacement", () => {
-	it("session and providersWithData start empty while the ledger carries over", () => {
-		// What loadPersistedState hands a REPLACEMENT worker: the durable ledger,
-		// and run-scoped fields freshly constructed. Both are "this run" by the
-		// shared contract (shared/models/usage.ts), so reconstructing them would
-		// either double-count or redefine the contract.
-		const before = createSweepState();
-		ingestEvent(before.ledger, before.session, event(10), 0);
-		before.providersWithData.add("claude");
-		expect(before.session.since.size).toBeGreaterThan(0);
+// Diagnosis §3.6 requires the replacement contract asserted where CONSUMERS see
+// it — the UsageSnapshot — not at internal SweepState fields. Deriving
+// `hasData` from the persisted all-time ledger (explicitly rejected, since
+// shared/models/usage.ts defines it as "produced >= 1 event this run") would
+// regress with internal-only assertions still green; verified by simulating
+// that projection, which fails the hasData assertion below.
+describe("run-scoped state across a worker replacement (snapshot layer)", () => {
+	const snapshotOf = (s: SweepState): UsageSnapshot =>
+		buildSnapshot({
+			ledger: s.ledger,
+			session: s.session,
+			known: [],
+			activeWorktreeIds: [],
+			nowMs: Date.parse("2026-05-01T12:00:00.000Z"),
+			includeUntracked: true,
+			chipRange: "week",
+			providersWithData: s.providersWithData,
+			codexLimits: s.codexLimits,
+		});
 
-		const after = createSweepState(before.offsets);
-		after.ledger = before.ledger; // what the persisted pair restores
+	const hasData = (snap: UsageSnapshot, id: string): boolean =>
+		snap.providers.find((p) => p.id === id)?.hasData ?? false;
 
-		expect(total(after)).toBe(total(before));
-		expect(after.session.since.size).toBe(0);
-		expect(after.session.hourly.size).toBe(0);
-		expect(after.providersWithData.size).toBe(0);
+	function before(): SweepState {
+		const s = createSweepState();
+		ingestEvent(s.ledger, s.session, event(10), 0);
+		s.providersWithData.add("claude");
+		return s;
+	}
+
+	// What loadPersistedState hands a REPLACEMENT worker: durable ledger
+	// restored, run-scoped fields freshly constructed.
+	function afterReplacement(prev: SweepState): SweepState {
+		const s = createSweepState(prev.offsets);
+		s.ledger = prev.ledger;
+		s.codexLimits = prev.codexLimits;
+		return s;
+	}
+
+	it("the ledger total survives replacement unchanged", () => {
+		const prev = before();
+		const snapBefore = snapshotOf(prev);
+		const snapAfter = snapshotOf(afterReplacement(prev));
+		expect(snapAfter.scopes["all-time"].totalTokens).toBe(
+			snapBefore.scopes["all-time"].totalTokens,
+		);
+		expect(snapAfter.scopes["all-time"].totalTokens).toBe(10);
 	});
 
-	it("post-replacement activity repopulates run scope without touching the ledger total twice", () => {
-		const after = createSweepState();
-		after.ledger = createLedger();
-		after.session = createSession();
-		ingestEvent(after.ledger, after.session, event(10), 0);
-		after.providersWithData.add("claude");
+	it("scopes.session and seriesHourly reset, and hasData goes false despite all-time history", () => {
+		const prev = before();
+		expect(snapshotOf(prev).scopes.session.totalTokens).toBe(10);
+		expect(hasData(snapshotOf(prev), "claude")).toBe(true);
 
-		expect(total(after)).toBe(10);
-		expect(after.providersWithData.has("claude")).toBe(true);
+		const snap = snapshotOf(afterReplacement(prev));
+		expect(snap.scopes.session.totalTokens).toBe(0);
+		expect(snap.scopes.session.rows).toEqual([]);
+		expect(snap.seriesHourly).toEqual([]);
+		// Load-bearing: all-time history is present (10 above) yet hasData is
+		// false, because it means "this run".
+		expect(hasData(snap, "claude")).toBe(false);
+	});
+
+	it("post-replacement activity repopulates run scope without double-counting the ledger", () => {
+		const prev = before();
+		const next = afterReplacement(prev);
+		ingestEvent(next.ledger, next.session, event(4), 0);
+		next.providersWithData.add("claude");
+
+		const snap = snapshotOf(next);
+		expect(hasData(snap, "claude")).toBe(true);
+		expect(snap.scopes.session.totalTokens).toBe(4); // post-replacement only
+		expect(snap.scopes["all-time"].totalTokens).toBe(14); // 10 + 4, not 20
 	});
 });

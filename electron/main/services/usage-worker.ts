@@ -66,7 +66,7 @@ const runner = createSweepRunner({
 	setState: (s) => {
 		state = s;
 	},
-	runSweep: (s, skipFile) =>
+	runSweep: (s, skipFile, onFileDone) =>
 		// All scan + idempotency + sealed-truncation-rebuild logic lives in
 		// sweepFiles (electron-free + unit-tested in tests/unit/usage/sweep.test.ts).
 		sweepFiles(
@@ -77,6 +77,7 @@ const runner = createSweepRunner({
 			cfg!.backfillBatchSize,
 			scheduleEmit,
 			skipFile,
+			onFileDone,
 		).then(() => undefined),
 	persist: () => persist(),
 	reload: () => loadPersistedState(ledgerPath()),

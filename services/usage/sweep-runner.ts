@@ -25,10 +25,15 @@ import { SweepFileError, type SweepState } from "./sweep.js";
 export interface SweepRunnerDeps {
 	getState(): SweepState;
 	setState(state: SweepState): void;
-	/** Run one full pass, skipping any file the runner has quarantined. */
+	/**
+	 * Run one full pass, skipping any file the runner has quarantined, and
+	 * reporting each file that completed WITHOUT throwing so the runner can
+	 * clear that file's consecutive-failure count.
+	 */
 	runSweep(
 		state: SweepState,
 		skipFile: (file: string) => boolean,
+		onFileDone: (file: string) => void,
 	): Promise<void>;
 	/** Persist the state atomically. May throw; that counts as a failed run. */
 	persist(state: SweepState): void;
@@ -59,12 +64,18 @@ export function createSweepRunner(deps: SweepRunnerDeps): SweepRunner {
 		failureCount: (file) => failures.get(file) ?? 0,
 		async run(): Promise<boolean> {
 			try {
-				await deps.runSweep(deps.getState(), (file) => quarantined.has(file));
+				await deps.runSweep(
+					deps.getState(),
+					(file) => quarantined.has(file),
+					// Per-file success clears that file's streak immediately, even if
+					// the pass goes on to fail elsewhere.
+					(file) => void failures.delete(file),
+				);
 				// Inside the try on purpose: a persist that throws leaves the
 				// on-disk state behind the in-memory one, which is exactly the
 				// divergence the reload below exists to correct.
 				deps.persist(deps.getState());
-				failures.clear();
+				failures.clear(); // a wholly clean pass: nothing is on a streak
 				return true;
 			} catch (err) {
 				const file = err instanceof SweepFileError ? err.file : null;
