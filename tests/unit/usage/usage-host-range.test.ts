@@ -265,3 +265,71 @@ describe("UsageHost.queryRange", () => {
 		await expect(p).resolves.toMatchObject({ ok: true });
 	});
 });
+
+// Regression: the usage worker dying mid-session must not silently wedge every
+// later read. Observed in a packaged v1.9.0 app after ~26h uptime — the usage
+// utilityProcess was gone (one node.mojom.NodeService in the process tree where
+// the app forks two workers; usage-ledger.json frozen 20+ min while the insights
+// store kept advancing), yet UsageHost had never noticed: it registers "message"
+// and "spawn" handlers but NO "exit" handler, so `this.proc` stays non-null,
+// every queryRange posts into a dead pipe, and the 2s timer is the only thing
+// that ever settles it. The insights dashboard maps a usage `timeout` to its
+// error state, so the whole view reads "the local insights database could not be
+// read" — permanently, since retry re-runs the same dead-pipe read.
+// InsightsHost already handles exactly this (insights-host.ts's proc.on("exit")
+// re-fork, bounded by MAX_CONSECUTIVE_REFORKS); UsageHost must too.
+describe("UsageHost worker-crash recovery", () => {
+	// Multi-proc fork factory: each start()/re-fork gets the next fake proc, so
+	// a replacement worker is observable (the single-proc startedWithFakeProc
+	// helper above cannot express a re-fork).
+	function startedWithForkQueue(count: number): {
+		host: UsageHost;
+		procs: FakeProc[];
+		forks: () => number;
+	} {
+		const procs = Array.from({ length: count }, () => fakeProc());
+		let forked = 0;
+		const host = new UsageHost(
+			hostOpts({}, () => asProc(procs[forked++] ?? procs[procs.length - 1])),
+		);
+		host.start();
+		procs[0].emit("spawn");
+		return { host, procs, forks: () => forked };
+	}
+
+	it("re-forks a replacement worker when the worker exits unexpectedly", () => {
+		const { procs, forks } = startedWithForkQueue(2);
+		expect(forks()).toBe(1);
+
+		procs[0].emit("exit", 1); // crash, not a deliberate stop()
+
+		expect(forks()).toBe(2);
+	});
+
+	it("queryRange after a worker crash is answered, not left to time out", async () => {
+		vi.useFakeTimers();
+		try {
+			const { host, procs } = startedWithForkQueue(2);
+			procs[0].emit("exit", 1);
+			procs[1].emit("spawn");
+
+			const p = host.queryRange({ fromMs: 0, toMs: 86_400_000 });
+
+			// The replacement worker receives the read and answers it.
+			const posted = sentQueryRange(procs[1]);
+			expect(posted).toBeDefined();
+			procs[1].emit("message", rangeResultOf(posted?.requestId));
+
+			await expect(p).resolves.toMatchObject({ ok: true });
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("a deliberate stop() does NOT resurrect the worker", () => {
+		const { host, procs, forks } = startedWithForkQueue(2);
+		host.stop();
+		procs[0].emit("exit", 0);
+		expect(forks()).toBe(1);
+	});
+});
