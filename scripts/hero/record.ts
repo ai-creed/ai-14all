@@ -173,7 +173,7 @@ async function waitForFile(
  * wins. `%1~` keeps the worktree/branch dir name — that part is good demo
  * content — and drops `%n@%m`. PATH is untouched by `/etc/zshrc`, so the
  * shims still resolve first (verified live). The same `.zshrc` clears
- * PROMPT_EOL_MARK — see the comment on the write below.
+ * PROMPT_EOL_MARK and RPROMPT — see the comment on the write below.
  */
 function setUpShellPathOverride(
 	rootDir: string,
@@ -190,9 +190,16 @@ function setUpShellPathOverride(
 	// parks on a spinner chunk. The marker lands as the first cell of the
 	// scrollback, sits on camera for the whole tour, and is magnified at the
 	// sidebar beat's deepest zoom stop.
+	//
+	// RPROMPT='' clears the RIGHT-hand prompt for the same reason PROMPT is
+	// overridden: `/etc/zshrc` (or anything else sourced before `$ZDOTDIR/
+	// .zshrc`) can set one, and a right prompt commonly carries exactly the
+	// content spec §9 forbids — host, user, cwd, git branch, timestamp. It
+	// renders flush against the pane's right edge, so it is legible in every
+	// terminal beat. Overriding PROMPT alone leaves that half unguarded.
 	writeFileSync(
 		join(zdotDir, ".zshrc"),
-		"PROMPT='%1~ %# '\nPROMPT_EOL_MARK=''\n",
+		"PROMPT='%1~ %# '\nRPROMPT=''\nPROMPT_EOL_MARK=''\n",
 	);
 	return { zdotDir };
 }
@@ -840,6 +847,14 @@ function runStageAChecks(
 			}
 		});
 
+		// TRIPWIRE — this log line is the only place the exemption is visible, so
+		// read it on every run. The exempted gap must land in the ~250–270ms band
+		// the errata was measured against (249–270ms across 12/12 reproductions).
+		// An exemption materially outside that band, or ANY exemption in the
+		// [21,23] window — where no mcp-status relayout is expected to be the
+		// dominant cost — is a DIFFERENT defect wearing the errata's clothes and
+		// must be re-investigated, not passed. Never widen the band, the ≤400ms
+		// ceiling, or the [t-0.05,t+0.35] window to make a new gap fit.
 		if (exemptIndex >= 0) {
 			console.log(
 				`[stage-A] motion window [${w.startMaster},${w.endMaster}]: exempting one ${exemptGapMs.toFixed(1)}ms gap at t=${gaps[exemptIndex]!.startMaster.toFixed(3)} (mcp-status relayout, spec errata)`,

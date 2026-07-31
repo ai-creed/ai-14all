@@ -102,6 +102,22 @@ summary.ts`). All three are `active` during the establish beat, so recency
   the genuinely most-recent session — and the three-agent story is carried by
   the AGENTS tab bar and the `claude`-titled pane in the fleet beat.
 
+## Reading a `pnpm hero` run: the stage-A exemption tripwire
+
+Stage A allows **at most one** inter-frame gap per motion window to be exempt
+from its 150ms rule, because Chromium's CDP screencast capturer deterministically
+drops ~250ms of frames on any in-flow box-geometry relayout — an mcp-status cue
+always causes exactly one (spec §7 errata; not app-visible jank, the renderer
+holds 60Hz throughout). Every exemption prints a `[stage-A] … exempting one
+NNN.Nms gap at t=…` line.
+
+**Read that line on every run.** The errata was measured at 249–270ms. An
+exempted gap materially outside that ~250–270ms band, or **any** exemption
+appearing in the `[21,23]` window, is a different defect wearing the errata's
+clothes: re-investigate it, do not accept the run. Never widen the band, the
+≤400ms ceiling, or the `[t-0.05s, t+0.35s]` cue window to make a new gap fit —
+see the tripwire comment on the exemption in `record.ts`.
+
 ## Delivering to ai-creed
 
 After a `pnpm hero` run passes stage B, hand off the three files ai-creed
