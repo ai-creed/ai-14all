@@ -597,23 +597,58 @@ describe("sweep resilience: a file that vanishes mid-sweep", () => {
 		).not.toThrow();
 	});
 
-	it("processJsonlFile skips a file deleted after its first successful pass", () => {
+	// The SECOND unguarded statSync is readNewLines'. Deleting the file up front
+	// (as the test above does) can never reach it — `changed()` throws first. To
+	// land inside the changed()->readNewLines window this drives a real
+	// production hook that runs between them: processJsonlFile calls
+	// driver.recoverCtx when `ch.from > 0 && !ctx.cwd` (scanner.ts:141-143), so a
+	// driver whose recoverCtx removes the file reproduces the rotation landing in
+	// exactly that gap — deterministically, with no fs mocking.
+	it("processJsonlFile skips a file that vanishes between changed() and readNewLines", () => {
 		const root = mkdtempSync(join(tmpdir(), "vanish2-"));
 		const dir = join(root, "-Users-me-Dev-app");
 		const file = writeClaudeEvent(dir, "s1.jsonl", "2026-05-01T00:00:00.000Z");
 		const cache: OffsetCache = new Map();
 
-		processJsonlFile(claudeDriver, file, cache, inertHandlers());
-		expect(cache.has(file)).toBe(true);
+		let recoverCtxRan = false;
+		const rotatingDriver: TelemetryDriver = {
+			...claudeDriver,
+			recoverCtx: (f: string) => {
+				recoverCtxRan = true;
+				rmSync(f); // rotated away mid-file, after changed() already succeeded
+				return {};
+			},
+		};
 
-		// Re-created with a NEW mtime so `changed()` cannot short-circuit on the
-		// cached mtime, then removed before the read — the readNewLines window.
-		writeClaudeEvent(dir, "s1.jsonl", "2026-05-02T00:00:00.000Z");
+		// Pass 1 establishes a non-zero offset (claude threads no ctx, so `cwd`
+		// stays unset — both preconditions for the recoverCtx branch).
+		processJsonlFile(rotatingDriver, file, cache, inertHandlers());
+		expect(cache.get(file)?.offset).toBeGreaterThan(0);
+
+		// Append + bump mtime so `changed()` reports work to do rather than
+		// short-circuiting on the cached mtime.
+		appendFileSync(
+			file,
+			JSON.stringify({
+				type: "assistant",
+				timestamp: "2026-05-02T00:00:00.000Z",
+				cwd: "/Users/me/Dev/app",
+				sessionId: "s1",
+				message: { model: "m", usage: { output_tokens: 10 } },
+			}) + "\n",
+		);
 		utimesSync(file, new Date(), new Date(Date.now() + 1000));
-		rmSync(file);
 
-		expect(() =>
-			processJsonlFile(claudeDriver, file, cache, inertHandlers()),
-		).not.toThrow();
+		let threw: unknown = null;
+		try {
+			processJsonlFile(rotatingDriver, file, cache, inertHandlers());
+		} catch (e) {
+			threw = e;
+		}
+		// Asserted FIRST and separately: it is what proves changed()'s statSync
+		// succeeded and the failure below came from the read phase, not from the
+		// same first stat the previous test already covers.
+		expect(recoverCtxRan).toBe(true);
+		expect(threw).toBeNull();
 	});
 });
